@@ -7,6 +7,7 @@
 #include <ctr/APT.h>
 #include <ctr/FS.h>
 #include "text.h"
+#include "menu_payload_bin.h"
 #include "spider_hook_rop_bin.h"
 #include "spider_initial_rop_bin.h"
 #include "spider_thread0_rop_bin.h"
@@ -353,9 +354,9 @@ void errorScreen(char* str, u32* dv, u8 n)
 void drawTitleScreen(char* str)
 {
 	clearScreen(0x00);
-	centerString("NINJHAX v1.1b",0);
+	centerString("regionFOUR v1.0",0);
 	centerString(BUILDTIME,10);
-	centerString("http://smealum.net/ninjhax/",20);
+	centerString("http://smealum.net/regionfour/",20);
 	renderString(str, 0, 40);
 }
 
@@ -433,6 +434,91 @@ void installerScreen(u32 size)
 	}
 }
 
+Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, u32 size2, u8* buf2)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x4B00C2; //request header code
+	cmdbuf[1]=a;
+	cmdbuf[2]=size1;
+	cmdbuf[3]=size2;
+	cmdbuf[4]=(size1<<14)|0x402;
+	cmdbuf[5]=(u32)buf1;
+	
+	cmdbuf[0+0x100/4]=(size2<<14)|2;
+	cmdbuf[1+0x100/4]=(u32)buf2;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(out)*out=cmdbuf[2];
+
+	return cmdbuf[1];
+}
+
+Result _APT_PrepareToCloseApplication(Handle* handle, u8 a)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x220040; //request header code
+	cmdbuf[1]=a;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_CloseApplication(Handle* handle, u32 a, u32 b, u32 c)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x270044; //request header code
+	cmdbuf[1]=a;
+	cmdbuf[2]=0x0;
+	cmdbuf[3]=b;
+	cmdbuf[4]=(a<<14)|2;
+	cmdbuf[5]=c;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+void _aptExit()
+{
+	Handle* srvHandle=(Handle*)CN_SRVHANDLE_ADR;
+	Handle aptLockHandle=*((Handle*)CN_APTLOCKHANDLE_ADR);
+	Handle aptuHandle=0x00;
+
+	u8 buf1[4], buf2[4];
+
+	buf1[0]=0x02; buf1[1]=0x00; buf1[2]=0x00; buf1[3]=0x00;
+	_aptOpenSession();
+	_APT_AppletUtility(&aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
+	_aptCloseSession();
+	_aptOpenSession();
+	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_aptCloseSession();
+
+	_aptOpenSession();
+	_APT_AppletUtility(&aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
+	_aptCloseSession();
+	_aptOpenSession();
+	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_aptCloseSession();
+	_aptOpenSession();
+	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_aptCloseSession();
+
+
+	_aptOpenSession();
+	_APT_PrepareToCloseApplication(&aptuHandle, 0x1);
+	_aptCloseSession();
+	
+	_aptOpenSession();
+	_APT_CloseApplication(&aptuHandle, 0x0, 0x0, 0x0);
+	_aptCloseSession();
+}
+
 int main(u32 size, char** argv)
 {
 	int line=10;
@@ -451,173 +537,204 @@ int main(u32 size, char** argv)
 
 	if(size)installerScreen(size);
 
+	// regionfour stuff
+
+	//want to overwrite 0x38a30118 with payload
+
+	//read menu memory
 	{
-		u32 buf;
-
-		_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
-
-		_aptOpenSession();
-			ret=_APT_PrepareToStartSystemApplet(aptuHandle, APPID_WEB);
-		_aptCloseSession();
-		drawTitleScreen("running exploit... 000%");
-
-		_aptOpenSession();
-			ret=_APT_StartSystemApplet(aptuHandle, APPID_WEB, &buf, 0, 0);
-		_aptCloseSession();
-		drawTitleScreen("running exploit... 020%");
-
-		svc_sleepThread(100000000); //sleep just long enough for menu to grab rights
-
-		_GSPGPU_AcquireRight(*gspHandle, 0x0); //get in line for gsp rights
-
-		//need to sleep longer on 4.x ?
-		svc_sleepThread(1000000000); //sleep long enough for spider to startup
-
-		//read spider memory
-		{
-			_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00000300);
-			
-			doGspwn((u32*)(SPIDER_HOOKROP_PADR+FIRM_LINEAROFFSET), (u32*)0x14100000, 0x00000300);
-		}
-
-		svc_sleepThread(1000000); //sleep long enough for memory to be read
-
-		//patch memdump and write it
-		{
-			((u8*)0x14100000)[SPIDER_HOOKROP_KILLOFFSET]=0xFF;
-			memcpy(((u8*)(0x14100000+SPIDER_HOOKROP_OFFSET)), spider_hook_rop_bin, 0xC);
-			_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00000300);
-
-			doGspwn((u32*)0x14100000, (u32*)(SPIDER_HOOKROP_PADR+FIRM_LINEAROFFSET), 0x00000300);
-		}
-
-		svc_sleepThread(100000000);
-
-		{
-			memset((u8*)0x14100000, 0x00, 0x2000);
-			memcpy((u8*)0x14100000, spider_initial_rop_bin, spider_initial_rop_bin_size);
-			_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x1000);
-
-			doGspwn((u32*)0x14100000, (u32*)(SPIDER_INITIALROP_PADR+FIRM_LINEAROFFSET), 0x1000);
-		}
-
-		svc_sleepThread(100000000);
-
-		{
-			memset((u8*)0x14100000, 0x00, 0x2000);
-			memcpy((u8*)0x14100000, spider_thread0_rop_bin, spider_thread0_rop_bin_size);
-			_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x2000);
-
-			doGspwn((u32*)0x14100000, (u32*)(SPIDER_THREAD0ROP_PADR+FIRM_LINEAROFFSET), 0x2000);
-		}
-
-		svc_sleepThread(100000000);//sleep long enough for memory to be written
-
-		_aptOpenSession();
-			_APT_CancelParameter(aptuHandle, APPID_WEB);
-		_aptCloseSession();
-
-		//cleanup
-		{
-			//unmap GSP and HID shared mem
-			svc_unmapMemoryBlock(*((Handle*)CN_HIDMEMHANDLE_ADR), 0x10000000);
-			svc_unmapMemoryBlock(*((Handle*)CN_GSPMEMHANDLE_ADR), 0x10002000);
-
-			Handle _srvHandle=*srvHandle;
-			Handle _gspHandle=*gspHandle;
-
-			//close all handles in data and .bss sections
-			int i;
-			for(i=0;i<(CN_DATABSS_SIZE)/4;i++)
-			{
-				Handle val=((Handle*)(CN_DATABSS_START))[i];
-				if(val && (val&0x7FFF)<0x30 && val!=_srvHandle && val!=_gspHandle)svc_closeHandle(val);
-			}
-
-			//bruteforce the cnt part of the remaining 3 handles
-			bruteforceCloseHandle(0x4, 0x1FFFF);
-			bruteforceCloseHandle(0xA, 0x1FFFF);
-			bruteforceCloseHandle(0x1E, 0x1FFFF);
-
-			//free GSP heap and regular heap
-			u32 out;
-			svc_controlMemory(&out, 0x08000000, 0x00000000, CN_HEAPSIZE, MEMOP_FREE, 0x0);
-		}
-
-		drawTitleScreen("running exploit... 040%");
-
-		_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
+		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+		
+		doGspwn((u32*)(0x38a30100), (u32*)0x14100000, 0x00001000);
 	}
 
-	svc_sleepThread(100000000); //sleep just long enough for spider to grab rights
+	svc_sleepThread(100000000); //sleep long enough for memory to be read
 
-	_GSPGPU_AcquireRight(*gspHandle, 0x0); //get in line for gsp rights
-
-	drawTitleScreen("running exploit... 070%");
-
-	u32* debug=(u32*)CN_DATABSS_START;
-	debug[6]=0xDEADBABE;
-	debug[7]=0xDEADBABE;
-	debug[8]=0xDEADBABE;
-	debug[9]=0xDEADBABE;
-
-	ret=0xC880CFFA;
-	while(ret==0xC880CFFA || ret==0xC8A0CFEF)
+	//patch memdump and write it
 	{
-		_aptOpenSession();
-			ret=_APT_ReceiveParameter(aptuHandle, APPID_APPLICATION, 0x1000, (u32*)recvbuf, &debug[6], (u8*)&debug[7], (Handle*)&debug[8]);
-			debug[0]=0xDEADCAFE;
-			debug[1]=0xDEADBABE;
-			debug[2]=debug[1]+1;
-			debug[3]=debug[2]+1;
-			debug[4]=debug[3]+1;
-			debug[5]=ret;
-		_aptCloseSession();
+		memcpy(&((u32*)0x14100000)[0x18/4], menu_payload_bin, menu_payload_bin_size);
+		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+
+		doGspwn((u32*)0x14100000, (u32*)(0x38a30100), 0x00001000);
 	}
 
-	Handle hbHandle=debug[8];
-	debug[8]=0x0;
-	_HB_FlushInvalidateCache(hbHandle);
-	Handle fsHandle;
-	debug[8]=_HB_GetHandle(hbHandle, 0x0, &fsHandle);
+	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
-	// //allocate some memory for the bootloader code (will be remapped)
-	// u32 out; ret=svc_controlMemory(&out, 0x13FF0000, 0x00000000, 0x00008000, MEMOP_COMMIT, 0x3);
-	//allocate some memory for homebrew .text/rodata/data/bss... (will be remapped)
-	u32 out; ret=svc_controlMemory(&out, CN_ALLOCPAGES_ADR, 0x00000000, CN_ADDPAGES*0x1000, MEMOP_COMMIT, 0x3);
+	drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
 
-	drawTitleScreen("running exploit... 080%");
-
-	if(_HB_SetupBootloader(hbHandle, 0x13FF0000))*((u32*)NULL)=0xBABE0061;
-
-	drawTitleScreen("running exploit... 090%");
-	
-	memcpy((u8*)0x00100000, cn_bootloader_bin, cn_bootloader_bin_size);
-	
-	drawTitleScreen("running exploit... 095%");
-
-	_HB_FlushInvalidateCache(hbHandle);
-
-	drawTitleScreen("running exploit... 100%");
-
-	//open sdmc 3dsx file
-	Handle fileHandle;
-	FS_archive sdmcArchive=(FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
-	FS_path filePath=(FS_path){PATH_CHAR, 11, (u8*)"/boot.3dsx"};
-	if((ret=FSUSER_OpenFileDirectly(fsHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE))!=0)
-	{
-		errorScreen("   failed to open sd:/boot.3dsx.\n    does it exist ?", (u32*)&ret, 1);
-	}
-	
-	svc_controlMemory(&out, 0x14000000, 0x00000000, 0x02000000, MEMOP_FREE, 0x0);
-
-	void (*callBootloader)(Handle hb, Handle file)=(void*)CN_BOOTLOADER_LOC;
-	void (*setArgs)(u32* src, u32 length)=(void*)CN_ARGSETTER_LOC;
 	_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
-	svc_closeHandle(*gspHandle);
 
-	setArgs(NULL, 0);
-	callBootloader(hbHandle, fileHandle);
+	//exit to menu
+	_aptExit();
+	svc_exitProcess();
+
+	// {
+	// 	u32 buf;
+
+	// 	_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
+
+	// 	_aptOpenSession();
+	// 		ret=_APT_PrepareToStartSystemApplet(aptuHandle, APPID_WEB);
+	// 	_aptCloseSession();
+	// 	drawTitleScreen("running exploit... 000%");
+
+	// 	_aptOpenSession();
+	// 		ret=_APT_StartSystemApplet(aptuHandle, APPID_WEB, &buf, 0, 0);
+	// 	_aptCloseSession();
+	// 	drawTitleScreen("running exploit... 020%");
+
+	// 	svc_sleepThread(100000000); //sleep just long enough for menu to grab rights
+
+	// 	_GSPGPU_AcquireRight(*gspHandle, 0x0); //get in line for gsp rights
+
+	// 	//need to sleep longer on 4.x ?
+	// 	svc_sleepThread(1000000000); //sleep long enough for spider to startup
+
+	// 	//read spider memory
+	// 	{
+	// 		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00000300);
+			
+	// 		doGspwn((u32*)(SPIDER_HOOKROP_PADR+FIRM_LINEAROFFSET), (u32*)0x14100000, 0x00000300);
+	// 	}
+
+	// 	svc_sleepThread(1000000); //sleep long enough for memory to be read
+
+	// 	//patch memdump and write it
+	// 	{
+	// 		((u8*)0x14100000)[SPIDER_HOOKROP_KILLOFFSET]=0xFF;
+	// 		memcpy(((u8*)(0x14100000+SPIDER_HOOKROP_OFFSET)), spider_hook_rop_bin, 0xC);
+	// 		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00000300);
+
+	// 		doGspwn((u32*)0x14100000, (u32*)(SPIDER_HOOKROP_PADR+FIRM_LINEAROFFSET), 0x00000300);
+	// 	}
+
+	// 	svc_sleepThread(100000000);
+
+	// 	{
+	// 		memset((u8*)0x14100000, 0x00, 0x2000);
+	// 		memcpy((u8*)0x14100000, spider_initial_rop_bin, spider_initial_rop_bin_size);
+	// 		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x1000);
+
+	// 		doGspwn((u32*)0x14100000, (u32*)(SPIDER_INITIALROP_PADR+FIRM_LINEAROFFSET), 0x1000);
+	// 	}
+
+	// 	svc_sleepThread(100000000);
+
+	// 	{
+	// 		memset((u8*)0x14100000, 0x00, 0x2000);
+	// 		memcpy((u8*)0x14100000, spider_thread0_rop_bin, spider_thread0_rop_bin_size);
+	// 		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x2000);
+
+	// 		doGspwn((u32*)0x14100000, (u32*)(SPIDER_THREAD0ROP_PADR+FIRM_LINEAROFFSET), 0x2000);
+	// 	}
+
+	// 	svc_sleepThread(100000000);//sleep long enough for memory to be written
+
+	// 	_aptOpenSession();
+	// 		_APT_CancelParameter(aptuHandle, APPID_WEB);
+	// 	_aptCloseSession();
+
+	// 	//cleanup
+	// 	{
+	// 		//unmap GSP and HID shared mem
+	// 		svc_unmapMemoryBlock(*((Handle*)CN_HIDMEMHANDLE_ADR), 0x10000000);
+	// 		svc_unmapMemoryBlock(*((Handle*)CN_GSPMEMHANDLE_ADR), 0x10002000);
+
+	// 		Handle _srvHandle=*srvHandle;
+	// 		Handle _gspHandle=*gspHandle;
+
+	// 		//close all handles in data and .bss sections
+	// 		int i;
+	// 		for(i=0;i<(CN_DATABSS_SIZE)/4;i++)
+	// 		{
+	// 			Handle val=((Handle*)(CN_DATABSS_START))[i];
+	// 			if(val && (val&0x7FFF)<0x30 && val!=_srvHandle && val!=_gspHandle)svc_closeHandle(val);
+	// 		}
+
+	// 		//bruteforce the cnt part of the remaining 3 handles
+	// 		bruteforceCloseHandle(0x4, 0x1FFFF);
+	// 		bruteforceCloseHandle(0xA, 0x1FFFF);
+	// 		bruteforceCloseHandle(0x1E, 0x1FFFF);
+
+	// 		//free GSP heap and regular heap
+	// 		u32 out;
+	// 		svc_controlMemory(&out, 0x08000000, 0x00000000, CN_HEAPSIZE, MEMOP_FREE, 0x0);
+	// 	}
+
+	// 	drawTitleScreen("running exploit... 040%");
+
+	// 	_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
+	// }
+
+	// svc_sleepThread(100000000); //sleep just long enough for spider to grab rights
+
+	// _GSPGPU_AcquireRight(*gspHandle, 0x0); //get in line for gsp rights
+
+	// drawTitleScreen("running exploit... 070%");
+
+	// u32* debug=(u32*)CN_DATABSS_START;
+	// debug[6]=0xDEADBABE;
+	// debug[7]=0xDEADBABE;
+	// debug[8]=0xDEADBABE;
+	// debug[9]=0xDEADBABE;
+
+	// ret=0xC880CFFA;
+	// while(ret==0xC880CFFA || ret==0xC8A0CFEF)
+	// {
+	// 	_aptOpenSession();
+	// 		ret=_APT_ReceiveParameter(aptuHandle, APPID_APPLICATION, 0x1000, (u32*)recvbuf, &debug[6], (u8*)&debug[7], (Handle*)&debug[8]);
+	// 		debug[0]=0xDEADCAFE;
+	// 		debug[1]=0xDEADBABE;
+	// 		debug[2]=debug[1]+1;
+	// 		debug[3]=debug[2]+1;
+	// 		debug[4]=debug[3]+1;
+	// 		debug[5]=ret;
+	// 	_aptCloseSession();
+	// }
+
+	// Handle hbHandle=debug[8];
+	// debug[8]=0x0;
+	// _HB_FlushInvalidateCache(hbHandle);
+	// Handle fsHandle;
+	// debug[8]=_HB_GetHandle(hbHandle, 0x0, &fsHandle);
+
+	// // //allocate some memory for the bootloader code (will be remapped)
+	// // u32 out; ret=svc_controlMemory(&out, 0x13FF0000, 0x00000000, 0x00008000, MEMOP_COMMIT, 0x3);
+	// //allocate some memory for homebrew .text/rodata/data/bss... (will be remapped)
+	// u32 out; ret=svc_controlMemory(&out, CN_ALLOCPAGES_ADR, 0x00000000, CN_ADDPAGES*0x1000, MEMOP_COMMIT, 0x3);
+
+	// drawTitleScreen("running exploit... 080%");
+
+	// if(_HB_SetupBootloader(hbHandle, 0x13FF0000))*((u32*)NULL)=0xBABE0061;
+
+	// drawTitleScreen("running exploit... 090%");
+	
+	// memcpy((u8*)0x00100000, cn_bootloader_bin, cn_bootloader_bin_size);
+	
+	// drawTitleScreen("running exploit... 095%");
+
+	// _HB_FlushInvalidateCache(hbHandle);
+
+	// drawTitleScreen("running exploit... 100%");
+
+	// //open sdmc 3dsx file
+	// Handle fileHandle;
+	// FS_archive sdmcArchive=(FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
+	// FS_path filePath=(FS_path){PATH_CHAR, 11, (u8*)"/boot.3dsx"};
+	// if((ret=FSUSER_OpenFileDirectly(fsHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE))!=0)
+	// {
+	// 	errorScreen("   failed to open sd:/boot.3dsx.\n    does it exist ?", (u32*)&ret, 1);
+	// }
+	
+	// svc_controlMemory(&out, 0x14000000, 0x00000000, 0x02000000, MEMOP_FREE, 0x0);
+
+	// void (*callBootloader)(Handle hb, Handle file)=(void*)CN_BOOTLOADER_LOC;
+	// void (*setArgs)(u32* src, u32 length)=(void*)CN_ARGSETTER_LOC;
+	// _GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
+	// svc_closeHandle(*gspHandle);
+
+	// setArgs(NULL, 0);
+	// callBootloader(hbHandle, fileHandle);
 
 	while(1);
 	return 0;

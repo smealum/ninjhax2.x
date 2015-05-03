@@ -72,8 +72,9 @@ cn_save_initial_loader/cn_save_initial_loader.bin:
 
 build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
 	@python $(SCRIPTS)/blowfish.py cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
-cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/spider_hook_rop.bin build/spider_initial_rop.bin build/spider_thread0_rop.bin build/cn_bootloader.bin
+cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/spider_hook_rop.bin build/menu_payload.bin build/spider_initial_rop.bin build/spider_thread0_rop.bin build/cn_bootloader.bin
 	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data
+	@cp build/menu_payload.bin cn_secondary_payload/data
 	@cp build/spider_hook_rop.bin cn_secondary_payload/data
 	@cp build/spider_initial_rop.bin cn_secondary_payload/data
 	@cp build/spider_thread0_rop.bin cn_secondary_payload/data
@@ -91,6 +92,12 @@ build/spider_hook_rop.bin: spider_hook_rop/spider_hook_rop.bin
 	@cp spider_hook_rop/spider_hook_rop.bin build
 spider_hook_rop/spider_hook_rop.bin:
 	@cd spider_hook_rop && make
+
+
+build/menu_payload.bin: menu_payload/menu_payload.bin
+	@cp menu_payload/menu_payload.bin build
+menu_payload/menu_payload.bin:
+	@cd menu_payload && make
 
 
 build/spider_initial_rop.bin: spider_initial_rop/spider_initial_rop.bin
@@ -152,6 +159,7 @@ clean:
 	@cd ro_initial_code && make clean
 	@cd ro_initial_rop && make clean
 	@cd spider_code && make clean
+	@cd menu_payload && make clean
 	@cd spider_hook_rop && make clean
 	@cd spider_initial_rop && make clean
 	@cd spider_thread0_rop && make clean
