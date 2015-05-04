@@ -2,41 +2,6 @@
 
 error_reporting(0);
 
-function getRoVersion($v)
-{
-	if($v[0]<4)
-	{
-		return "0";
-	}else if($v[0]<5){
-		return "1024";
-	}else if(!($v[0]>=7 and $v[1]>=2) and $v[0]<=7){
-		return "2049";
-	}else if($v[0]<8){
-		return "3074";
-	}else{
-		return "4096";
-	}
-}
-
-function getSpiderVersion($v)
-{
-	if($v[5]=="NEW")
-	{
-		return "SKATER_10";
-	}else{
-		if($v[3]<7)
-		{
-			return "1024";
-		}else if($v[3]<11){
-			return "2050";
-		}else if($v[3]<16){
-			return "3074";
-		}else{
-			return "4096";
-		}
-	}
-}
-
 function getCnVersion($v)
 {
 	if($v[4]=="J")
@@ -62,6 +27,16 @@ function getFirmVersion($v)
 	}
 }
 
+function getMenuVersion($v)
+{
+	if($v[0]==9 && $v[1]==7)
+	{
+		return "17415";
+	}else{
+		return "12288";
+	}
+}
+
 $version = array(
 		0 => $_POST['zero'],
 		1 => $_POST['one'],
@@ -76,7 +51,7 @@ $filename="./unsupported.png";
 // check that version is valid-ish
 if(is_numeric($version[0]) && is_numeric($version[1]) && is_numeric($version[2]) && is_numeric($version[3]))
 {
-	$filename="./q/".getFirmVersion($version)."_".getCnVersion($version)."_".getSpiderVersion($version)."_".getRoVersion($version).".png";
+	$filename="./q/".getFirmVersion($version)."_".getCnVersion($version)."_".getMenuVersion($version).".png";
 }
 
 if(!file_exists($filename))
