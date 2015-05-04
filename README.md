@@ -1,81 +1,36 @@
-ninjhax
+regionFOUR
 =======
 
-ninjhax is a piece of software that allows you to run unsigned code on your 3DS. In practice, this means being able to run homebrew applications such as games, tools and emulators.
+regionFOUR is a region free loader for New3DS/New3DSXL/3DS/3DSXL/2DS which currently works on on firmware versions 9.2 and 9.7 this also allows you to bypass mandatory gamecard firmware updates.
 
-You can find more information on how to use ninjhax at the following address : http://smealum.net/ninjhax/
+it is a successor to regionthree made to rely on an exploit game (currently cubic ninja, zelda OOT support might come) rather than the web browser. as such it only requires an internet connection the first time it is run, and can then be run offline.
 
-You can also find a detailed technical writeup about how ninjhax works here : http://smealum.net/?p=517
+### How to use
 
-**DISCLAIMER** : most of the code on this repo is super dirty. it was made in a rush to work somewhat reliably rather than be maintainable and well thought out. Please keep that in mind and know that none of this should be taken as an example of good practices.
+Please see instructions on how to run regionFOUR on its webpage : http://smealum.net/regionfour/
 
-### Building ninjhax
+### FAQ
 
-First, you will need to satisfy some software dependencies :
-- armips (which can be found here : https://github.com/Kingcom/armips)
-- devkitArm (which can be found here : http://devkitpro.org/)
-- an old version of ctrulib, as the latest version will NOT work (this revision should do : https://github.com/smealum/ctrulib/tree/c4382042d633168019137580aaa5bef1eaa7d103 ; make sure you set your CTRULIB environment variable to point to this old version of ctrulib)
-- python (3 is recommended, 2 will probably work)
+- Does this work on the latest firmware version ? Yes, 9.7 is supported.
+- Does this let me run homebrew and/or roms ? No, it only lets you run legit physical games from other regions.
+- Do I need to connect to the internet every time I want to use this ? No, you only need to connect to the internet the first time. You can then install it to your gamecard's savegame.
+- Do I need a flashcart/game/hardware for this ? Yes, regionFOUR currently requires that you own a copy of Cubic Ninja from your own region to run.
+- Will this work on my New 3DS ? Yes, this works on the New 3DS, the New 3DS XL, as well as the 3DS, the 3DS XL and the 2DS.
+- Will this break or brick my 3DS ? No. There's virtually 0 chance of that happening, all this runs is run of the mill usermode code, nothing dangerous. Nothing unusual is written to your NAND, nothing permanent is done. With that in mind, use at your own risk, I won't take responsibility if something weird does happen.
+- Do you take donations ? No, I do not.
+- How does it work ? See below.
 
-Secondly, you will need to procure files required for building the executable. These files are not my IP so I can not (and will not) distribute them. Note that none of the data from these files ends up in the final product, we only use them to generate patches with our own data. You will need all versions of spider/SKATER's oss.cro file (found in romfs) :
+### Technical stuff
 
-	oss_cro/2050/oss.cro
-	oss_cro/3074/oss.cro
-	oss_cro/4096/oss.cro
-	oss_cro/SKATER_10/oss.cro
-	
-You will also need the processed blowfish key data for qr code crypto. It can be extracted from a ramdump or generated from exefs data :
+Basically I reuse some ninjhax stuff to get code exec under an application (cubic ninja). From there I use the gspwn exploit to takeover home menu by overwriting a target object located on its linear heap with specially crafted data. With a fake vtable and a nice stack pivot I'm able to get ROP under home menu, and from there I ROP my wait into calling NSS:Reboot to bypass the region check.
 
-	scripts/blowfish_processed.bin
+For more detail on the cubic-ninja part of regionFOUR and the GPU DMA exploit (gspwn), visit http://smealum.net/?p=517
 
-That done, building is very easy. Open a terminal, cd to the ninjhax directory, and :
-
-- To build ninjhax for a single specific firmware version, use (replace "7.1.0-16E" with firmware version) : `python scripts/buildVersion.py "7.1.0-16E"`
-- To build all versions : `python scripts/buildAll.py`
-
-There are a lot of firmware versions out there, so building them all may take a while (think 10~20 minutes).
-
-### Description of modules
-
-The ninjhax source code is divided into a number of different modules. Some names are fairly straightforward, others are not. Here's an individual description of each module (roughly in order of execution where applicable) :
- 
-- **cn_qr_initial_loader** : qr code that ROPs its way to gspwn, gets code exec, downloads cn_secondary_payload through HTTP and launches it
-- **cn_save_initial_loader** : modified savegame file that loads cn_secondary_payload from save and launches it
-- **cn_secondary_payload** : finishes cn cleanup, takes over spider with spider_initial_rop, then waits for it to return. subsequently sets up bootloader through HB command and uses it to launch hb_menu (boot.3dsx)
-- **spider_hook_rop** : takes over spider thread5
-- **spider_initial_rop** : takes over spider thread0 from thread5
-- **spider_thread0_rop** : takes over ro with rohax and then jumps to spider_code
-- **ro_initial_rop** : gets code exec in ro and jumps to code
-- **ro_initial_code** : reprotects spider mem and returns to spider
-- **ro_command_handler** : handles HB service commands
-- **spider_code** : does spider cleanup, returns handles to cn
-- **cn_bootloader** : calls HB command to load homebrew, then flushes/invalidates cache and jumps to app code
-- **firm_constants** : contains constants relevant to FIRM
-- **cn_constants** : contains constants relevant to cubic ninja
-- **spider_constants** : contains constants relevant to spider/SKATER
-- **ro_constants** : contains constants relevant to ro
-- **scripts** : contains various scripts used in the build process
-- **oss_cro** : contains all versions of oss.cro used in the build process
-
-### Known issues
-
-Sometimes generated QR codes won't be recognized by cubic ninja. This is almost certainly a padding issue and I've never looked into fixing it. Simply rebuilding usually fixes it (because of random data changing).
-
-The scripts directory includes an executable used to generate a qr code from a binary file. If for any reason you don't feel comfortable using it (maybe you're not on windows), you can simply grab qrencode and make the following change to cn_qr_initial_payload's Makefile :
-```diff
- -       @$(SCRIPTS)/qrcode.exe -8 -o $@ < tmp
- +       @qrencode -8 -o $@ < tmp
-```
+To build the ROP, use Kingcom's armips assembler https://github.com/Kingcom/armips
 
 ### Credits
 
- - smea — 3DS research, core exploit code for all versions, ctrulib improvements, hbmenu code, testing/debugging 
- - yellows8 — 3DS research, ctrulib improvements, auditing, help with pretty much everything 
- - plutoo — 3DS research, ctrulib improvements, auditing, help with pretty much everything 
- - fincs — 3DSX format/code, ctrulib improvements, devkitARM integration, testing 
- - mtheall — ctrulib improvements, hbmenu code, testing, .gitignore files
- - GEMISIS — hbmenu code, testing 
- - Fluto, Arkhandar — hbmenu design 
- - Normmatt, ichfly — general help, testing 
- - case — javascript master 
- - lobo — webpage template 
+- All original ROP and code on this repo written by smea
+- ns:s region free booting trick and home menu stack pivot found by yellows8
+- yellows8 and Myria for helping with testing.
+- plutoo <3
