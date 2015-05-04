@@ -4,8 +4,6 @@
 
 .create "menu_payload.bin",0x0
 
-; MENU_OBJECT_LOC equ 0x38a30118 ; n3ds
-; MENU_OBJECT_LOC equ 0x34a30118 ; o3ds
 MENU_OBJECT_LOC equ 0xBABE0000 ; for relocation
 
 MENU_STACK_PIVOT equ 0x00100fb8 ; our stack pivot (found by yellows8) : ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}

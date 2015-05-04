@@ -24,7 +24,7 @@ def outputConstantsPY(d):
 	return out
 
 if len(sys.argv)<6:
-	print("use : "+sys.argv[0]+" <firmver> <cnver> <spiderver> <rover> <extensionless_output_name> <input_file1> <input_file2> ...")
+	print("use : "+sys.argv[0]+" <firmver> <cnver> <spiderver> <rover> <menuver> <extensionless_output_name> <input_file1> <input_file2> ...")
 	exit()
 
 # l=[("_SPIDER_VERSION", sys.argv[3]),
@@ -32,15 +32,16 @@ l=[("_RO_VERSION", sys.argv[4])]
 l+=[("FIRM_VERSION", "\""+sys.argv[1]+"\""),
 	("CN_VERSION", "\""+sys.argv[2]+"\""),
 	("SPIDER_VERSION", "\""+sys.argv[3]+"\""),
-	("RO_VERSION", "\""+sys.argv[4]+"\"")]
+	("RO_VERSION", "\""+sys.argv[4]+"\""),
+	("MENU_VERSION", "\""+sys.argv[5]+"\"")]
 l+=[("BUILDTIME", "\""+datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"\"")]
 l+=[("HB_NUM_HANDLES", "16")]
 
-for fn in sys.argv[6:]:
+for fn in sys.argv[7:]:
 	s=open(fn,"r").read()
 	if len(s)>0:
 		l+=(ast.literal_eval(s))
 
-open(sys.argv[5]+".h","w").write(outputConstantsH(l))
-open(sys.argv[5]+".s","w").write(outputConstantsS(l))
-open(sys.argv[5]+".py","w").write(outputConstantsPY(l))
+open(sys.argv[6]+".h","w").write(outputConstantsH(l))
+open(sys.argv[6]+".s","w").write(outputConstantsS(l))
+open(sys.argv[6]+".py","w").write(outputConstantsPY(l))

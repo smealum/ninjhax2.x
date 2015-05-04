@@ -14,6 +14,12 @@ def getRoVersion(v):
 	else:
 		return "4096"
 
+def getMenuVersion(v):
+	if v[0]==9 and v[1]==7:
+		return "17415"
+	else:
+		return "12288"
+
 def getSpiderVersion(v):
 	if v[5]==1:
 		return "SKATER_10"
@@ -57,6 +63,6 @@ if r:
 	nupRegion=r.group(6)
 	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
 	os.system("make clean")	
-	os.system("make CNVERSION="+getCnVersion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v))
+	os.system("make CNVERSION="+getCnVersion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v))
 else:
 	print("invalid version format; learn2read.")

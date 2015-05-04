@@ -10,16 +10,17 @@ def isVersionPossible(v):
 	else:
 		return v[3]>=2049
 
-firmVersions=["PRE5", "POST5", "N3DS"]
+firmVersions=["POST5", "N3DS"]
 cnVersions=["WEST", "JPN"]
-spiderVersions=[2050, 3074, 4096]
-roVersions=[1024, 2049, 3074, 4096]
+spiderVersions=[4096]
+roVersions=[4096]
+menuVersions=[12288, 17415]
 
-a=[firmVersions, cnVersions, spiderVersions, roVersions]
+a=[firmVersions, cnVersions, spiderVersions, roVersions, menuVersions]
 
 cnt=0
 for v in (list(itertools.product(*a))):
 	if isVersionPossible(v):
 		os.system("make clean")	
-		os.system("make FIRMVERSION="+str(v[0])+" CNVERSION="+str(v[1])+" SPIDERVERSION="+str(v[2])+" ROVERSION="+str(v[3]))
+		os.system("make FIRMVERSION="+str(v[0])+" CNVERSION="+str(v[1])+" SPIDERVERSION="+str(v[2])+" ROVERSION="+str(v[3])+" MENUVERSION="+str(v[4]))
 print(cnt)

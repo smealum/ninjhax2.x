@@ -21,5 +21,5 @@ clean:
 	@echo "all cleaned up !"
 
 menu_payload.bin:
-	@cd 17415 && make
-	@cp 17415/$@ ./
+	@cd $(MENUVERSION) && make
+	@cp $(MENUVERSION)/$@ ./
