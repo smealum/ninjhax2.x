@@ -24,7 +24,7 @@ Please see instructions on how to run regionFOUR on its webpage : http://smealum
 
 ### Technical stuff
 
-Basically I reuse some ninjhax stuff to get code exec under an application (cubic ninja). From there I use the gspwn exploit to takeover home menu by overwriting a target object located on its linear heap with specially crafted data. With a fake vtable and a nice stack pivot I'm able to get ROP under home menu, and from there I ROP my wait into calling NSS:Reboot to bypass the region check.
+Basically I reuse some ninjhax stuff to get code exec under an application (cubic ninja). From there I use the gspwn exploit to takeover home menu by overwriting a target object located on its linear heap with specially crafted data. With a fake vtable and a nice stack pivot I'm able to get ROP under home menu, and from there I ROP my way into calling NSS:Reboot to bypass the region check.
 
 For more detail on the cubic-ninja part of regionFOUR and the GPU DMA exploit (gspwn), visit http://smealum.net/?p=517
 
