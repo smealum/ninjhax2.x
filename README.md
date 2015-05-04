@@ -16,6 +16,7 @@ Please see instructions on how to run regionFOUR on its webpage : http://smealum
 - Do I need to connect to the internet every time I want to use this ? No, you only need to connect to the internet the first time. You can then install it to your gamecard's savegame.
 - Do I need a flashcart/game/hardware for this ? Yes, regionFOUR currently requires that you own a copy of Cubic Ninja from your own region to run.
 - Will this work on my New 3DS ? Yes, this works on the New 3DS, the New 3DS XL, as well as the 3DS, the 3DS XL and the 2DS.
+- I already have an exploit installed on my copy of Cubic Ninja, how do I use regionFOUR ? You can uninstall any Cubic Ninja exploit by holding L + R + X + Y in Cubic Ninja's main menu.
 - Will this break or brick my 3DS ? No. There's virtually 0 chance of that happening, all this runs is run of the mill usermode code, nothing dangerous. Nothing unusual is written to your NAND, nothing permanent is done. With that in mind, use at your own risk, I won't take responsibility if something weird does happen.
 - Will every game work ? No. Unfortunately, though most will, some games will not work properly with regionFOUR. One prominent such example is The Legend of Zelda - Majora's Mask.
 - Do you take donations ? No, I do not.
