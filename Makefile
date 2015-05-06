@@ -72,8 +72,9 @@ cn_save_initial_loader/cn_save_initial_loader.bin:
 build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
 	@python $(SCRIPTS)/blowfish.py cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
 cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload.bin
-	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data
-	@cp build/menu_payload.bin cn_secondary_payload/data
+	@mkdir -p cn_secondary_payload/data
+	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data/
+	@cp build/menu_payload.bin cn_secondary_payload/data/
 	@cd cn_secondary_payload && make
 
 build/menu_payload.bin: menu_payload/menu_payload.bin

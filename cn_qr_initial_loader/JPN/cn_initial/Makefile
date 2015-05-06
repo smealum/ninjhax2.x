@@ -38,9 +38,12 @@ define bin2o
 	echo "extern const u32" `(echo $(<F) | sed -e 's/^\([0-9]\)/_\1/' | tr . _)`_size";" >> source/`(echo $(<F) | tr . _)`.h
 endef
 
-.PHONY:=all
+.PHONY:=all dirs
 
-all: $(PROJECTNAME).bin
+all: dirs $(PROJECTNAME).bin
+
+dirs:
+	@mkdir -p build
 
 ctrulib:
 	cd "$(CTRULIB)" && make
