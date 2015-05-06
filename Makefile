@@ -33,7 +33,7 @@ OUTNAME = $(FIRMVERSION)_$(CNVERSION)_$(MENUVERSION)
 
 SCRIPTS = "scripts"
 
-.PHONY: directories all build/constants firm_constants/constants.txt spider_constants/constants.txt cn_constants/constants.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload.bin
+.PHONY: directories all build/constants firm_constants/constants.txt cn_constants/constants.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload.bin
 
 all: directories build/constants q/$(OUTNAME).png p/$(OUTNAME).bin build/cn_save_initial_loader.bin
 directories:
@@ -49,12 +49,10 @@ p/$(OUTNAME).bin: build/cn_secondary_payload.bin
 
 firm_constants/constants.txt:
 	@cd firm_constants && make
-spider_constants/constants.txt:
-	@cd spider_constants && make
 cn_constants/constants.txt:
 	@cd cn_constants && make
 
-build/constants: firm_constants/constants.txt spider_constants/constants.txt cn_constants/constants.txt
+build/constants: firm_constants/constants.txt cn_constants/constants.txt
 	@python $(SCRIPTS)/makeHeaders.py $(FIRMVERSION) $(CNVERSION) $(SPIDERVERSION) $(ROVERSION) $(MENUVERSION) build/constants $^
 
 build/cn_qr_initial_loader.bin.png: cn_qr_initial_loader/cn_qr_initial_loader.bin.png
@@ -87,7 +85,6 @@ clean:
 	@rm -rf build/*
 	@cd firm_constants && make clean
 	@cd cn_constants && make clean
-	@cd spider_constants && make clean
 	@cd cn_qr_initial_loader && make clean
 	@cd cn_save_initial_loader && make clean
 	@cd cn_secondary_payload && make clean
