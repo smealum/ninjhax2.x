@@ -29,6 +29,15 @@ Basically I reuse some ninjhax stuff to get code exec under an application (cubi
 For more detail on the cubic-ninja part of regionFOUR and the GPU DMA exploit (gspwn), visit http://smealum.net/?p=517
 
 To build the ROP, use Kingcom's armips assembler https://github.com/Kingcom/armips
+	
+You will also need the processed blowfish key data for qr code crypto. It can be extracted from a ramdump or generated from exefs data :
+
+	scripts/blowfish_processed.bin
+
+That done, building is very easy. Open a terminal, cd to the ninjhax directory, and :
+
+- To build ninjhax for a single specific firmware version, use (replace "N9.2.0-22J" with firmware version; the N is for New 3DS/XL, just remove it to compile for old) : `python scripts/buildVersion.py "N9.2.0-22J"`
+- To build all versions : `python scripts/buildAll.py`
 
 ### Credits
 
