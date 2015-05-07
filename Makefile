@@ -28,12 +28,20 @@ export CNVERSION
 export ROVERSION
 export SPIDERVERSION
 export MENUVERSION
+export LOADROPBIN
+
+ROPBIN_CMD0	:=	
+ROPBIN_CMD1	:=	
+ifneq ($(strip $(LOADROPBIN)),)
+	ROPBIN_CMD0	:=	@cp build/menu_ropbin.bin cn_secondary_payload/data/
+	ROPBIN_CMD1	:=	@cp menu_payload/menu_ropbin.bin build/
+endif
 
 OUTNAME = $(FIRMVERSION)_$(CNVERSION)_$(MENUVERSION)
 
 SCRIPTS = "scripts"
 
-.PHONY: directories all build/constants firm_constants/constants.txt cn_constants/constants.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload.bin
+.PHONY: directories all build/constants firm_constants/constants.txt cn_constants/constants.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
 
 all: directories build/constants q/$(OUTNAME).png p/$(OUTNAME).bin build/cn_save_initial_loader.bin
 directories:
@@ -69,15 +77,19 @@ cn_save_initial_loader/cn_save_initial_loader.bin:
 
 build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
 	@python $(SCRIPTS)/blowfish.py cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
-cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload.bin
+cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin
 	@mkdir -p cn_secondary_payload/data
 	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data/
-	@cp build/menu_payload.bin cn_secondary_payload/data/
+	@cp build/menu_payload_regionfree.bin cn_secondary_payload/data/
+	@cp build/menu_payload_loadropbin.bin cn_secondary_payload/data/
+	$(ROPBIN_CMD0)
 	@cd cn_secondary_payload && make
 
-build/menu_payload.bin: menu_payload/menu_payload.bin
-	@cp menu_payload/menu_payload.bin build
-menu_payload/menu_payload.bin:
+build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin: menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
+	@cp menu_payload/menu_payload_regionfree.bin build/
+	@cp menu_payload/menu_payload_loadropbin.bin build/
+	$(ROPBIN_CMD1)
+menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin:
 	@cd menu_payload && make
 
 

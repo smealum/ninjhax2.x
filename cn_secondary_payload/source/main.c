@@ -7,8 +7,13 @@
 #include <ctr/APT.h>
 #include <ctr/FS.h>
 #include "text.h"
-#include "menu_payload_bin.h"
+#include "menu_payload_regionfree_bin.h"
+#include "menu_payload_loadropbin_bin.h"
 #include "cn_save_initial_loader_bin.h"
+
+#ifdef LOADROPBIN
+#include "menu_ropbin_bin.h"
+#endif
 
 #include "../../build/constants.h"
 
@@ -404,12 +409,22 @@ void inject_payload(u32 target_address)
 
 	//patch memdump and write it
 	{
-		u32* payload_src = (u32*)menu_payload_bin;
+		u32* payload_src;
+		u32 payload_size;
+
+		#ifndef LOADROPBIN
+		payload_src = (u32*)menu_payload_regionfree_bin;
+		payload_size = menu_payload_regionfree_bin_size;
+		#else
+		payload_src = (u32*)menu_payload_loadropbin_bin;
+		payload_size = menu_payload_loadropbin_bin_size;
+		#endif
+
 		u32* payload_dst = &((u32*)0x14100000)[target_offset/4];
 
 		//patch in payload
 		int i;
-		for(i=0; i<menu_payload_bin_size/4; i++)
+		for(i=0; i<payload_size/4; i++)
 		{
 			if(payload_src[i] < 0xBABE0000+0x100 && payload_src[i] > 0xBABE0000-0x100)
 			{
@@ -452,6 +467,15 @@ int main(u32 size, char** argv)
 	const block_size = 0x00010000;
 	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
 
+	#ifdef LOADROPBIN
+	u32 binsize = (menu_ropbin_bin_size + 7) & ~7;//Align to 8-bytes.
+
+	memcpy((u32*)0x14100000, (u32*)menu_ropbin_bin, menu_ropbin_bin_size);//Copy menu_ropbin_bin into homemenu linearmem.
+	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
+	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BUFADR, binsize);
+	svc_sleepThread(100000000);
+	#endif
+
 	int cnt = 0;
 	u32 block_start;
 	u32 target_address = start_addr;
@@ -493,7 +517,11 @@ int main(u32 size, char** argv)
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
+	#ifndef LOADROPBIN
 	drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
+	#else
+	drawTitleScreen("\n   The homemenu ropbin is ready.");
+	#endif
 
 	_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
 

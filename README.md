@@ -39,6 +39,8 @@ That done, building is very easy. Open a terminal, cd to the ninjhax directory, 
 - To build ninjhax for a single specific firmware version, use (replace "N9.2.0-22J" with firmware version; the N is for New 3DS/XL, just remove it to compile for old) : `python scripts/buildVersion.py "N9.2.0-22J"`
 - To build all versions : `python scripts/buildAll.py`
 
+To build with ropbin-loading enabled, use this: `python scripts/buildAll.py --enableloadropbin` or `python scripts/buildVersion.py "{version}" --enableloadropbin`. With this, the initial homemenu ROP will just stack-pivot to the ROP-chain from menu_ropbin.bin(see "firm_constants/" for the ropbin address). This comes from "menu_payload/{version}/menu_ropbin.bin". This is embedded in cn_seconary_payload. Since this is intended for easily running general homemenu ROP(not just region-free), "menu_payload/{version}/menu_ropbin.bin" will not be built from anything by these Makefiles. Hence, when using this option the ropbins at "menu_payload/{version}/menu_ropbin.bin" for each version must already exist before building.
+
 ### Credits
 
 - All original ROP and code on this repo written by smea
