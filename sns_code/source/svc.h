@@ -1,5 +1,6 @@
 #pragma once
 
+Result svc_createPort(Handle* portServer, Handle* portClient, const char* name, s32 maxSessions);
 Result svc_acceptSession(Handle* session, Handle port);
 Result svc_replyAndReceive(s32* index, Handle* handles, s32 handleCount, Handle replyTarget);
 

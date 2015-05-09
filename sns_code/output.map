@@ -1,63 +1,60 @@
+Archive member included because of file (symbol)
+
+C:\devkitPro\ctrulib-old\libctru/lib\libctru.a(svc.o)
+                              build/main.o (getThreadCommandBuffer)
 
 Memory Configuration
 
 Name             Origin             Length             Attributes
-RAMRW            0x0011d300         0x00000d00         xrw
+RAMRW            0x0011d300         0x00000d00         xr
 *default*        0x00000000         0xffffffff
 
 Linker script and memory map
 
 
-.text           0x0011d300       0x90
+.text           0x0011d300      0x2d0
  build/crt0.o(.init)
  .init          0x0011d300       0x10 build/crt0.o
                 0x0011d300                _start
  *(.text)
  .text          0x0011d310        0x0 build/crt0.o
- .text          0x0011d310       0x1c build/main.o
+ .text          0x0011d310       0xac build/main.o
                 0x0011d310                _main
- *fill*         0x0011d32c        0x4 
- .text          0x0011d330       0x60 build/svc.o
-                0x0011d330                svc_controlProcessMemory
-                0x0011d348                svc_mapProcessMemory
-                0x0011d350                svc_unmapProcessMemory
-                0x0011d358                svc_replyAndReceive
-                0x0011d370                svc_acceptSession
+ *fill*         0x0011d3bc        0x4 
+ .text          0x0011d3c0       0x80 build/svc.o
+                0x0011d3c0                svc_controlProcessMemory
+                0x0011d3d8                svc_mapProcessMemory
+                0x0011d3e0                svc_unmapProcessMemory
+                0x0011d3e8                svc_createPort
+                0x0011d408                svc_replyAndReceive
+                0x0011d420                svc_acceptSession
+ .text          0x0011d440      0x190 C:\devkitPro\ctrulib-old\libctru/lib\libctru.a(svc.o)
+                0x0011d440                getThreadCommandBuffer
+                0x0011d44c                svc_controlMemory
+                0x0011d46c                svc_exitProcess
+                0x0011d474                svc_createThread
+                0x0011d494                svc_exitThread
+                0x0011d49c                svc_sleepThread
+                0x0011d4a4                svc_createMutex
+                0x0011d4b8                svc_releaseMutex
+                0x0011d4c0                svc_releaseSemaphore
+                0x0011d4d4                svc_createEvent
+                0x0011d4e8                svc_signalEvent
+                0x0011d4f0                svc_clearEvent
+                0x0011d4f8                svc_createMemoryBlock
+                0x0011d510                svc_mapMemoryBlock
+                0x0011d518                svc_unmapMemoryBlock
+                0x0011d520                svc_arbitrateAddress
+                0x0011d528                svc_closeHandle
+                0x0011d530                svc_waitSynchronization1
+                0x0011d538                svc_waitSynchronizationN
+                0x0011d558                svc_getSystemTick
+                0x0011d560                svc_getSystemInfo
+                0x0011d57c                svc_getProcessInfo
+                0x0011d598                svc_connectToPort
+                0x0011d5ac                svc_sendSyncRequest
+                0x0011d5b4                svc_getProcessId
  *(.rodata)
-
-.data           0x0011d390        0x0
- .data          0x0011d390        0x0 build/crt0.o
- .data          0x0011d390        0x0 build/main.o
- .data          0x0011d390        0x0 build/svc.o
-
-.igot.plt       0x0011d390        0x0
- .igot.plt      0x00000000        0x0 build/crt0.o
-
-.glue_7         0x0011d390        0x0
- .glue_7        0x00000000        0x0 linker stubs
-
-.glue_7t        0x0011d390        0x0
- .glue_7t       0x00000000        0x0 linker stubs
-
-.vfp11_veneer   0x0011d390        0x0
- .vfp11_veneer  0x00000000        0x0 linker stubs
-
-.v4_bx          0x0011d390        0x0
- .v4_bx         0x00000000        0x0 linker stubs
-
-.iplt           0x0011d390        0x0
- .iplt          0x00000000        0x0 build/crt0.o
-
-.rel.dyn        0x0011d390        0x0
- .rel.iplt      0x00000000        0x0 build/crt0.o
-
-.bss            0x0011d390        0x0
- .bss           0x0011d390        0x0 build/crt0.o
- .bss           0x0011d390        0x0 build/main.o
- .bss           0x0011d390        0x0 build/svc.o
-
-data
- *(data)
 LOAD build/main.o
 LOAD build/svc.o
 LOAD C:\devkitPro\ctrulib-old\libctru/lib\libctru.a
@@ -65,6 +62,43 @@ LOAD c:/devkitPro/devkitARM/arm-none-eabi/lib\libm.a
 LOAD c:/devkitPro/devkitARM/arm-none-eabi/lib\libc.a
 LOAD c:/devkitPro/devkitARM/arm-none-eabi/lib\libg.a
 OUTPUT(sns_code.elf elf32-littlearm)
+
+.rodata.str1.1  0x0011d5d0        0xb
+ .rodata.str1.1
+                0x0011d5d0        0xb build/main.o
+
+.data           0x00000000        0x0
+ .data          0x00000000        0x0 build/crt0.o
+ .data          0x00000000        0x0 build/main.o
+ .data          0x00000000        0x0 build/svc.o
+ .data          0x00000000        0x0 C:\devkitPro\ctrulib-old\libctru/lib\libctru.a(svc.o)
+
+.igot.plt       0x00000000        0x0
+ .igot.plt      0x00000000        0x0 build/crt0.o
+
+.glue_7         0x0011d5dc        0x0
+ .glue_7        0x00000000        0x0 linker stubs
+
+.glue_7t        0x0011d5dc        0x0
+ .glue_7t       0x00000000        0x0 linker stubs
+
+.vfp11_veneer   0x0011d5dc        0x0
+ .vfp11_veneer  0x00000000        0x0 linker stubs
+
+.v4_bx          0x0011d5dc        0x0
+ .v4_bx         0x00000000        0x0 linker stubs
+
+.iplt           0x0011d5dc        0x0
+ .iplt          0x00000000        0x0 build/crt0.o
+
+.rel.dyn        0x0011d5dc        0x0
+ .rel.iplt      0x00000000        0x0 build/crt0.o
+
+.bss            0x00000000        0x0
+ .bss           0x00000000        0x0 build/crt0.o
+ .bss           0x00000000        0x0 build/main.o
+ .bss           0x00000000        0x0 build/svc.o
+ .bss           0x00000000        0x0 C:\devkitPro\ctrulib-old\libctru/lib\libctru.a(svc.o)
 
 .ARM.attributes
                 0x00000000       0x27
@@ -74,6 +108,8 @@ OUTPUT(sns_code.elf elf32-littlearm)
                 0x00000019       0x2b build/main.o
  .ARM.attributes
                 0x00000044       0x19 build/svc.o
+ .ARM.attributes
+                0x0000005d       0x19 C:\devkitPro\ctrulib-old\libctru/lib\libctru.a(svc.o)
 
 .comment        0x00000000       0x22
  .comment       0x00000000       0x22 build/main.o
