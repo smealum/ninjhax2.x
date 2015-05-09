@@ -12,7 +12,7 @@ endif
 
 SCRIPTS = "../scripts"
 
-all: menu_payload_regionfree.bin menu_payload_loadropbin.bin
+all: menu_payload_regionfree.bin menu_payload_loadropbin.bin menu_ropbin.bin
 
 clean:
 	@rm -f menu_payload_regionfree.bin menu_payload_loadropbin.bin

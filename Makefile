@@ -75,6 +75,12 @@ cn_save_initial_loader/cn_save_initial_loader.bin:
 	@cd cn_save_initial_loader && make
 
 
+build/sns_code.bin: sns_code/sns_code.bin
+	@cp sns_code/sns_code.bin build
+sns_code/sns_code.bin:
+	@cd sns_code && make
+
+
 build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
 	@python $(SCRIPTS)/blowfish.py cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
 cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin
@@ -85,11 +91,13 @@ cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin 
 	$(ROPBIN_CMD0)
 	@cd cn_secondary_payload && make
 
+
 build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin: menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
 	@cp menu_payload/menu_payload_regionfree.bin build/
 	@cp menu_payload/menu_payload_loadropbin.bin build/
 	$(ROPBIN_CMD1)
-menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin:
+menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin: build/sns_code.bin
+	@cp build/sns_code.bin menu_payload/
 	@cd menu_payload && make
 
 
