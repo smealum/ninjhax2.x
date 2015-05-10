@@ -131,6 +131,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 			nss_launch_title 0x00020400, 0x00040010 ; launch camera app
 
 		; takeover app
+			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppCode - object
 
 		; sleep for ever and ever
@@ -164,10 +165,20 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0x00000008 ; flags
 		.word 0x00000000 ; unused
 
-	gxCommandAppCode:
+	gxCommandAppHook:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
 		.word 0x37704be0 ; destination address (PA  for 0x00104be0)
+		.word 0x00000200 ; size
+		.word 0xFFFFFFFF ; dim in
+		.word 0xFFFFFFFF ; dim out
+		.word 0x00000008 ; flags
+		.word 0x00000000 ; unused
+
+	gxCommandAppCode:
+		.word 0x00000004 ; command header (SetTextureCopy)
+		.word MENU_OBJECT_LOC + appCode - object ; source address
+		.word 0x37800000 ; destination address (PA  for 0x00200000)
 		.word 0x00001000 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -208,12 +219,19 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 		.fill ((snsCode + 0xD00) - .), 0xDA
 
-	appCode:
+	appHook:
 		.arm
-			ldr r0, =0xDEADBABE
-			ldr r1, =0xCAFEC0DE
-			str r1, [r0]
+			ldr r0, =100*1000*1000 ; 100ms
+			ldr r1, =0x00000000
+			.word 0xef00000a ; svcSleepThread
+			ldr r2, =0x00100000 + 0x00100000
+			blx r2
 			
-			.pool
+		.pool
+
+		.fill ((appHook + 0x200) - .), 0xDA
+
+	appCode:
+		.incbin "../app_code.bin"
 
 .Close
