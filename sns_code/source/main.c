@@ -99,7 +99,7 @@ int _main(void)
 	Handle portServer, portClient;
 	Result ret;
 
-	ret = svc_createPort(&portServer, &portClient, "hb:SPECIAL", 1);
+	ret = svc_createPort(&portServer, &portClient, "hb:SPECIAL", 10);
 	if(ret)*(u32*)0xDEAD0001 = ret;
 
 	int currentHandleIndex, numSessionHandles;

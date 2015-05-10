@@ -155,7 +155,7 @@ void print_hex(u32 val)
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, amuHandle, pmappHandle;
+	Handle hbSpecialHandle, amuHandle, pmappHandle, fsHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -176,6 +176,10 @@ void _main()
 	print_str("\ngrabbing pm:app handle from hb:SPECIAL\n");
 	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 1, &pmappHandle);
 	print_hex(ret); print_str(", "); print_hex(pmappHandle);
+
+	print_str("\ngrabbing fs:USER handle from menu through hb:SPECIAL\n");
+	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 2, &fsHandle);
+	print_hex(ret); print_str(", "); print_hex(fsHandle);
 
 	while(1)svc_sleepThread(0xffffffffLL);
 }
