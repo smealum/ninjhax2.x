@@ -20,7 +20,7 @@ Result _HBSPECIAL_GetHandle(Handle handle, u32 index, Handle* out)
 	Result ret=0;
 	if((ret=svc_sendSyncRequest(handle)))return ret;
 
-	if(out)*out=cmdbuf[5];
+	if(out && !cmdbuf[1])*out=cmdbuf[5];
 
 	return cmdbuf[1];
 }
@@ -155,7 +155,7 @@ void print_hex(u32 val)
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, amuHandle, pmappHandle, fsHandle;
+	Handle hbSpecialHandle, amuHandle, pmappHandle, fsHandle, nssHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -180,6 +180,10 @@ void _main()
 	print_str("\ngrabbing fs:USER handle from menu through hb:SPECIAL\n");
 	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 2, &fsHandle);
 	print_hex(ret); print_str(", "); print_hex(fsHandle);
+
+	print_str("\ngrabbing ns:s handle from menu through hb:SPECIAL\n");
+	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 3, &nssHandle);
+	print_hex(ret); print_str(", "); print_hex(nssHandle);
 
 	while(1)svc_sleepThread(0xffffffffLL);
 }
