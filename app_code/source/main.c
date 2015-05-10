@@ -155,7 +155,7 @@ void print_hex(u32 val)
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle;
+	Handle hbSpecialHandle, amuHandle, pmappHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -169,9 +169,13 @@ void _main()
 	ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
 	print_hex(ret); print_str(", "); print_hex(hbSpecialHandle);
 
-	print_str("\ngrabbing handle from hb:SPECIAL\n");
-	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 0, NULL);
-	print_hex(ret);
+	print_str("\ngrabbing am:u handle from hb:SPECIAL\n");
+	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 0, &amuHandle);
+	print_hex(ret); print_str(", "); print_hex(amuHandle);
+
+	print_str("\ngrabbing pm:app handle from hb:SPECIAL\n");
+	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 1, &pmappHandle);
+	print_hex(ret); print_str(", "); print_hex(pmappHandle);
 
 	while(1)svc_sleepThread(0xffffffffLL);
 }
