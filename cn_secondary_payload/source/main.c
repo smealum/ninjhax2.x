@@ -440,6 +440,12 @@ void inject_payload(u32 target_address)
 	svc_sleepThread(10000000); //sleep long enough for memory to be written
 }
 
+void bruteforceCloseHandle(u16 index, u32 maxCnt)
+{
+	int i;
+	for(i=0;i<maxCnt;i++)if(!svc_closeHandle((index)|(i<<15)))return;
+}
+
 int main(u32 size, char** argv)
 {
 	int line=10;
@@ -517,13 +523,46 @@ int main(u32 size, char** argv)
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
+	//cleanup
+	{
+		//unmap GSP and HID shared mem
+		svc_unmapMemoryBlock(*((Handle*)CN_HIDMEMHANDLE_ADR), 0x10000000);
+		svc_unmapMemoryBlock(*((Handle*)CN_GSPMEMHANDLE_ADR), 0x10002000);
+
+		Handle _srvHandle=*srvHandle;
+		Handle _gspHandle=*gspHandle;
+
+		//close all handles in data and .bss sections
+		int i;
+		for(i=0;i<(CN_DATABSS_SIZE)/4;i++)
+		{
+			Handle val=((Handle*)(CN_DATABSS_START))[i];
+			if(val && (val&0x7FFF)<0x30 && val!=_srvHandle && val!=_gspHandle)svc_closeHandle(val);
+		}
+
+		//bruteforce the cnt part of the remaining 3 handles
+		bruteforceCloseHandle(0x4, 0x1FFFF);
+		bruteforceCloseHandle(0xA, 0x1FFFF);
+		bruteforceCloseHandle(0x1E, 0x1FFFF);
+
+		//free regular heap
+		u32 out;
+		svc_controlMemory(&out, 0x08000000, 0x00000000, CN_HEAPSIZE, MEMOP_FREE, 0x0);
+	}
+
 	#ifndef LOADROPBIN
 	drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
 	#else
 	drawTitleScreen("\n   The homemenu ropbin is ready.");
 	#endif
-
-	_GSPGPU_ReleaseRight(*gspHandle); //disable GSP module access
+	
+	//free GSP heap
+	u32 out;
+	svc_controlMemory(&out, 0x14000000, 0x00000000, 0x02000000, MEMOP_FREE, 0x0);
+	
+	//disable GSP module access
+	_GSPGPU_ReleaseRight(*gspHandle);
+	svc_closeHandle(*gspHandle);
 
 	//exit to menu
 	_aptExit();

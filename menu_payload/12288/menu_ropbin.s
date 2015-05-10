@@ -125,7 +125,13 @@ SNS_CODE_OFFSET equ 0x0001D300
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandCode - object
 
 		; sleep for a bit
-			sleep 100*1000*1000, 0x00000000
+			sleep 500*1000*1000, 0x00000000
+
+		; launch app that we want to takeover
+			nss_launch_title 0x00020400, 0x00040010 ; launch camera app
+
+		; takeover app
+			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppCode - object
 
 		; sleep for ever and ever
 			sleep 0xffffffff, 0x0fffffff
@@ -153,6 +159,16 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word MENU_OBJECT_LOC + snsCode - object ; source address
 		.word 0x3D00D300 ; destination address (PA  for 0x0011D300)
 		.word 0x00000D00 ; size
+		.word 0xFFFFFFFF ; dim in
+		.word 0xFFFFFFFF ; dim out
+		.word 0x00000008 ; flags
+		.word 0x00000000 ; unused
+
+	gxCommandAppCode:
+		.word 0x00000004 ; command header (SetTextureCopy)
+		.word MENU_OBJECT_LOC + appCode - object ; source address
+		.word 0x37704be0 ; destination address (PA  for 0x00104be0)
+		.word 0x00001000 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
 		.word 0x00000008 ; flags
@@ -187,7 +203,17 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 		.fill ((snsCodeHook + 0x200) - .), 0xDA
 	
-		snsCode:
-			.incbin "../sns_code.bin"
+	snsCode:
+		.incbin "../sns_code.bin"
+
+		.fill ((snsCode + 0xD00) - .), 0xDA
+
+	appCode:
+		.arm
+			ldr r0, =0xDEADBABE
+			ldr r1, =0xCAFEC0DE
+			str r1, [r0]
+			
+			.pool
 
 .Close
