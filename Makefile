@@ -116,4 +116,6 @@ clean:
 	@cd cn_save_initial_loader && make clean
 	@cd cn_secondary_payload && make clean
 	@cd menu_payload && make clean
+	@cd app_code && make clean
+	@cd sns_code && make clean
 	@echo "all cleaned up !"
