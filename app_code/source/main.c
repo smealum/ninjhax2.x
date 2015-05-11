@@ -74,6 +74,23 @@ void gspGpuInit()
 	currentBuffer=0;
 }
 
+void gspGpuExit()
+{
+	GSPGPU_UnregisterInterruptRelayQueue(NULL);
+
+	GSPGPU_ReleaseRight(NULL);
+
+	//unmap GSP shared mem
+	svc_unmapMemoryBlock(gspSharedMemHandle, 0x10002000);
+	svc_closeHandle(gspSharedMemHandle);
+	svc_closeHandle(gspEvent);
+	
+	gspExit();
+
+	//free GSP heap
+	svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
+}
+
 void swapBuffers()
 {
 	u32 regData;
@@ -202,11 +219,14 @@ void _main()
 	print_hex(ret); print_str(", "); print_hex(fileHandle);
 
 	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
-	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], 0x00008000);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
 	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37700000, 0x00008000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
+
+	gspGpuExit();
+	exitSrv();
 
 	void (*app_bootloader)(Handle executable) = (void*)0x00100000;
 	app_bootloader(fileHandle);

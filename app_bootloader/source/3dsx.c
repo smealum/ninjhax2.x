@@ -32,26 +32,26 @@ static inline void* TranslateAddr(u32 addr, _3DSX_LoadInfo* d, u32* offsets)
 	return (char*)d->segPtrs[2] + addr - offsets[1];
 }
 
-int _fread_(void* dst, int size, Handle file, u64* fileOffset)
+u64 fileOffset;
+
+int _fread(void* dst, int size, Handle file)
 {
-	if(!fileOffset)return -2;
 	u32 bytesRead;
 	Result ret;
-	if((ret=FSFILE_Read(file, &bytesRead, *fileOffset, (u32*)dst, size))!=0)return ret;
-	*fileOffset+=bytesRead;
+	if((ret=FSFILE_Read(file, &bytesRead, fileOffset, (u32*)dst, size))!=0)return ret;
+	fileOffset+=bytesRead;
 	return (bytesRead==size)?0:-1;
 }
 
-int _fseek_(Handle file, u64 offset, int origin, u64* fileOffset)
+int _fseek(Handle file, u64 offset, int origin)
 {
-	if(!fileOffset)return -2;
 	switch(origin)
 	{
 		case SEEK_SET:
-			*fileOffset=offset;
+			fileOffset=offset;
 			break;
 		case SEEK_CUR:
-			*fileOffset+=offset;
+			fileOffset+=offset;
 			break;
 	}
 	return 0;
@@ -63,15 +63,11 @@ void* _getActualAddress(void* addr, void* baseAddr, void* outputBaseAddr)
 }
 
 #define getActualAddress(addr) _getActualAddress(addr, baseAddr, outputBaseAddr)
-#define _fread(dst, size, file) _fread_(dst, size, file, &fileOffset)
-#define _fseek(file, offset, origin) _fseek_(file, offset, origin, &fileOffset)
 
 int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr)
 {
 	u32 i, j, k, m;
 	// u32 endAddr = 0x00100000+CN_NEWTOTALPAGES*0x1000;
-
-	u64 fileOffset = 0;
 
 	SEC_ASSERT(baseAddr >= (void*)0x00100000);
 	SEC_ASSERT((((u32) baseAddr) & 0xFFF) == 0); // page alignment
@@ -150,7 +146,7 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 				continue;
 			}
  
-			_3DSX_Reloc relocTbl[RELOCBUFSIZE];
+			static _3DSX_Reloc relocTbl[RELOCBUFSIZE];
  
 			u32* pos = (u32*)d.segPtrs[i];
 			u32* endPos = pos + (d.segSizes[i]/4);

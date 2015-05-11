@@ -3,6 +3,7 @@ OUTPUT_ARCH(arm)
 MEMORY
 {
 	RAMX (rx) : ORIGIN = 0x00100000, LENGTH = 0x00008000
+	RAMRW (rw!i) : ORIGIN = 0x30000000, LENGTH = 0x00100000
 }
 
 SECTIONS
@@ -12,5 +13,11 @@ SECTIONS
 		*(.text)
 		*(.rodata)
 	}
+
+	.bss : {
+		_bss_start = .;
+		*(.bss);
+	}
+	_bss_end = .;
 }
 
