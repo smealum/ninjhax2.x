@@ -5,7 +5,9 @@
 #include <ctr/srv.h>
 #include <ctr/svc.h>
 #include <ctr/GSP.h>
+#include <ctr/FS.h>
 #include "text.h"
+#include "3dsx.h"
 
 #include "../../build/constants.h"
 
@@ -155,7 +157,7 @@ void print_hex(u32 val)
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, amuHandle, pmappHandle, fsHandle, nssHandle;
+	Handle hbSpecialHandle, amuHandle, pmappHandle, fsuHandle, nssHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -178,12 +180,30 @@ void _main()
 	print_hex(ret); print_str(", "); print_hex(pmappHandle);
 
 	print_str("\ngrabbing fs:USER handle from menu through hb:SPECIAL\n");
-	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 2, &fsHandle);
-	print_hex(ret); print_str(", "); print_hex(fsHandle);
+	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 2, &fsuHandle);
+	print_hex(ret); print_str(", "); print_hex(fsuHandle);
 
 	print_str("\ngrabbing ns:s handle from menu through hb:SPECIAL\n");
 	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 3, &nssHandle);
 	print_hex(ret); print_str(", "); print_hex(nssHandle);
+
+	print_str("\nopening sdmc:/boot.3dsx\n");
+	Handle fileHandle;
+	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
+	FS_path filePath = (FS_path){PATH_CHAR, 11, (u8*)"/boot.3dsx"};
+	ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
+	print_hex(ret); print_str(", "); print_hex(fileHandle);
+
+	u8* heap = (u8*)0x08000000;
+	u32 out;
+	svc_controlMemory(&out, (u32)heap, 0x0, 0x01000000, MEMOP_COMMIT, 0x3);
+
+	ret = Load3DSX(fileHandle, (void*)0x00100000, (void*)0x00429000, 0x00046680+0x00099430, heap);
+	print_str("\n"); print_hex(ret);
+
+	// svc_controlMemory(&out, (u32)heap, 0x0, 0x01000000, MEMOP_FREE, 0x3);
+
+	FSFILE_Close(fileHandle);
 
 	while(1)svc_sleepThread(0xffffffffLL);
 }
