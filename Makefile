@@ -83,8 +83,16 @@ sns_code/sns_code.bin:
 
 build/app_code.bin: app_code/app_code.bin
 	@cp app_code/app_code.bin build
-app_code/app_code.bin:
+app_code/app_code.bin: build/app_bootloader.bin
+	@mkdir -p app_code/data
+	@cp build/app_bootloader.bin app_code/data/
 	@cd app_code && make
+
+
+build/app_bootloader.bin: app_bootloader/app_bootloader.bin
+	@cp app_bootloader/app_bootloader.bin build
+app_bootloader/app_bootloader.bin:
+	@cd app_bootloader && make
 
 
 build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
@@ -116,6 +124,7 @@ clean:
 	@cd cn_save_initial_loader && make clean
 	@cd cn_secondary_payload && make clean
 	@cd menu_payload && make clean
+	@cd app_bootloader && make clean
 	@cd app_code && make clean
 	@cd sns_code && make clean
 	@echo "all cleaned up !"
