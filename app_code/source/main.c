@@ -5,9 +5,11 @@
 #include <ctr/srv.h>
 #include <ctr/svc.h>
 #include <ctr/GSP.h>
+#include <ctr/GX.h>
 #include <ctr/FS.h>
 #include "text.h"
-#include "3dsx.h"
+
+#include "app_bootloader_bin.h"
 
 #include "../../build/constants.h"
 
@@ -154,6 +156,11 @@ void print_hex(u32 val)
 	print_str(str);
 }
 
+void doGspwn(u32* src, u32* dst, u32 size)
+{
+	GX_SetTextureCopy(gxCmdBuf, src, 0xFFFFFFFF, dst, 0xFFFFFFFF, size, 0x00000008);
+}
+
 void _main()
 {
 	Result ret;
@@ -194,16 +201,13 @@ void _main()
 	ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 	print_hex(ret); print_str(", "); print_hex(fileHandle);
 
-	u8* heap = (u8*)0x08000000;
-	u32 out;
-	svc_controlMemory(&out, (u32)heap, 0x0, 0x01000000, MEMOP_COMMIT, 0x3);
+	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
+	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], 0x00008000);
+	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37700000, 0x00008000);
 
-	ret = Load3DSX(fileHandle, (void*)0x00100000, (void*)0x00429000, 0x00046680+0x00099430, heap);
-	print_str("\n"); print_hex(ret);
+	// sleep for 200ms
+	svc_sleepThread(200*1000*1000);
 
-	// svc_controlMemory(&out, (u32)heap, 0x0, 0x01000000, MEMOP_FREE, 0x3);
-
-	FSFILE_Close(fileHandle);
-
-	while(1)svc_sleepThread(0xffffffffLL);
+	void (*app_bootloader)(Handle executable) = (void*)0x00100000;
+	app_bootloader(fileHandle);
 }
