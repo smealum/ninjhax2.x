@@ -245,7 +245,7 @@ int _main()
 
 	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x300000);
 
-	doGspwn((u32*)(0x14100000), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000A000);
+	doGspwn((u32*)(0x14100000), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
 
 	svc_sleepThread(0x3B9ACA00);
 

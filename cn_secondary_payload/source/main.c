@@ -325,6 +325,18 @@ Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, 
 	return cmdbuf[1];
 }
 
+Result _APT_Finalize(Handle* handle, u8 a)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x40040; //request header code
+	cmdbuf[1]=a;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
 Result _APT_PrepareToCloseApplication(Handle* handle, u8 a)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
@@ -381,12 +393,18 @@ void _aptExit()
 
 
 	_aptOpenSession();
+	_APT_Finalize(&aptuHandle, 0x300);
+	_aptCloseSession();
+
+	_aptOpenSession();
 	_APT_PrepareToCloseApplication(&aptuHandle, 0x1);
 	_aptCloseSession();
 	
 	_aptOpenSession();
 	_APT_CloseApplication(&aptuHandle, 0x0, 0x0, 0x0);
 	_aptCloseSession();
+
+	svc_closeHandle(aptLockHandle);
 }
 
 void inject_payload(u32 target_address)
@@ -544,6 +562,8 @@ int main(u32 size, char** argv)
 		bruteforceCloseHandle(0x4, 0x1FFFF);
 		bruteforceCloseHandle(0xA, 0x1FFFF);
 		bruteforceCloseHandle(0x1E, 0x1FFFF);
+		bruteforceCloseHandle(0x1F, 0x1FFFF);
+		bruteforceCloseHandle(0x20, 0x1FFFF);
 
 		//free regular heap
 		u32 out;
@@ -566,6 +586,10 @@ int main(u32 size, char** argv)
 
 	//exit to menu
 	_aptExit();
+
+	//close srv:
+	svc_closeHandle(*srvHandle);
+
 	svc_exitProcess();
 
 	while(1);

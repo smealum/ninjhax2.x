@@ -64,7 +64,7 @@ void* _getActualAddress(void* addr, void* baseAddr, void* outputBaseAddr)
 
 #define getActualAddress(addr) _getActualAddress(addr, baseAddr, outputBaseAddr)
 
-int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr)
+int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr, service_list_t* __service_ptr)
 {
 	u32 i, j, k, m;
 	// u32 endAddr = 0x00100000+CN_NEWTOTALPAGES*0x1000;
@@ -186,7 +186,7 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 	{
 		// Write service handle table pointer
 		// the actual structure has to be filled out by cn_bootloader
-		// prmStruct[1] = (u32)__service_ptr;
+		prmStruct[1] = (u32)__service_ptr;
 
 		// XXX: other fields that need filling:
 		// prmStruct[2] <-- __apt_appid (default: 0x300)

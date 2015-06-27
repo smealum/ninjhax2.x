@@ -178,6 +178,15 @@ void doGspwn(u32* src, u32* dst, u32 size)
 	GX_SetTextureCopy(gxCmdBuf, src, 0xFFFFFFFF, dst, 0xFFFFFFFF, size, 0x00000008);
 }
 
+typedef struct {
+	u32 num;
+
+	struct {
+		char name[8];
+		Handle handle;
+	} services[5];
+} nonflexible_service_list_t;
+
 void _main()
 {
 	Result ret;
@@ -211,16 +220,16 @@ void _main()
 	ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 3, &nssHandle);
 	print_hex(ret); print_str(", "); print_hex(nssHandle);
 
-	print_str("\nopening sdmc:/boot.3dsx\n");
+	print_str("\nopening sdmc:/3ds_hb_menu.3dsx\n");
 	Handle fileHandle;
 	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
-	FS_path filePath = (FS_path){PATH_CHAR, 11, (u8*)"/boot.3dsx"};
+	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
 	ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 	print_hex(ret); print_str(", "); print_hex(fileHandle);
 
 	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
-	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37700000, 0x00008000);
+	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37900000, 0x00008000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
@@ -228,6 +237,8 @@ void _main()
 	gspGpuExit();
 	exitSrv();
 
-	void (*app_bootloader)(Handle executable) = (void*)0x00100000;
-	app_bootloader(fileHandle);
+	nonflexible_service_list_t serviceList = (nonflexible_service_list_t){5, {{"hb:SPEC", hbSpecialHandle}, {"am:u", amuHandle}, {"pm:app", pmappHandle}, {"ns:s", nssHandle}, {"fs:USER", fsuHandle}}};
+
+	void (*app_bootloader)(Handle executable, nonflexible_service_list_t* service_list) = (void*)0x00100000;
+	app_bootloader(fileHandle, &serviceList);
 }

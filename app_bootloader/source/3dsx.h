@@ -63,6 +63,4 @@ typedef struct {
     } services[];
 }service_list_t;
 
-extern service_list_t* __service_ptr;
-
-int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr);
+int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr, service_list_t* __service_ptr);
