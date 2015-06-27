@@ -41,13 +41,36 @@ OUTNAME = $(FIRMVERSION)_$(CNVERSION)_$(MENUVERSION)
 
 SCRIPTS = "scripts"
 
-.PHONY: directories all build/constants firm_constants/constants.txt cn_constants/constants.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
+.PHONY: directories all menu_ropdb build/constants firm_constants/constants.txt cn_constants/constants.txt menu_ropdb/ropdb.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
 
 all: directories build/constants q/$(OUTNAME).png p/$(OUTNAME).bin build/cn_save_initial_loader.bin
 directories:
 	@mkdir -p build && mkdir -p build/cro
 	@mkdir -p p
 	@mkdir -p q
+
+menu_ropdb:
+	@mkdir -p menu_ropdb/11272
+	@mkdir -p menu_ropdb/12288
+	@mkdir -p menu_ropdb/13330
+	@mkdir -p menu_ropdb/15360
+	@mkdir -p menu_ropdb/16404
+	@mkdir -p menu_ropdb/17415
+	@mkdir -p menu_ropdb/19456
+	@echo building ropDB for menu version 11272...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_11272_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/11272/ropdb.txt
+	@echo building ropDB for menu version 12288...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_12288_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/12288/ropdb.txt
+	@echo building ropDB for menu version 13330...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_13330_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/13330/ropdb.txt
+	@echo building ropDB for menu version 15360...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_15360_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/15360/ropdb.txt
+	@echo building ropDB for menu version 16404...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_16404_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/16404/ropdb.txt
+	@echo building ropDB for menu version 17415...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_17415_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/17415/ropdb.txt
+	@echo building ropDB for menu version 19456...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_19456_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/19456/ropdb.txt
 
 q/$(OUTNAME).png: build/cn_qr_initial_loader.bin.png
 	@cp build/cn_qr_initial_loader.bin.png q/$(OUTNAME).png
@@ -59,8 +82,10 @@ firm_constants/constants.txt:
 	@cd firm_constants && make
 cn_constants/constants.txt:
 	@cd cn_constants && make
+menu_ropdb/ropdb.txt:
+	@cd menu_ropdb && make
 
-build/constants: firm_constants/constants.txt cn_constants/constants.txt
+build/constants: firm_constants/constants.txt cn_constants/constants.txt menu_ropdb/ropdb.txt
 	@python $(SCRIPTS)/makeHeaders.py $(FIRMVERSION) $(CNVERSION) $(SPIDERVERSION) $(ROVERSION) $(MENUVERSION) build/constants $^
 
 build/cn_qr_initial_loader.bin.png: cn_qr_initial_loader/cn_qr_initial_loader.bin.png
@@ -120,6 +145,7 @@ clean:
 	@rm -rf build/*
 	@cd firm_constants && make clean
 	@cd cn_constants && make clean
+	@cd menu_ropdb && make clean
 	@cd cn_qr_initial_loader && make clean
 	@cd cn_save_initial_loader && make clean
 	@cd cn_secondary_payload && make clean

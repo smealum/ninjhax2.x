@@ -1,0 +1,28 @@
+# format : ("ROP_GADGET_NAME", addr, word_size)
+# format : ("APP_CONSTANT_PTR", pattern_addr, pattern_word_size, value_words_offset)
+[
+	# pop gadgets
+	("ROP_MENU_POP_PC", 0x0010201c, 0x1), # pop {pc}
+	("ROP_MENU_POP_R0PC", 0x00157818, 0x1), # pop {r0, pc}
+	("ROP_MENU_POP_R1PC", 0x00236efc, 0x1), # pop {r1, pc}
+	("ROP_MENU_POP_R2R3R4R5R6PC", 0x0015040c, 0x1), # pop {r2, r3, r4, r5, r6, pc}
+	("ROP_MENU_POP_R4R5PC", 0x0012ccb8, 0x1), # pop {r4, r5, pc}
+
+	# load gadgets
+	("ROP_MENU_STACK_PIVOT", 0x00100fb8, 0x1), # ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
+	("ROP_MENU_LDR_R0R0_POP_R4PC", 0x0011f5d0, 0x2), # ldr r0, [r0] ; pop {r4, pc}
+
+	# store gadgets
+	("ROP_MENU_STREQ_R5R2x30_POP_R4R5R6PC", 0x001550fc, 0x2), # streq r5, [r2, #0x30] ; pop {r4, r5, r6, pc}
+
+	# arithmetic gadgets
+	("ROP_MENU_AND_R0R0R4_POP_R4R5R6R7R8PC", 0x0011f148, 0x2), # and r0, r0, r4 ; pop {r4, r5, r6, r7, r8, pc}
+
+	# comparison gadgets
+	("ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC", 0x0021e6cc, 0x4), # cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
+
+	# functions
+	("ROP_MENU_SLEEPTHREAD", 0x0012b044, 0x2), # svc 0xa, bx lr
+	("ROP_MENU_NSS_REBOOT", 0x00137390, 0x4), # ends in "add sp, sp, #0xc ; ldmfd sp!, {r4,r5,pc}"
+	("MENU_NSS_HANDLE", 0x00137390, 0x4, 0x15),
+]

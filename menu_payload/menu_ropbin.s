@@ -1,6 +1,6 @@
 .nds
 
-.include "../../build/constants.s"
+.include "../build/constants.s"
 
 .create "menu_ropbin.bin",0x0
 
@@ -9,7 +9,6 @@ MENU_OBJECT_LOC equ MENU_LOADEDROP_BUFADR
 MENU_STACK_PIVOT equ 0x00100fdc ; our stack pivot (found by yellows8) : ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
 MENU_NOP equ 0x001575F0 ; pop {pc}
 MENU_NSS_REBOOT equ 0x00139874 ; ends in "add sp, sp, #0xc ; ldmfd sp!, {r4,r5,pc}"
-MENU_NSS_HANDLE equ 0x002F0F98
 MENU_FS_HANDLE equ 0x002F0F30
 MENU_GSPGPU_HANDLE equ 0x002FDED8
 MENU_PAD equ 0x1000001C
@@ -347,7 +346,7 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.fill ((snsCodeHook + 0x200) - .), 0xDA
 	
 	snsCode:
-		.incbin "../sns_code.bin"
+		.incbin "sns_code.bin"
 
 		.fill ((snsCode + 0xD00) - .), 0xDA
 
@@ -364,6 +363,6 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.fill ((appHook + 0x200) - .), 0xDA
 
 	appCode:
-		.incbin "../app_code.bin"
+		.incbin "app_code.bin"
 
 .Close
