@@ -9,7 +9,7 @@
 #include <ctr/FS.h>
 #include "text.h"
 
-#include "app_bootloader_bin.h"
+// #include "app_bootloader_bin.h"
 
 #include "../../build/constants.h"
 
@@ -187,10 +187,45 @@ typedef struct {
 	} services[5];
 } nonflexible_service_list_t;
 
+extern Handle aptLockHandle, aptuHandle;
+
+void _aptOpenSession()
+{
+	svc_waitSynchronization1(aptLockHandle, U64_MAX);
+	srv_getServiceHandle(NULL, &aptuHandle, "APT:A");
+}
+
+void _aptCloseSession()
+{
+	svc_closeHandle(aptuHandle);
+	svc_releaseMutex(aptLockHandle);
+}
+
+Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buffer, u32* actualSize, u8* signalType, Handle* outhandle)
+{
+	if(!handle)handle=&aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0xD0080; //request header code
+	cmdbuf[1]=appID;
+	cmdbuf[2]=bufferSize;
+	
+	cmdbuf[0+0x100/4]=(bufferSize<<14)|2;
+	cmdbuf[1+0x100/4]=(u32)buffer;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(signalType)*signalType=cmdbuf[3];
+	if(actualSize)*actualSize=cmdbuf[4];
+	if(outhandle)*outhandle=cmdbuf[6];
+
+	return cmdbuf[1];
+}
+
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, amuHandle, pmappHandle, fsuHandle, nssHandle;
+	Handle hbSpecialHandle, amuHandle, pmappHandle, fsuHandle, nssHandle, handle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -199,6 +234,34 @@ void _main()
 
 	resetConsole();
 	print_str("hello\n");
+
+	srv_getServiceHandle(NULL, &aptuHandle, "APT:A");
+	ret=APT_GetLockHandle(&aptuHandle, 0x0, &aptLockHandle);
+	svc_closeHandle(aptuHandle);
+
+	print_str("\ngot APT:A lock handle ?\n");
+	print_hex(ret); print_str(", "); print_hex(aptuHandle); print_str(", "); print_hex(aptLockHandle);
+
+	u32 outbuf[8];
+	_aptOpenSession();
+	ret = _APT_ReceiveParameter(NULL, 0x101, 0x20, outbuf, NULL, NULL, &handle);
+	_aptCloseSession();
+
+	print_str("\ngot apt parameter ?\n");
+	print_hex(ret); print_str(", "); print_hex(handle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+
+	ret = 1;
+	int cnt = 0;
+	while(ret)
+	{
+		_aptOpenSession();
+		ret = _APT_ReceiveParameter(NULL, 0x101, 0x20, outbuf, NULL, NULL, &handle);
+		_aptCloseSession();
+		cnt++;
+	}
+
+	print_str("\ngot apt parameter ?\n");
+	print_hex(cnt); print_str(", "); print_hex(handle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
 
 	print_str("\nconnecting to hb:SPECIAL...\n");
 	ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
@@ -227,9 +290,9 @@ void _main()
 	ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 	print_hex(ret); print_str(", "); print_hex(fileHandle);
 
-	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
-	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37900000, 0x00008000);
+	// memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
+	// GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
+	// doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37900000, 0x00008000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
@@ -237,8 +300,10 @@ void _main()
 	gspGpuExit();
 	exitSrv();
 
-	nonflexible_service_list_t serviceList = (nonflexible_service_list_t){5, {{"hb:SPEC", hbSpecialHandle}, {"am:u", amuHandle}, {"pm:app", pmappHandle}, {"ns:s", nssHandle}, {"fs:USER", fsuHandle}}};
+	while(1);
 
-	void (*app_bootloader)(Handle executable, nonflexible_service_list_t* service_list) = (void*)0x00100000;
-	app_bootloader(fileHandle, &serviceList);
+	// nonflexible_service_list_t serviceList = (nonflexible_service_list_t){5, {{"hb:SPEC", hbSpecialHandle}, {"am:u", amuHandle}, {"pm:app", pmappHandle}, {"ns:s", nssHandle}, {"fs:USER", fsuHandle}}};
+
+	// void (*app_bootloader)(Handle executable, nonflexible_service_list_t* service_list) = (void*)0x00100000;
+	// app_bootloader(fileHandle, &serviceList);
 }

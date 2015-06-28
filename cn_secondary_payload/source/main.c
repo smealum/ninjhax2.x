@@ -492,7 +492,7 @@ int main(u32 size, char** argv)
 	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
 
 	#ifdef LOADROPBIN
-	u32 binsize = (menu_ropbin_bin_size + 7) & ~7;//Align to 8-bytes.
+	u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff;//Align to 0x100-bytes.
 
 	memcpy((u32*)0x14100000, (u32*)menu_ropbin_bin, menu_ropbin_bin_size);//Copy menu_ropbin_bin into homemenu linearmem.
 	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);

