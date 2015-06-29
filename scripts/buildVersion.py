@@ -15,10 +15,22 @@ def getRoVersion(v):
 		return "4096"
 
 def getMenuVersion(v):
-	if v[0]==9 and v[1]==7:
-		return "17415"
-	else:
-		return "12288"
+	if v[0]==9:
+		if (v[1]==0 or v[1]==1):
+			return "11272"
+		elif v[1]==2:
+			return "12288"
+		elif (v[1]==3 or v[1]==4):
+			return "13330"
+		elif v[1]==5:
+			return "15360"
+		elif v[1]==6:
+			return "16404"
+		elif v[1]==7:
+			return "17415"
+		elif v[1]==8:
+			return "19456"
+	return "unsupported"
 
 def getSpiderVersion(v):
 	if v[5]==1:
@@ -61,11 +73,14 @@ if r:
 	cverMicro=int(r.group(4))
 	nupVersion=int(r.group(5))
 	nupRegion=r.group(6)
-	loadropbin=""
-	if(len(sys.argv)>=3 and sys.argv[2]=="--enableloadropbin"):
-		loadropbin=" LOADROPBIN=1"
+	extraparams=""
+	for arg in sys.argv:
+		if(arg=="--enableloadropbin"):
+			extraparams+=" LOADROPBIN=1"
+		if(arg=="--enableotherapp"):
+			extraparams+=" OTHERAPP=1"
 	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
 	os.system("make clean")	
-	os.system("make CNVERSION="+getCnVersion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+loadropbin)
+	os.system("make CNVERSION="+getCnVersion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
 else:
 	print("invalid version format; learn2read.")

@@ -110,7 +110,7 @@ build/app_code.bin: app_code/app_code.bin
 	@cp app_code/app_code.bin build
 app_code/app_code.bin: build/app_bootloader.bin
 	@mkdir -p app_code/data
-#	@cp build/app_bootloader.bin app_code/data/
+	@cp build/app_bootloader.bin app_code/data/
 	@cd app_code && make
 
 

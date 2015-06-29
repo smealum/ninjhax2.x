@@ -14,17 +14,20 @@ firmVersions=["POST5", "N3DS"]
 cnVersions=["WEST", "JPN"]
 spiderVersions=[4096]
 roVersions=[4096]
-menuVersions=[12288, 17415]
+menuVersions=[11272, 12288, 13330, 15360, 16404, 17415]
 
 a=[firmVersions, cnVersions, spiderVersions, roVersions, menuVersions]
 
-loadropbin=""
-if(len(sys.argv)>=2 and sys.argv[1]=="--enableloadropbin"):
-	loadropbin=" LOADROPBIN=1"
+extraparams=""
+for arg in sys.argv:
+	if(arg=="--enableloadropbin"):
+		extraparams+=" LOADROPBIN=1"
+	if(arg=="--enableotherapp"):
+		extraparams+=" OTHERAPP=1"
 
 cnt=0
 for v in (list(itertools.product(*a))):
 	if isVersionPossible(v):
 		os.system("make clean")	
-		os.system("make FIRMVERSION="+str(v[0])+" CNVERSION="+str(v[1])+" SPIDERVERSION="+str(v[2])+" ROVERSION="+str(v[3])+" MENUVERSION="+str(v[4])+loadropbin)
+		os.system("make FIRMVERSION="+str(v[0])+" CNVERSION="+str(v[1])+" SPIDERVERSION="+str(v[2])+" ROVERSION="+str(v[3])+" MENUVERSION="+str(v[4])+extraparams)
 print(cnt)
