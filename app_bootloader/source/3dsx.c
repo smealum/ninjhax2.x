@@ -11,6 +11,7 @@
 
 // TODO : find a better place to put this
 #define RUNFLAG_APTWORKAROUND (1)
+#define RUNFLAG_APTREINIT (2)
 
 //code by fincs
 
@@ -181,7 +182,7 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 	}
 
 	// Detect and fill _prm structure
-	u32* prmStruct = (u32*)getActualAddress(baseAddr + 1);
+	u32* prmStruct = (u32*)getActualAddress(baseAddr) + 1;
 	if(prmStruct[0]==0x6D72705F)
 	{
 		// Write service handle table pointer

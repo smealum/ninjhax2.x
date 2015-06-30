@@ -225,8 +225,8 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			apt_close_session 0
 
 		; launch app that we want to takeover
-			; nss_launch_title 0x00020400, 0x00040010 ; launch camera app (jpn)
-			nss_launch_title 0x00021400, 0x00040010 ; launch camera app (us)
+			nss_launch_title 0x00020400, 0x00040010 ; launch camera app (jpn)
+			; nss_launch_title 0x00021400, 0x00040010 ; launch camera app (us)
 			; nss_launch_title 0x00022400, 0x00040010 ; launch camera app (eu)
 
 		; takeover app
