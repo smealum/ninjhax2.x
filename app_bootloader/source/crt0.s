@@ -53,4 +53,15 @@ _start:
 
 	ldmfd sp!, {r0, r1, r2, r3, r4}
 
+	mov sp, #0x10000000
+
 	bx r4
+
+.global svc_duplicateHandle
+.type svc_duplicateHandle, %function
+svc_duplicateHandle:
+	str r0, [sp, #-0x4]!
+	svc 0x27
+	ldr r3, [sp], #4
+	str r1, [r3]
+	bx  lr

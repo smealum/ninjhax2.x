@@ -96,6 +96,7 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 	return cmdbuf[1];
 }
 
+Result svc_duplicateHandle(Handle* output, Handle input);
 Result svcControlProcessMemory(Handle KProcess, unsigned int Addr0, unsigned int Addr1, unsigned int Size, unsigned int Type, unsigned int Permissions);
 int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __service_ptr);
 extern service_list_t _serviceList;
@@ -104,7 +105,18 @@ void run3dsx(Handle executable)
 {
 	memset(&_heap_base[0x00100000], 0x00, 0x00410000);
 
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], &_serviceList);
+	// duplicate service list on the stack
+	u8 serviceBuffer[0x4+0xC*_serviceList.num];
+	service_list_t* serviceList = (service_list_t*)serviceBuffer;
+	serviceList->num = _serviceList.num;
+	int i;
+	for(i=0; i<_serviceList.num; i++)
+	{
+		memcpy(serviceList->services[i].name, _serviceList.services[i].name, 8);
+		svc_duplicateHandle(&serviceList->services[i].handle, _serviceList.services[i].handle);
+	}
+
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], serviceList);
 
 	FSFILE_Close(executable);
 
@@ -138,7 +150,6 @@ void run3dsx(Handle executable)
 	exitSrv();
 	
 	// grab ns:s handle
-	int i;
 	Handle nssHandle = 0x0;
 	for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "ns:s"))nssHandle=_serviceList.services[i].handle;
 	if(!nssHandle)*(vu32*)0xCAFE0001=0;
@@ -149,7 +160,7 @@ void run3dsx(Handle executable)
 	svc_sleepThread(1000*1000*1000);
 	NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
 
-	//free heap (has to be the very last thing before jumping to app as contains bss)
+	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
 
 	void (*run_3dsx)() = (void*)(0x00100000 + 0x00008000);
