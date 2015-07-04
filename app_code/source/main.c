@@ -275,14 +275,13 @@ void _main()
 	// ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 3, &nssHandle);
 	// print_hex(ret); print_str(", "); print_hex(nssHandle);
 
-	// print_str("\nopening sdmc:/3ds_hb_menu.3dsx\n");
-	Handle fileHandle;
-	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
-	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
-	ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
-	// print_hex(ret); print_str(", "); print_hex(fileHandle);
-
+	// copy bootloader code
 	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
+
+	// setup service list structure
+	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){2, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}}};
+
+	// flush and copy
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
 	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37900000, 0x00008000);
 
@@ -292,8 +291,6 @@ void _main()
 	gspGpuExit();
 	exitSrv();
 
-	nonflexible_service_list_t serviceList = (nonflexible_service_list_t){2, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}}};
-
-	void (*app_bootloader)(Handle executable, nonflexible_service_list_t* service_list) = (void*)0x00100000;
-	app_bootloader(fileHandle, &serviceList);
+	void (*app_runmenu)() = (void*)(0x00100000 + 4);
+	app_runmenu();
 }

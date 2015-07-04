@@ -2,11 +2,34 @@
 .arm
 .align 4
 .global _start
+.global _serviceList
+
+_run3dsxVector:
+	b _run3dsx
+_runHbmenuVector:
+	b _runHbmenu
+bx lr
+bx lr
+bx lr
+bx lr
+bx lr
+bx lr
+
+_serviceList:
+	.space 0x4+0xC*8, 0x00
+
+_run3dsx:
+	ldr r4, =run3dsx
+	b _start
+
+_runHbmenu:
+	ldr r4, =runHbmenu
+	b _start
 
 _start:
 	@ allocate bss/heap
 	@ no need to initialize as OS does that already.
-	@ need to save registers because _main takes parameters
+	@ need to save registers because _runBootloader takes parameters
 	stmfd sp!, {r0, r1, r2, r3, r4}
 
 		@ LINEAR MEMOP_COMMIT
@@ -30,4 +53,4 @@ _start:
 
 	ldmfd sp!, {r0, r1, r2, r3, r4}
 
-	blx _main
+	bx r4

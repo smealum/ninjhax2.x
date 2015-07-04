@@ -98,12 +98,13 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 
 Result svcControlProcessMemory(Handle KProcess, unsigned int Addr0, unsigned int Addr1, unsigned int Size, unsigned int Type, unsigned int Permissions);
 int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __service_ptr);
+extern service_list_t _serviceList;
 
-void _main(Handle executable, service_list_t* service_list)
+void run3dsx(Handle executable)
 {
 	memset(&_heap_base[0x00100000], 0x00, 0x00410000);
 
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], service_list);
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], &_serviceList);
 
 	FSFILE_Close(executable);
 
@@ -139,7 +140,7 @@ void _main(Handle executable, service_list_t* service_list)
 	// grab ns:s handle
 	int i;
 	Handle nssHandle = 0x0;
-	for(i=0; i<service_list->num; i++)if(!strcmp(service_list->services[i].name, "ns:s"))nssHandle=service_list->services[i].handle;
+	for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "ns:s"))nssHandle=_serviceList.services[i].handle;
 	if(!nssHandle)*(vu32*)0xCAFE0001=0;
 
 	// use ns:s to launch/kill process to invalidate icache
@@ -155,4 +156,20 @@ void _main(Handle executable, service_list_t* service_list)
 	run_3dsx();
 
 	while(1)svc_sleepThread(0xffffffffLL);
+}
+
+void runHbmenu()
+{
+	// grab fs:USER handle
+	int i;
+	Handle fsuHandle = 0x0;
+	for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "fs:USER"))fsuHandle=_serviceList.services[i].handle;
+	if(!fsuHandle)*(vu32*)0xCAFE0002=0;
+
+	Handle fileHandle;
+	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
+	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
+	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
+
+	run3dsx(fileHandle);
 }
