@@ -10,21 +10,15 @@ ifeq ($(filter $(DEVKITARM)/bin,$(PATH)),)
 export PATH:=$(DEVKITARM)/bin:$(PATH)
 endif
 
-# FIRMVERSION = OLD_MEMMAP
-# FIRMVERSION = NEW_MEMMAP
-
-# CNVERSION = WEST
-# CNVERSION = JPN
-# ROVERSION = 1024
-# ROVERSION = 2049
-# ROVERSION = 3074
-# ROVERSION = 4096
-# SPIDERVERSION = 2050
-# SPIDERVERSION = 3074
-# SPIDERVERSION = 4096
+ifeq ($(REGION), J)
+CNVERSION = JPN
+else
+CNVERSION = WEST
+endif
 
 export FIRMVERSION
 export CNVERSION
+export REGION
 export ROVERSION
 export SPIDERVERSION
 export MENUVERSION
@@ -40,11 +34,11 @@ endif
 ROPDB_VERSIONS = 11272 12288 13330 15360 16404 17415 19456
 ROPDB_TARGETS = $(addsuffix _ropdb.txt, $(addprefix menu_ropdb/, $(ROPDB_VERSIONS)))
 
-OUTNAME = $(FIRMVERSION)_$(CNVERSION)_$(MENUVERSION)
+OUTNAME = $(FIRMVERSION)_$(REGION)_$(MENUVERSION)
 
 SCRIPTS = "scripts"
 
-.PHONY: directories all menu_ropdb build/constants firm_constants/constants.txt cn_constants/constants.txt menu_ropdb/ropdb.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
+.PHONY: directories all menu_ropdb build/constants firm_constants/constants.txt cn_constants/constants.txt region_constants/constants.txt menu_ropdb/ropdb.txt cn_qr_initial_loader/cn_qr_initial_loader.bin.png cn_save_initial_loader/cn_save_initial_loader.bin cn_secondary_payload/cn_secondary_payload.bin cn_bootloader/cn_bootloader.bin menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin
 
 all: directories build/constants q/$(OUTNAME).png p/$(OUTNAME).bin build/cn_save_initial_loader.bin
 directories:
@@ -68,11 +62,13 @@ firm_constants/constants.txt:
 	@cd firm_constants && make
 cn_constants/constants.txt:
 	@cd cn_constants && make
+region_constants/constants.txt:
+	@cd region_constants && make
 menu_ropdb/ropdb.txt:
 	@cd menu_ropdb && make
 
-build/constants: firm_constants/constants.txt cn_constants/constants.txt menu_ropdb/ropdb.txt
-	@python $(SCRIPTS)/makeHeaders.py $(FIRMVERSION) $(CNVERSION) $(SPIDERVERSION) $(ROVERSION) $(MENUVERSION) build/constants $^
+build/constants: firm_constants/constants.txt cn_constants/constants.txt region_constants/constants.txt menu_ropdb/ropdb.txt
+	@python $(SCRIPTS)/makeHeaders.py $(FIRMVERSION) $(CNVERSION) $(SPIDERVERSION) $(ROVERSION) $(MENUVERSION) $(REGION) build/constants $^
 
 build/cn_qr_initial_loader.bin.png: cn_qr_initial_loader/cn_qr_initial_loader.bin.png
 	@cp cn_qr_initial_loader/cn_qr_initial_loader.bin.png build
@@ -131,6 +127,7 @@ clean:
 	@rm -rf build/*
 	@cd firm_constants && make clean
 	@cd cn_constants && make clean
+	@cd region_constants && make clean
 	@cd menu_ropdb && make clean
 	@cd cn_qr_initial_loader && make clean
 	@cd cn_save_initial_loader && make clean

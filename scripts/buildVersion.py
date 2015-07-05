@@ -45,11 +45,8 @@ def getSpiderVersion(v):
 		else:
 			return "4096"
 
-def getCnVersion(v):
-	if v[4]=="J":
-		return "JPN"
-	else:
-		return "WEST"
+def getRegion(v):
+	return v[4]
 
 def getFirmVersion(v):
 	if v[5]==1:
@@ -81,6 +78,6 @@ if r:
 			extraparams+=" OTHERAPP=1"
 	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
 	os.system("make clean")	
-	os.system("make CNVERSION="+getCnVersion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
+	os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
 else:
 	print("invalid version format; learn2read.")

@@ -296,7 +296,7 @@ int _main()
 
 	// drawHex(ret,0,line+=10);
 
-	ret=HTTPC_CreateContext(httpcHandle, CN_NINJHAX_URL FIRM_VERSION "_" CN_VERSION "_" MENU_VERSION ".bin", &httpContextHandle);
+	ret=HTTPC_CreateContext(httpcHandle, CN_NINJHAX_URL FIRM_VERSION "_" REGION "_" MENU_VERSION ".bin", &httpContextHandle);
 
 	// drawHex(ret,0,line+=10);
 	
