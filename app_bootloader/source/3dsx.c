@@ -65,7 +65,7 @@ void* _getActualAddress(void* addr, void* baseAddr, void* outputBaseAddr)
 
 #define getActualAddress(addr) _getActualAddress(addr, baseAddr, outputBaseAddr)
 
-int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr, service_list_t* __service_ptr)
+int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr, service_list_t* __service_ptr, u32* argbuf)
 {
 	u32 i, j, k, m;
 	// u32 endAddr = 0x00100000+CN_NEWTOTALPAGES*0x1000;
@@ -198,7 +198,7 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 		prmStruct[2] = 0x300;
 		prmStruct[3] = 24*1024*1024;
 		prmStruct[4] = 32*1024*1024;
-		prmStruct[5] = CN_ARGCV_LOC;
+		prmStruct[5] = argbuf;
 		prmStruct[6] = RUNFLAG_APTWORKAROUND; //__system_runflags
 
 		// XXX: Notes on __system_arglist:

@@ -100,8 +100,9 @@ Result svc_duplicateHandle(Handle* output, Handle input);
 Result svcControlProcessMemory(Handle KProcess, unsigned int Addr0, unsigned int Addr1, unsigned int Size, unsigned int Type, unsigned int Permissions);
 int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __service_ptr);
 extern service_list_t _serviceList;
+void start_execution(void);
 
-void run3dsx(Handle executable)
+void run3dsx(Handle executable, u32* argbuf)
 {
 	memset(&_heap_base[0x00100000], 0x00, 0x00410000);
 
@@ -116,7 +117,7 @@ void run3dsx(Handle executable)
 		svc_duplicateHandle(&serviceList->services[i].handle, _serviceList.services[i].handle);
 	}
 
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], serviceList);
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], serviceList, argbuf);
 
 	FSFILE_Close(executable);
 
@@ -156,17 +157,13 @@ void run3dsx(Handle executable)
 
 	// use ns:s to launch/kill process to invalidate icache
 	NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
-	// svc_sleepThread(10*1000*1000);
-	svc_sleepThread(1000*1000*1000);
+	svc_sleepThread(200*1000*1000);
 	NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
 
 	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
 
-	void (*run_3dsx)() = (void*)(0x00100000 + 0x00008000);
-	run_3dsx();
-
-	while(1)svc_sleepThread(0xffffffffLL);
+	start_execution();
 }
 
 void runHbmenu()
@@ -182,5 +179,5 @@ void runHbmenu()
 	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
 	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 
-	run3dsx(fileHandle);
+	run3dsx(fileHandle, NULL);
 }
