@@ -5,4 +5,4 @@ clean:
 	@echo "all cleaned up !"
 
 ropdb.txt:
-	@cp $(MENUVERSION)/$@ ./
+	@cp $(MENUVERSION)_ropdb.txt ./ropdb.txt

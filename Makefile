@@ -37,6 +37,9 @@ ifneq ($(strip $(LOADROPBIN)),)
 	ROPBIN_CMD1	:=	@cp menu_payload/menu_ropbin.bin build/
 endif
 
+ROPDB_VERSIONS = 11272 12288 13330 15360 16404 17415 19456
+ROPDB_TARGETS = $(addsuffix _ropdb.txt, $(addprefix menu_ropdb/, $(ROPDB_VERSIONS)))
+
 OUTNAME = $(FIRMVERSION)_$(CNVERSION)_$(MENUVERSION)
 
 SCRIPTS = "scripts"
@@ -49,28 +52,11 @@ directories:
 	@mkdir -p p
 	@mkdir -p q
 
-menu_ropdb:
-	@mkdir -p menu_ropdb/11272
-	@mkdir -p menu_ropdb/12288
-	@mkdir -p menu_ropdb/13330
-	@mkdir -p menu_ropdb/15360
-	@mkdir -p menu_ropdb/16404
-	@mkdir -p menu_ropdb/17415
-	@mkdir -p menu_ropdb/19456
-	@echo building ropDB for menu version 11272...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_11272_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/11272/ropdb.txt
-	@echo building ropDB for menu version 12288...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_12288_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/12288/ropdb.txt
-	@echo building ropDB for menu version 13330...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_13330_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/13330/ropdb.txt
-	@echo building ropDB for menu version 15360...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_15360_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/15360/ropdb.txt
-	@echo building ropDB for menu version 16404...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_16404_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/16404/ropdb.txt
-	@echo building ropDB for menu version 17415...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_17415_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/17415/ropdb.txt
-	@echo building ropDB for menu version 19456...
-	@python scripts/portRopDb.py menu_17415_code.bin menu_19456_code.bin 0x00100000 menu_ropdb/17415_proto/ropdb.txt menu_ropdb/19456/ropdb.txt
+menu_ropdb: $(ROPDB_TARGETS)
+
+menu_ropdb/%_ropdb.txt: menu_ropdb/17415_ropdb_proto.txt
+	@echo building ropDB for menu version $*...
+	@python scripts/portRopDb.py menu_17415_code.bin menu_$*_code.bin 0x00100000 menu_ropdb/17415_ropdb_proto.txt menu_ropdb/$*_ropdb.txt
 
 q/$(OUTNAME).png: build/cn_qr_initial_loader.bin.png
 	@cp build/cn_qr_initial_loader.bin.png q/$(OUTNAME).png
