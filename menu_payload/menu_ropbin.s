@@ -17,6 +17,8 @@ MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle 
 MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
 
+APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+
 GPU_REG_BASE equ 0x1EB00000
 
 DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
@@ -225,9 +227,9 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			apt_close_session 0
 
 		; launch app that we want to takeover
-			nss_launch_title 0x00020400, 0x00040010 ; launch camera app (jpn)
+			; nss_launch_title 0x00020400, 0x00040010 ; launch camera app (jpn)
 			; nss_launch_title 0x00021400, 0x00040010 ; launch camera app (us)
-			; nss_launch_title 0x00022400, 0x00040010 ; launch camera app (eu)
+			nss_launch_title 0x00022400, 0x00040010 ; launch camera app (eu)
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
@@ -261,8 +263,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	gxCommandAppHook:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appHook - object ; source address
-		.word 0x37900000 + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
-		; .word 0x33D00000 + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
+		.word APP_START_LINEAR + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
 		.word 0x00000200 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -272,8 +273,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	gxCommandAppCode:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
-		.word 0x37900000 + 0x00200000 - 0x00100000 ; destination address (PA for 0x00200000)
-		; .word 0x33D00000 + 0x00200000 - 0x00100000 ; destination address (PA for 0x00200000)
+		.word APP_START_LINEAR + 0x00200000 - 0x00100000 ; destination address (PA for 0x00200000)
 		.word 0x00010000 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out

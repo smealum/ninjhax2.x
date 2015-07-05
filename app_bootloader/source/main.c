@@ -102,6 +102,8 @@ int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __ser
 extern service_list_t _serviceList;
 void start_execution(void);
 
+#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+
 void run3dsx(Handle executable, u32* argbuf)
 {
 	memset(&_heap_base[0x00100000], 0x00, 0x00410000);
@@ -127,22 +129,22 @@ void run3dsx(Handle executable, u32* argbuf)
 	GSPGPU_FlushDataCache(NULL, (u8*)&_heap_base[0x00100000], 0x00500000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000], (u32*)(0x37900000 + 0x00008000), 0x00100000);
+	doGspwn((u32*)&_heap_base[0x00100000], (u32*)(APP_START_LINEAR + 0x00008000), 0x00100000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00100000], (u32*)(0x37900000 + 0x00100000 + 0x00008000), 0x00100000);
+	doGspwn((u32*)&_heap_base[0x00100000 + 0x00100000], (u32*)(APP_START_LINEAR + 0x00100000 + 0x00008000), 0x00100000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00200000], (u32*)(0x37900000 + 0x00200000 + 0x00008000), 0x00100000 - 0x00008000);
+	doGspwn((u32*)&_heap_base[0x00100000 + 0x00200000], (u32*)(APP_START_LINEAR + 0x00200000 + 0x00008000), 0x00100000 - 0x00008000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 - 0x00008000], (u32*)(0x37890000), 0x00070000);
+	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 - 0x00008000], (u32*)(APP_START_LINEAR - 0x00070000), 0x00070000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 + 0x00070000 - 0x00008000], (u32*)(0x37800000), 0x00090000);
+	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 + 0x00070000 - 0x00008000], (u32*)(APP_START_LINEAR - 0x00100000), 0x00090000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000], (u32*)(0x377f7000), 0x00009000);
+	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000], (u32*)(APP_START_LINEAR - 0x00109000), 0x00009000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);

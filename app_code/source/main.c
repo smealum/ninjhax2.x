@@ -222,6 +222,8 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 	return cmdbuf[1];
 }
 
+#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+
 void _main()
 {
 	Result ret;
@@ -283,7 +285,7 @@ void _main()
 
 	// flush and copy
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
-	doGspwn((u32*)&gspHeap[0x00100000], (u32*)0x37900000, 0x00008000);
+	doGspwn((u32*)&gspHeap[0x00100000], (u32*)APP_START_LINEAR, 0x00008000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
