@@ -184,7 +184,7 @@ typedef struct {
 	struct {
 		char name[8];
 		Handle handle;
-	} services[2];
+	} services[3];
 } nonflexible_service_list_t;
 
 extern Handle aptLockHandle, aptuHandle;
@@ -227,7 +227,7 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, fsuHandle, nssHandle;
+	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -244,9 +244,9 @@ void _main()
 	// print_str("\ngot APT:A lock handle ?\n");
 	// print_hex(ret); print_str(", "); print_hex(aptuHandle); print_str(", "); print_hex(aptLockHandle);
 
-	u32 outbuf[8];
+	u32 outbuf[2];
 	_aptOpenSession();
-	ret = _APT_ReceiveParameter(NULL, 0x101, 0x20, outbuf, NULL, NULL, &fsuHandle);
+	ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &fsuHandle);
 	_aptCloseSession();
 
 	// print_str("\ngot apt parameter ?\n");
@@ -257,7 +257,20 @@ void _main()
 	while(ret)
 	{
 		_aptOpenSession();
-		ret = _APT_ReceiveParameter(NULL, 0x101, 0x20, outbuf, NULL, NULL, &nssHandle);
+		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &nssHandle);
+		_aptCloseSession();
+		cnt++;
+	}
+
+	// print_str("\ngot apt parameter ?\n");
+	// print_hex(cnt); print_str(", "); print_hex(nssHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+
+	ret = 1;
+	cnt = 0;
+	while(ret)
+	{
+		_aptOpenSession();
+		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &irrstHandle);
 		_aptCloseSession();
 		cnt++;
 	}
@@ -281,7 +294,7 @@ void _main()
 	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
 
 	// setup service list structure
-	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){2, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}}};
+	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
 
 	// flush and copy
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);

