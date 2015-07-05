@@ -104,6 +104,35 @@ void start_execution(void);
 
 #define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
 
+typedef struct {
+	u32 num;
+
+	struct {
+		u32 src, dst, size;
+	} map[];
+} memorymap_t;
+
+const memorymap_t app_map =
+	{4,
+		{
+			{0x00100000, APP_START_LINEAR + 0x00008000, 0x00300000 - 0x00008000},
+			{0x00100000 + 0x00300000 - 0x00008000, APP_START_LINEAR - 0x00070000, 0x00070000},
+			{0x00100000 + 0x00300000 + 0x00070000 - 0x00008000, APP_START_LINEAR - 0x00100000, 0x00090000},
+			{0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000, APP_START_LINEAR - 0x00109000, 0x00009000},
+		}
+	};
+
+void apply_map(const memorymap_t* m)
+{
+	if(!m)return;
+	int i;
+	for(i=0; i<m->num; i++)
+	{
+		doGspwn((u32*)&_heap_base[m->map[i].src], (u32*)m->map[i].dst, m->map[i].size);
+		svc_sleepThread(10*1000*1000);
+	}
+}
+
 void run3dsx(Handle executable, u32* argbuf)
 {
 	memset(&_heap_base[0x00100000], 0x00, 0x00410000);
@@ -129,22 +158,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	GSPGPU_FlushDataCache(NULL, (u8*)&_heap_base[0x00100000], 0x00500000);
 	svc_sleepThread(10*1000*1000);
 
-	doGspwn((u32*)&_heap_base[0x00100000], (u32*)(APP_START_LINEAR + 0x00008000), 0x00100000);
-	svc_sleepThread(10*1000*1000);
-
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00100000], (u32*)(APP_START_LINEAR + 0x00100000 + 0x00008000), 0x00100000);
-	svc_sleepThread(10*1000*1000);
-
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00200000], (u32*)(APP_START_LINEAR + 0x00200000 + 0x00008000), 0x00100000 - 0x00008000);
-	svc_sleepThread(10*1000*1000);
-
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 - 0x00008000], (u32*)(APP_START_LINEAR - 0x00070000), 0x00070000);
-	svc_sleepThread(10*1000*1000);
-
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 + 0x00070000 - 0x00008000], (u32*)(APP_START_LINEAR - 0x00100000), 0x00090000);
-	svc_sleepThread(10*1000*1000);
-
-	doGspwn((u32*)&_heap_base[0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000], (u32*)(APP_START_LINEAR - 0x00109000), 0x00009000);
+	apply_map(&app_map);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
