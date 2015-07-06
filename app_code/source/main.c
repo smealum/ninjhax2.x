@@ -251,8 +251,7 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 	return cmdbuf[1];
 }
 
-// #define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
-#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00B0000) // (dlplay)
+#define APP_START_LINEAR 0xBABE0002
 
 void _main()
 {

@@ -17,8 +17,7 @@ MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle 
 MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
 
-; APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
-APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00B0000) ; (dlplay)
+APP_START_LINEAR equ 0xBABE0002
 
 GPU_REG_BASE equ 0x1EB00000
 
@@ -214,6 +213,38 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	.word MENU_SLEEP
 .endmacro
 
+.macro add_and_store,a,b,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word a ; r0
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word b ; r1
+	.word ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC
+		.word dst ; r4
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro add_and_store_3,a,b,c,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word a ; r0
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word b ; r1
+	.word ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word c ; r1
+	.word ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC
+		.word dst ; r4
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro infloop
 	set_lr ROP_MENU_BX_LR ; bx lr
 	.word ROP_MENU_BX_LR ; bx lr
@@ -230,8 +261,11 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			apt_close_session 0
 
 		; launch app that we want to takeover
-			; nss_launch_title CAMAPP_TIDLOW, 0x00040010
-			nss_launch_title 0x00020100, 0x00040010 ; dlplay
+			nss_launch_title 0xBABE0004, 0x00040010
+
+		; adjust gsp commands (can't preprocess aliases)
+			add_and_store_3 APP_START_LINEAR, 0xBABE0003, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppHook - object + 0x8
+			add_and_store APP_START_LINEAR, 0x00170000 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
@@ -271,8 +305,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	gxCommandAppHook:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appHook - object ; source address
-		; .word APP_START_LINEAR + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
-		.word APP_START_LINEAR + 0x00100D00 - 0x00100000 ; destination address (PA for 0x00104be0) (dlplay)
+		.word 0xDEADBABE ; destination address (standin, will be filled in)
 		.word 0x00000200 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -282,7 +315,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	gxCommandAppCode:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
-		.word APP_START_LINEAR + 0x00170000 - 0x00100000 ; destination address (PA for 0x00170000) (dlplay)
+		.word 0xDEADBABE ; destination address (standin, will be filled in)
 		.word 0x00010000 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out

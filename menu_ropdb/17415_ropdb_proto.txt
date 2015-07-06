@@ -28,6 +28,7 @@
 	# arithmetic gadgets
 	("ROP_MENU_AND_R0R0R4_POP_R4R5R6R7R8PC", 0x0011f148, 0x2), # and r0, r0, r4 ; pop {r4, r5, r6, r7, r8, pc}
 	("ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC", 0x00204688, 0x2), # add r0, r0, r1, lsl #2; pop {r4, pc}
+	("ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC", 0x00133810, 0x2), # add r0, r0, r1, lsl #2; pop {r4, pc}
 
 	# comparison gadgets
 	("ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC", 0x0021e6cc, 0x4), # cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}

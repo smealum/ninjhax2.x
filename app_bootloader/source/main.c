@@ -109,46 +109,77 @@ int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __ser
 extern service_list_t _serviceList;
 void start_execution(void);
 
-// #define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
-#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x000B0000) // (dlplay)
-
 typedef struct {
 	u32 num;
-
+	u32 text_end;
+	u32 data_address;
+	u32 data_size;
 	struct {
 		u32 src, dst, size;
 	} map[];
 } memorymap_t;
 
-const memorymap_t app_map =
-	{4,
+const memorymap_t camapp_map =
+	{
+		4,
+		0x00347000,
+		0x00429000,
+		0x00046680 + 0x00099430,
 		{
-			{0x00100000, APP_START_LINEAR + 0x00008000, 0x00300000 - 0x00008000},
-			{0x00100000 + 0x00300000 - 0x00008000, APP_START_LINEAR - 0x00070000, 0x00070000},
-			{0x00100000 + 0x00300000 + 0x00070000 - 0x00008000, APP_START_LINEAR - 0x00100000, 0x00090000},
-			{0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000, APP_START_LINEAR - 0x00109000, 0x00009000},
+			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
+			{0x00100000 + 0x00300000 - 0x00008000, - 0x00070000, 0x00070000},
+			{0x00100000 + 0x00300000 + 0x00070000 - 0x00008000, - 0x00100000, 0x00090000},
+			{0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000, - 0x00109000, 0x00009000},
 		}
 	};
 
 const memorymap_t dlplay_map =
 	{4,
+		0x00193000,
+		0x001A0000,
+		0x00013790 + 0x0002A538,
 		{
-			{0x00100000, APP_START_LINEAR + 0x00008000, 0x000B0000 - 0x00008000},
-			{0x00100000 + 0x000B0000 - 0x00008000, APP_START_LINEAR - 0x000B4000, 0x00004000},
-			{0x00100000 + 0x000B4000 - 0x00008000, APP_START_LINEAR - 0x000DE000, 0x0002A000},
-			{0x00100000 + 0x000B4000 + 0x0002A000 - 0x00008000, APP_START_LINEAR - 0x000D2000, 0x00002000},
+			{0x00100000, 0x00008000, 0x000B0000 - 0x00008000},
+			{0x00100000 + 0x000B0000 - 0x00008000, - 0x000B4000, 0x00004000},
+			{0x00100000 + 0x000B4000 - 0x00008000, - 0x000DE000, 0x0002A000},
+			{0x00100000 + 0x000B4000 + 0x0002A000 - 0x00008000, - 0x000D2000, 0x00002000},
 		}
 	};
 
-void apply_map(const memorymap_t* m)
+const memorymap_t * const app_maps[] =
+	{
+		(memorymap_t*)&camapp_map, // camera app
+		(memorymap_t*)&dlplay_map, // camera app
+	};
+
+const u32 _targetProcessIndex = 0xBABE0001;
+const u32 _APP_START_LINEAR = 0xBABE0002;
+
+void apply_map(memorymap_t* m)
 {
 	if(!m)return;
 	int i;
+	vu32* APP_START_LINEAR = &_APP_START_LINEAR;
 	for(i=0; i<m->num; i++)
 	{
-		doGspwn((u32*)&gspHeap[m->map[i].src], (u32*)m->map[i].dst, m->map[i].size);
+		doGspwn((u32*)&gspHeap[m->map[i].src], (u32*)(*APP_START_LINEAR + m->map[i].dst), m->map[i].size);
 		svc_sleepThread(10*1000*1000);
 	}
+}
+
+void setup3dsx(Handle executable, memorymap_t* m, service_list_t* serviceList, u32* argbuf)
+{
+	if(!m)return;
+
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)m->data_address, m->data_size, &gspHeap[0x00100000], serviceList, argbuf);
+
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00500000);
+	svc_sleepThread(10*1000*1000);
+
+	apply_map(m);
+
+	// sleep for 200ms
+	svc_sleepThread(200*1000*1000);
 }
 
 void run3dsx(Handle executable, u32* argbuf)
@@ -156,7 +187,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	initSrv();
 	gspGpuInit();
 
-	// not strictly necessary but w/e	
+	// not strictly necessary but w/e
 	memset(&gspHeap[0x00100000], 0x00, 0x00410000);
 
 	// duplicate service list on the stack
@@ -170,19 +201,9 @@ void run3dsx(Handle executable, u32* argbuf)
 		svc_duplicateHandle(&serviceList->services[i].handle, _serviceList.services[i].handle);
 	}
 
-	// Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &gspHeap[0x00100000], serviceList, argbuf);
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x001A0000, 0x00013790+0x0002A538, &gspHeap[0x00100000], serviceList, argbuf); // (dlplay)
-
+	vu32* targetProcessIndex = &_targetProcessIndex;
+	setup3dsx(executable, (memorymap_t*)app_maps[*targetProcessIndex], serviceList, argbuf);
 	FSFILE_Close(executable);
-
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00500000);
-	svc_sleepThread(10*1000*1000);
-
-	// apply_map(&app_map);
-	apply_map(&dlplay_map);
-
-	// sleep for 200ms
-	svc_sleepThread(200*1000*1000);
 
 	gspGpuExit();
 	exitSrv();

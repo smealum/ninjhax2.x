@@ -491,10 +491,57 @@ int main(u32 size, char** argv)
 	const block_size = 0x00010000;
 	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
 
-	#ifdef LOADROPBIN
-	u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff;//Align to 0x100-bytes.
+	int targetProcessIndex = 0;
 
-	memcpy((u32*)0x14100000, (u32*)menu_ropbin_bin, menu_ropbin_bin_size);//Copy menu_ropbin_bin into homemenu linearmem.
+	const u32 processLinearOffset[] =
+	{
+		0x00300000, // camera app
+		0x000B0000, // dlplay app
+	};
+
+	const u32 processHookAddress[] =
+	{
+		0x00104be0, // camera app
+		0x00100D00, // dlplay app
+	};
+
+	const u32 processHookTidLow[] =
+	{
+		CAMAPP_TIDLOW, // camera app
+		0x00020100, // dlplay app
+	};
+
+	#ifdef LOADROPBIN
+	u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
+
+	memcpy((u32*)0x14100000, (u32*)menu_ropbin_bin, menu_ropbin_bin_size); // Copy menu_ropbin_bin into homemenu linearmem.
+
+	//payload has a bunch of aliases to handle multiple target processes "gracefully"
+	int i;
+	u32* payload_dst = (u32*)0x14100000;
+	for(i=0; i<menu_ropbin_bin_size/4; i++)
+	{
+		switch(payload_dst[i])
+		{
+			// target process index
+			case 0xBABE0001:
+				payload_dst[i] = targetProcessIndex;
+				break;
+			// target process APP_START_LINEAR
+			case 0xBABE0002:
+				payload_dst[i] = 0x30000000 + FIRM_APPMEMALLOC - processLinearOffset[targetProcessIndex];
+				break;
+			// target process hook virtual address
+			case 0xBABE0003:
+				payload_dst[i] = processHookAddress[targetProcessIndex];
+				break;
+			// target process TID low
+			case 0xBABE0004:
+				payload_dst[i] = processHookTidLow[targetProcessIndex];
+				break;
+		}
+	}
+
 	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
 	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BUFADR, binsize);
 	svc_sleepThread(100000000);
