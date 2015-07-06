@@ -508,7 +508,7 @@ int main(u32 size, char** argv)
 	const u32 processHookTidLow[] =
 	{
 		CAMAPP_TIDLOW, // camera app
-		0x00020100, // dlplay app
+		DLPLAY_TIDLOW, // dlplay app
 	};
 
 	#ifdef LOADROPBIN

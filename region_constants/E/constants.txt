@@ -1,3 +1,4 @@
 [
 	("CAMAPP_TIDLOW", "0x00022400"),
+	("DLPLAY_TIDLOW", "0x00022100"),
 ]
