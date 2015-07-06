@@ -134,7 +134,8 @@ const memorymap_t camapp_map =
 	};
 
 const memorymap_t dlplay_map =
-	{4,
+	{
+		4,
 		0x00193000,
 		0x001A0000,
 		0x00013790 + 0x0002A538,
@@ -146,10 +147,25 @@ const memorymap_t dlplay_map =
 		}
 	};
 
+const memorymap_t actapp_map =
+	{
+		4,
+		0x00388000,
+		0x003F3000,
+		0x0001A2FC + 0x00061ED4,
+		{
+			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
+			{0x00100000 + 0x00300000 - 0x00008000, - 0x0000E000, 0x0000E000},
+			{0x00100000 + 0x00300000 + 0x0000E000 - 0x00008000, - 0x00010000, 0x00002000},
+			{0x00100000 + 0x00300000 + 0x0000E000 + 0x00002000 - 0x00008000, - 0x00070000, 0x00060000},
+		}
+	};
+
 const memorymap_t * const app_maps[] =
 	{
 		(memorymap_t*)&camapp_map, // camera app
-		(memorymap_t*)&dlplay_map, // camera app
+		(memorymap_t*)&dlplay_map, // dlplay app
+		(memorymap_t*)&actapp_map, // act app
 	};
 
 const u32 _targetProcessIndex = 0xBABE0001;

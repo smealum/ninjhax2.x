@@ -497,18 +497,21 @@ int main(u32 size, char** argv)
 	{
 		0x00300000, // camera app
 		0x000B0000, // dlplay app
+		0x00300000, // act app
 	};
 
 	const u32 processHookAddress[] =
 	{
 		0x00104be0, // camera app
 		0x00100D00, // dlplay app
+		0x00100160, // act app
 	};
 
 	const u32 processHookTidLow[] =
 	{
 		CAMAPP_TIDLOW, // camera app
 		DLPLAY_TIDLOW, // dlplay app
+		ACTAPP_TIDLOW, // act app
 	};
 
 	#ifdef LOADROPBIN
