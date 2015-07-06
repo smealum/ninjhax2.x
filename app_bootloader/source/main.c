@@ -13,9 +13,10 @@
 
 #include "../../build/constants.h"
 
-u8* _heap_base; // should be 0x30000000
+u8* _heap_base; // should be 0x08000000
 const u32 _heap_size = 0x01000000;
 
+u8* gspHeap;
 u32* gxCmdBuf;
 Handle gspEvent, gspSharedMemHandle;
 
@@ -34,6 +35,9 @@ void gspGpuInit()
 	svc_createEvent(&gspEvent, 0x0);
 	GSPGPU_RegisterInterruptRelayQueue(NULL, gspEvent, 0x1, &gspSharedMemHandle, &threadID);
 	svc_mapMemoryBlock(gspSharedMemHandle, 0x10002000, 0x3, 0x10000000);
+
+	//map GSP heap
+	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
 
 	//wait until we can write stuff to it
 	svc_waitSynchronization1(gspEvent, 0x55bcb0);
@@ -54,6 +58,9 @@ void gspGpuExit()
 	svc_closeHandle(gspEvent);
 	
 	gspExit();
+
+	//free GSP heap
+	svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
 }
 
 void doGspwn(u32* src, u32* dst, u32 size)
@@ -102,7 +109,8 @@ int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __ser
 extern service_list_t _serviceList;
 void start_execution(void);
 
-#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+// #define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x000B0000) // (dlplay)
 
 typedef struct {
 	u32 num;
@@ -122,20 +130,34 @@ const memorymap_t app_map =
 		}
 	};
 
+const memorymap_t dlplay_map =
+	{4,
+		{
+			{0x00100000, APP_START_LINEAR + 0x00008000, 0x000B0000 - 0x00008000},
+			{0x00100000 + 0x000B0000 - 0x00008000, APP_START_LINEAR - 0x000B4000, 0x00004000},
+			{0x00100000 + 0x000B4000 - 0x00008000, APP_START_LINEAR - 0x000DE000, 0x0002A000},
+			{0x00100000 + 0x000B4000 + 0x0002A000 - 0x00008000, APP_START_LINEAR - 0x000D2000, 0x00002000},
+		}
+	};
+
 void apply_map(const memorymap_t* m)
 {
 	if(!m)return;
 	int i;
 	for(i=0; i<m->num; i++)
 	{
-		doGspwn((u32*)&_heap_base[m->map[i].src], (u32*)m->map[i].dst, m->map[i].size);
+		doGspwn((u32*)&gspHeap[m->map[i].src], (u32*)m->map[i].dst, m->map[i].size);
 		svc_sleepThread(10*1000*1000);
 	}
 }
 
 void run3dsx(Handle executable, u32* argbuf)
 {
-	memset(&_heap_base[0x00100000], 0x00, 0x00410000);
+	initSrv();
+	gspGpuInit();
+
+	// not strictly necessary but w/e	
+	memset(&gspHeap[0x00100000], 0x00, 0x00410000);
 
 	// duplicate service list on the stack
 	u8 serviceBuffer[0x4+0xC*_serviceList.num];
@@ -148,17 +170,16 @@ void run3dsx(Handle executable, u32* argbuf)
 		svc_duplicateHandle(&serviceList->services[i].handle, _serviceList.services[i].handle);
 	}
 
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &_heap_base[0x00100000], serviceList, argbuf);
+	// Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x00429000, 0x00046680+0x00099430, &gspHeap[0x00100000], serviceList, argbuf);
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)0x001A0000, 0x00013790+0x0002A538, &gspHeap[0x00100000], serviceList, argbuf); // (dlplay)
 
 	FSFILE_Close(executable);
 
-	initSrv();
-	gspGpuInit();
-
-	GSPGPU_FlushDataCache(NULL, (u8*)&_heap_base[0x00100000], 0x00500000);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00500000);
 	svc_sleepThread(10*1000*1000);
 
-	apply_map(&app_map);
+	// apply_map(&app_map);
+	apply_map(&dlplay_map);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
@@ -171,7 +192,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "ns:s"))nssHandle=_serviceList.services[i].handle;
 	if(!nssHandle)*(vu32*)0xCAFE0001=0;
 
-	// use ns:s to launch/kill process to invalidate icache
+	// use ns:s to launch/kill process and invalidate icache in the process
 	NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
 	svc_sleepThread(200*1000*1000);
 	NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);

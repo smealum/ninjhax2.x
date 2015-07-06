@@ -30,9 +30,11 @@ Result _HBSPECIAL_GetHandle(Handle handle, u32 index, Handle* out)
 }
 
 
-u8* _heap_base; // should be 0x30000000
-const u32 _heap_size = 0x01000000;
+u8* gspHeap;
 u32* gxCmdBuf;
+
+u8* _heap_base; // should be 0x08000000
+const u32 _heap_size = 0x01000000;
 
 u8 currentBuffer;
 u8* topLeftFramebuffers[2];
@@ -44,6 +46,7 @@ void gspGpuInit()
 	gspInit();
 
 	GSPGPU_AcquireRight(NULL, 0x0);
+	GSPGPU_SetLcdForceBlack(NULL, 0x0);
 
 	//set subscreen to blue
 	u32 regData=0x01FF0000;
@@ -55,6 +58,9 @@ void gspGpuInit()
 	GSPGPU_RegisterInterruptRelayQueue(NULL, gspEvent, 0x1, &gspSharedMemHandle, &threadID);
 	svc_mapMemoryBlock(gspSharedMemHandle, 0x10002000, 0x3, 0x10000000);
 
+	//map GSP heap
+	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
+
 	//wait until we can write stuff to it
 	svc_waitSynchronization1(gspEvent, 0x55bcb0);
 
@@ -62,8 +68,8 @@ void gspGpuInit()
 	gxCmdBuf=(u32*)(0x10002000+0x800+threadID*0x200);
 
 	//grab main left screen framebuffer addresses
-	topLeftFramebuffers[0] = &_heap_base[0x00100000 + 0] - 0x10000000;
-	topLeftFramebuffers[1] = &_heap_base[0x00100000 + 0x46500] - 0x10000000;
+	topLeftFramebuffers[0] = &gspHeap[0] - 0x10000000;
+	topLeftFramebuffers[1] = &gspHeap[0x46500] - 0x10000000;
 	GSPGPU_WriteHWRegs(NULL, 0x400468, (u32*)&topLeftFramebuffers, 8);
 	topLeftFramebuffers[0] += 0x10000000;
 	topLeftFramebuffers[1] += 0x10000000;
@@ -83,6 +89,9 @@ void gspGpuExit()
 	svc_closeHandle(gspEvent);
 	
 	gspExit();
+
+	//free GSP heap
+	svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
 }
 
 void swapBuffers()
@@ -183,10 +192,36 @@ typedef struct {
 
 extern Handle aptLockHandle, aptuHandle;
 
+const char * const __apt_servicenames[3] = {"APT:U", "APT:S", "APT:A"};
+char *__apt_servicestr = NULL;
+
+static Result __apt_initservicehandle()
+{
+	Result ret=0;
+	u32 i;
+
+	if(__apt_servicestr)
+	{
+		return srv_getServiceHandle(NULL, &aptuHandle, __apt_servicestr);
+	}
+
+	for(i=0; i<3; i++)
+	{
+		ret = srv_getServiceHandle(NULL, &aptuHandle, (char*)__apt_servicenames[i]);
+		if(ret==0)
+		{
+			__apt_servicestr = (char*)__apt_servicenames[i];
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
 void _aptOpenSession()
 {
 	svc_waitSynchronization1(aptLockHandle, U64_MAX);
-	srv_getServiceHandle(NULL, &aptuHandle, "APT:A");
+	srv_getServiceHandle(NULL, &aptuHandle, __apt_servicestr);
 }
 
 void _aptCloseSession()
@@ -216,7 +251,8 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 	return cmdbuf[1];
 }
 
-#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+// #define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+#define APP_START_LINEAR (0x30000000 + FIRM_APPMEMALLOC - 0x00B0000) // (dlplay)
 
 void _main()
 {
@@ -231,7 +267,7 @@ void _main()
 	// resetConsole();
 	// print_str("hello\n");
 
-	srv_getServiceHandle(NULL, &aptuHandle, "APT:A");
+	__apt_initservicehandle();
 	ret=APT_GetLockHandle(&aptuHandle, 0x0, &aptLockHandle);
 	svc_closeHandle(aptuHandle);
 
@@ -285,14 +321,14 @@ void _main()
 	// print_hex(ret); print_str(", "); print_hex(nssHandle);
 
 	// copy bootloader code
-	memcpy(&_heap_base[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
+	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
 
 	// setup service list structure
-	*(nonflexible_service_list_t*)(&_heap_base[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
+	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
 
 	// flush and copy
-	GSPGPU_FlushDataCache(NULL, (u8*)&_heap_base[0x00100000], 0x00008000);
-	doGspwn((u32*)&_heap_base[0x00100000], (u32*)APP_START_LINEAR, 0x00008000);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
+	doGspwn((u32*)&gspHeap[0x00100000], (u32*)APP_START_LINEAR, 0x00008000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);

@@ -9,10 +9,10 @@ _start:
 	@ no need to initialize as OS does that already.
 	stmfd sp!, {r0, r1, r2, r3, r4}
 
-		@ LINEAR MEMOP_COMMIT
-		ldr r0, =0x10003
+		@ MEMOP COMMIT
+		ldr r0, =0x3
 		@ addr0
-		mov r1, #0
+		mov r1, #0x08000000
 		@ addr1
 		mov r2, #0
 		@ size
@@ -24,7 +24,8 @@ _start:
 		@ svcControlMemory
 		svc 0x01
 
-		@ save linear heap 
+		@ save heap address
+		mov r1, #0x08000000
 		ldr r2, =_heap_base
 		str r1, [r2]
 

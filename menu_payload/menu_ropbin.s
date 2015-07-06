@@ -17,8 +17,8 @@ MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle 
 MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
 
-APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
-; APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00B0000) ; (dlplay)
+; APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00300000)
+APP_START_LINEAR equ (0x30000000 + FIRM_APPMEMALLOC - 0x00B0000) ; (dlplay)
 
 GPU_REG_BASE equ 0x1EB00000
 
@@ -230,8 +230,8 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			apt_close_session 0
 
 		; launch app that we want to takeover
-			nss_launch_title CAMAPP_TIDLOW, 0x00040010
-			; nss_launch_title 0x00020100, 0x00040010 ; dlplay
+			; nss_launch_title CAMAPP_TIDLOW, 0x00040010
+			nss_launch_title 0x00020100, 0x00040010 ; dlplay
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
@@ -271,8 +271,8 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	gxCommandAppHook:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appHook - object ; source address
-		.word APP_START_LINEAR + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
-		; .word APP_START_LINEAR + 0x00100D00 - 0x00100000 ; destination address (PA for 0x00104be0) (dlplay)
+		; .word APP_START_LINEAR + 0x00104be0 - 0x00100000 ; destination address (PA for 0x00104be0)
+		.word APP_START_LINEAR + 0x00100D00 - 0x00100000 ; destination address (PA for 0x00104be0) (dlplay)
 		.word 0x00000200 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -282,7 +282,6 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	gxCommandAppCode:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
-		; .word APP_START_LINEAR + 0x00200000 - 0x00100000 ; destination address (PA for 0x00200000)
 		.word APP_START_LINEAR + 0x00170000 - 0x00100000 ; destination address (PA for 0x00170000) (dlplay)
 		.word 0x00010000 ; size
 		.word 0xFFFFFFFF ; dim in
@@ -311,7 +310,6 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			ldr r0, =500*1000*1000 ; 1000ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
-			; ldr r2, =0x00100000 + 0x00100000
 			ldr r2, =0x00170000
 			blx r2
 			
