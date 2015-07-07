@@ -81,8 +81,24 @@ _start:
 .global start_execution
 .type start_execution, %function
 start_execution:
-	ldr lr, =_runHbmenu
+	ldr lr, =_runHbmenuVector
 	ldr pc, =0x00100000+0x000008000
+
+.global svc_queryMemory
+.type svc_queryMemory, %function
+svc_queryMemory:
+	push {r0, r1, r4-r6}
+	svc  0x02
+	ldr  r6, [sp]
+	str  r1, [r6]
+	str  r2, [r6, #4]
+	str  r3, [r6, #8]
+	str  r4, [r6, #0xc]
+	ldr  r6, [sp, #4]
+	str  r5, [r6]
+	add  sp, sp, #8
+	pop  {r4-r6}
+	bx   lr
 
 .global svc_duplicateHandle
 .type svc_duplicateHandle, %function

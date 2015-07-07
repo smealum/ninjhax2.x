@@ -60,15 +60,18 @@ int _fseek(Handle file, u64 offset, int origin)
 
 void* _getActualAddress(void* addr, void* baseAddr, void* outputBaseAddr)
 {
-	return addr - baseAddr + outputBaseAddr;
+	if(addr < 0x14000000) return addr - baseAddr + outputBaseAddr;
+	else return addr;
 }
 
 #define getActualAddress(addr) _getActualAddress(addr, baseAddr, outputBaseAddr)
 
-int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* outputBaseAddr, service_list_t* __service_ptr, u32* argbuf)
+int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_list_t* __service_ptr, u32* argbuf)
 {
 	u32 i, j, k, m;
 	// u32 endAddr = 0x00100000+CN_NEWTOTALPAGES*0x1000;
+
+	u32 heap_size = 24*1024*1024;
 
 	SEC_ASSERT(baseAddr >= (void*)0x00100000);
 	SEC_ASSERT((((u32) baseAddr) & 0xFFF) == 0); // page alignment
@@ -90,9 +93,8 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 	d.segSizes[2] = (hdr.dataSegSize+0xFFF) &~ 0xFFF;
 	SEC_ASSERT(d.segSizes[2] >= hdr.dataSegSize); // int overflow
 
-	u32 pagesRequired = d.segSizes[0]/0x1000 + d.segSizes[1]/0x1000 + d.segSizes[2]/0x1000; // XXX: int overflow
-
-	if(pagesRequired > CN_TOTAL3DSXPAGES)return -13;
+	// u32 pagesRequired = d.segSizes[0]/0x1000 + d.segSizes[1]/0x1000 + d.segSizes[2]/0x1000; // XXX: int overflow
+	// if(pagesRequired > CN_TOTAL3DSXPAGES)return -13;
 
 	u32 offsets[2] = { d.segSizes[0], d.segSizes[0] + d.segSizes[1] };
 	d.segPtrs[0] = baseAddr;
@@ -100,9 +102,18 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 	SEC_ASSERT((u32)d.segPtrs[1] >= d.segSizes[0]); // int overflow
 	d.segPtrs[2] = (char*)d.segPtrs[1] + d.segSizes[1];
 	SEC_ASSERT((u32)d.segPtrs[2] >= d.segSizes[1]); // int overflow
+
+	if(hdr.dataSegSize > dataSize)
+	{
+		// not enough room for data ? no problem dawg
+		dataSize = d.segSizes[2];
+		svc_controlMemory(&dataAddr, 0x0, 0x0, dataSize, 0x10003, 0x3);
+		heap_size -= dataSize;
+	}
 	
 	if(d.segPtrs[2] < dataAddr)d.segPtrs[2] = dataAddr;
-	// TODO : check if dataSize big enough and do dynalloc if not
+
+	void* outputBaseAddr = getOutputBaseAddr();
 
 	// SEC_ASSERT((u32)d.segPtrs[2] < endAddr); // within user memory
 
@@ -196,7 +207,7 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, void* ou
 		// prmStruct[5] <-- __system_arglist (default: NULL)
 
 		prmStruct[2] = 0x300;
-		prmStruct[3] = 24*1024*1024;
+		prmStruct[3] = heap_size;
 		prmStruct[4] = 32*1024*1024;
 		prmStruct[5] = argbuf;
 		prmStruct[6] = RUNFLAG_APTWORKAROUND; //__system_runflags

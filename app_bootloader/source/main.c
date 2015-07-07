@@ -36,14 +36,19 @@ void gspGpuInit()
 	GSPGPU_RegisterInterruptRelayQueue(NULL, gspEvent, 0x1, &gspSharedMemHandle, &threadID);
 	svc_mapMemoryBlock(gspSharedMemHandle, 0x10002000, 0x3, 0x10000000);
 
-	//map GSP heap
-	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
-
 	//wait until we can write stuff to it
 	svc_waitSynchronization1(gspEvent, 0x55bcb0);
 
 	//GSP shared mem : 0x2779F000
 	gxCmdBuf=(u32*)(0x10002000+0x800+threadID*0x200);
+}
+
+void* getOutputBaseAddr()
+{
+	//map GSP heap
+	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
+
+	return &gspHeap[0x00100000];
 }
 
 void gspGpuExit()
@@ -103,6 +108,18 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 	return cmdbuf[1];
 }
 
+typedef struct {
+    u32 base_addr;
+    u32 size;
+    u32 perm;
+    u32 state;
+} MemInfo;
+
+typedef struct {
+    u32 flags;
+} PageInfo;
+
+Result svc_queryMemory(MemInfo* info, PageInfo* out, u32 addr);
 Result svc_duplicateHandle(Handle* output, Handle input);
 Result svcControlProcessMemory(Handle KProcess, unsigned int Addr0, unsigned int Addr1, unsigned int Size, unsigned int Type, unsigned int Permissions);
 int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __service_ptr);
@@ -187,7 +204,7 @@ void setup3dsx(Handle executable, memorymap_t* m, service_list_t* serviceList, u
 {
 	if(!m)return;
 
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)m->data_address, m->data_size, &gspHeap[0x00100000], serviceList, argbuf);
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)m->data_address, m->data_size, serviceList, argbuf);
 
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00500000);
 	svc_sleepThread(10*1000*1000);
@@ -198,13 +215,26 @@ void setup3dsx(Handle executable, memorymap_t* m, service_list_t* serviceList, u
 	svc_sleepThread(200*1000*1000);
 }
 
+void freeDataPages(u32 address)
+{
+	MemInfo minfo;
+	PageInfo pinfo;
+	Result ret = svc_queryMemory(&minfo, &pinfo, address);
+	if(!ret)
+	{
+		u32 tmp;
+		svc_controlMemory(&tmp, minfo.base_addr, 0x0, minfo.size, 0x1, 0x0);
+	}
+}
+
 void run3dsx(Handle executable, u32* argbuf)
 {
 	initSrv();
 	gspGpuInit();
 
-	// not strictly necessary but w/e
-	memset(&gspHeap[0x00100000], 0x00, 0x00410000);
+	// free extra data pages if any
+	freeDataPages(0x14000000);
+	freeDataPages(0x30000000);
 
 	// duplicate service list on the stack
 	u8 serviceBuffer[0x4+0xC*_serviceList.num];
