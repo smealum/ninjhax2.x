@@ -195,8 +195,21 @@ void apply_map(memorymap_t* m)
 	vu32* APP_START_LINEAR = &_APP_START_LINEAR;
 	for(i=0; i<m->num; i++)
 	{
-		doGspwn((u32*)&gspHeap[m->map[i].src], (u32*)(*APP_START_LINEAR + m->map[i].dst), m->map[i].size);
-		svc_sleepThread(10*1000*1000);
+		int remaining_size = m->map[i].size;
+		u32 offset = 0;
+		while(remaining_size > 0)
+		{
+			int size = remaining_size;
+			if(size > 0x00080000)size = 0x00080000;
+
+			GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[m->map[i].src + offset], size);
+			svc_sleepThread(10*1000*1000);
+			doGspwn((u32*)&gspHeap[m->map[i].src + offset], (u32*)(*APP_START_LINEAR + m->map[i].dst + offset), size);
+			svc_sleepThread(10*1000*1000);
+
+			remaining_size -= size;
+			offset += size;
+		}
 	}
 }
 
@@ -206,13 +219,10 @@ void setup3dsx(Handle executable, memorymap_t* m, service_list_t* serviceList, u
 
 	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)m->data_address, m->data_size, serviceList, argbuf);
 
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00500000);
-	svc_sleepThread(10*1000*1000);
-
 	apply_map(m);
 
-	// sleep for 200ms
-	svc_sleepThread(200*1000*1000);
+	// sleep for 50ms
+	svc_sleepThread(50*1000*1000);
 }
 
 void freeDataPages(u32 address)
