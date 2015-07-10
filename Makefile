@@ -82,17 +82,9 @@ cn_save_initial_loader/cn_save_initial_loader.bin:
 	@cd cn_save_initial_loader && make
 
 
-build/sns_code.bin: sns_code/sns_code.bin
-	@cp sns_code/sns_code.bin build
-sns_code/sns_code.bin:
-	@cd sns_code && make
-
-
 build/app_code.bin: app_code/app_code.bin
 	@cp app_code/app_code.bin build
-app_code/app_code.bin: build/app_bootloader.bin
-	@mkdir -p app_code/data
-	@cp build/app_bootloader.bin app_code/data/
+app_code/app_code.bin:
 	@cd app_code && make
 
 
@@ -117,8 +109,8 @@ build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_r
 	@cp menu_payload/menu_payload_regionfree.bin build/
 	@cp menu_payload/menu_payload_loadropbin.bin build/
 	$(ROPBIN_CMD1)
-menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin: build/sns_code.bin build/app_code.bin
-	@cp build/sns_code.bin menu_payload/
+menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin: build/app_code.bin build/app_bootloader.bin
+	@cp build/app_bootloader.bin menu_payload/
 	@cp build/app_code.bin menu_payload/
 	@cd menu_payload && make
 
@@ -135,5 +127,4 @@ clean:
 	@cd menu_payload && make clean
 	@cd app_bootloader && make clean
 	@cd app_code && make clean
-	@cd sns_code && make clean
 	@echo "all cleaned up !"

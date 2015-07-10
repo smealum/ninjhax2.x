@@ -3,6 +3,12 @@
 .align 4
 .global _init
 .global _start
+.global _bootloaderAddress
+
+b _start
+
+_bootloaderAddress:
+	.word 0x00000000
 
 _start:
 	@ allocate bss/heap

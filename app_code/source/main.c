@@ -9,8 +9,6 @@
 #include <ctr/FS.h>
 #include "text.h"
 
-#include "app_bootloader_bin.h"
-
 #include "../../build/constants.h"
 
 char console_buffer[4096];
@@ -253,6 +251,8 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 
 #define APP_START_LINEAR 0xBABE0002
 
+extern u32* _bootloaderAddress;
+
 void _main()
 {
 	Result ret;
@@ -320,14 +320,18 @@ void _main()
 	// print_hex(ret); print_str(", "); print_hex(nssHandle);
 
 	// copy bootloader code
-	memcpy(&gspHeap[0x00100000], app_bootloader_bin, app_bootloader_bin_size);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
+	doGspwn(_bootloaderAddress, (u32*)&gspHeap[0x00100000], 0x00005000);
+
+	// sleep for 200ms
+	svc_sleepThread(200*1000*1000);
 
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
 
 	// flush and copy
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00008000);
-	doGspwn((u32*)&gspHeap[0x00100000], (u32*)APP_START_LINEAR, 0x00008000);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
+	doGspwn((u32*)&gspHeap[0x00100000], (u32*)APP_START_LINEAR, 0x00005000);
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
