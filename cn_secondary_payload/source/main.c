@@ -16,6 +16,7 @@
 #endif
 
 #include "../../build/constants.h"
+#include "../../app_targets/app_targets.h"
 
 #define TOPFBADR1 ((u8*)CN_TOPFBADR1)
 #define TOPFBADR2 ((u8*)CN_TOPFBADR2)
@@ -502,61 +503,23 @@ int main(u32 size, char** argv)
 
 	int targetProcessIndex = 2;
 
-	const u32 processLinearOffset[] =
-	{
-		0x00300000, // camera app
-		0x000B0000, // dlplay app
-		0x00300000, // act app
-	};
-
-	const u32 processHookAddress[] =
-	{
-		0x00104be0, // camera app
-		0x00100D00, // dlplay app
-		0x00100160, // act app
-	};
-
-	const u32 processHookTidLow[] =
-	{
-		CAMAPP_TIDLOW, // camera app
-		DLPLAY_TIDLOW, // dlplay app
-		ACTAPP_TIDLOW, // act app
-	};
-
 	#ifdef LOADROPBIN
-	u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
+	// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
+	u32 binsize = 0x8000; // fuck modularity
 
 	memcpy((u32*)0x14100000, (u32*)menu_ropbin_bin, menu_ropbin_bin_size); // Copy menu_ropbin_bin into homemenu linearmem.
 
-	//payload has a bunch of aliases to handle multiple target processes "gracefully"
-	int i;
-	u32* payload_dst = (u32*)0x14100000;
-	for(i=0; i<menu_ropbin_bin_size/4; i++)
-	{
-		switch(payload_dst[i])
-		{
-			// target process index
-			case 0xBABE0001:
-				payload_dst[i] = targetProcessIndex;
-				break;
-			// target process APP_START_LINEAR
-			case 0xBABE0002:
-				payload_dst[i] = 0x30000000 + FIRM_APPMEMALLOC - processLinearOffset[targetProcessIndex];
-				break;
-			// target process hook virtual address
-			case 0xBABE0003:
-				payload_dst[i] = processHookAddress[targetProcessIndex];
-				break;
-			// target process TID low
-			case 0xBABE0004:
-				payload_dst[i] = processHookTidLow[targetProcessIndex];
-				break;
-		}
-	}
+	// copy un-processed ropbin to backup location
+	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
+	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BKP_BUFADR, binsize);
+	svc_sleepThread(100*1000*1000);
+
+	patchPayload((u32*)0x14100000, targetProcessIndex);
 
 	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
 	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BUFADR, binsize);
-	svc_sleepThread(100000000);
+	svc_sleepThread(100*1000*1000);
+
 	#endif
 
 	int cnt = 0;

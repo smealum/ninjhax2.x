@@ -8,7 +8,8 @@ _run3dsxVector:
 	b _run3dsx
 _runHbmenuVector:
 	b _runHbmenu
-bx lr
+_changeProcessVector:
+	b _changeProcess
 bx lr
 bx lr
 bx lr
@@ -24,6 +25,12 @@ _run3dsx:
 
 _runHbmenu:
 	ldr r4, =runHbmenu
+	mov r1, #0
+	mov r2, #0
+	b _start
+
+_changeProcess:
+	ldr r4, =changeProcess
 	mov r1, #0
 	mov r2, #0
 	b _start

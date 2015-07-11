@@ -12,6 +12,7 @@
 #include "3dsx.h"
 
 #include "../../build/constants.h"
+#include "../../app_targets/app_targets.h"
 
 u8* _heap_base; // should be 0x08000000
 const u32 _heap_size = 0x01000000;
@@ -126,65 +127,6 @@ int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __ser
 extern service_list_t _serviceList;
 void start_execution(void);
 
-typedef struct {
-	u32 num;
-	u32 text_end;
-	u32 data_address;
-	u32 data_size;
-	struct {
-		u32 src, dst, size;
-	} map[];
-} memorymap_t;
-
-const memorymap_t camapp_map =
-	{
-		4,
-		0x00347000,
-		0x00429000,
-		0x00046680 + 0x00099430,
-		{
-			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
-			{0x00100000 + 0x00300000 - 0x00008000, - 0x00070000, 0x00070000},
-			{0x00100000 + 0x00300000 + 0x00070000 - 0x00008000, - 0x00100000, 0x00090000},
-			{0x00100000 + 0x00300000 + 0x00070000 + 0x00090000 - 0x00008000, - 0x00109000, 0x00009000},
-		}
-	};
-
-const memorymap_t dlplay_map =
-	{
-		4,
-		0x00193000,
-		0x001A0000,
-		0x00013790 + 0x0002A538,
-		{
-			{0x00100000, 0x00008000, 0x000B0000 - 0x00008000},
-			{0x00100000 + 0x000B0000 - 0x00008000, - 0x000B4000, 0x00004000},
-			{0x00100000 + 0x000B4000 - 0x00008000, - 0x000DE000, 0x0002A000},
-			{0x00100000 + 0x000B4000 + 0x0002A000 - 0x00008000, - 0x000D2000, 0x00002000},
-		}
-	};
-
-const memorymap_t actapp_map =
-	{
-		4,
-		0x00388000,
-		0x003F3000,
-		0x0001A2FC + 0x00061ED4,
-		{
-			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
-			{0x00100000 + 0x00300000 - 0x00008000, - 0x0000E000, 0x0000E000},
-			{0x00100000 + 0x00300000 + 0x0000E000 - 0x00008000, - 0x00010000, 0x00002000},
-			{0x00100000 + 0x00300000 + 0x0000E000 + 0x00002000 - 0x00008000, - 0x00070000, 0x00060000},
-		}
-	};
-
-const memorymap_t * const app_maps[] =
-	{
-		(memorymap_t*)&camapp_map, // camera app
-		(memorymap_t*)&dlplay_map, // dlplay app
-		(memorymap_t*)&actapp_map, // act app
-	};
-
 const u32 _targetProcessIndex = 0xBABE0001;
 const u32 _APP_START_LINEAR = 0xBABE0002;
 
@@ -245,6 +187,167 @@ void invalidate_icache()
 	svc_backdoor((void*)&_invalidate_icache);
 }
 
+Handle _aptLockHandle, _aptuHandle;
+
+const char * const __apt_servicenames[3] = {"APT:U", "APT:S", "APT:A"};
+char *__apt_servicestr = NULL;
+
+static Result __apt_initservicehandle()
+{
+	Result ret=0;
+	u32 i;
+
+	if(__apt_servicestr)
+	{
+		return srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
+	}
+
+	for(i=0; i<3; i++)
+	{
+		ret = srv_getServiceHandle(NULL, &_aptuHandle, (char*)__apt_servicenames[i]);
+		if(ret==0)
+		{
+			__apt_servicestr = (char*)__apt_servicenames[i];
+			return ret;
+		}
+	}
+
+	*(u32*)0xdeadbabe = ret;
+
+	return ret;
+}
+
+void _aptOpenSession()
+{
+	svc_waitSynchronization1(_aptLockHandle, U64_MAX);
+	srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
+}
+
+void _aptCloseSession()
+{
+	svc_closeHandle(_aptuHandle);
+	svc_releaseMutex(_aptLockHandle);
+}
+
+Result _APT_GetLockHandle(Handle* handle, u16 flags, Handle* lockHandle)
+{
+	if(!handle)handle=&_aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x10040; //request header code
+	cmdbuf[1]=flags;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+	if(lockHandle)*lockHandle=cmdbuf[5];
+	
+	return cmdbuf[1];
+}
+
+Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, u32 size2, u8* buf2)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x4B00C2; //request header code
+	cmdbuf[1]=a;
+	cmdbuf[2]=size1;
+	cmdbuf[3]=size2;
+	cmdbuf[4]=(size1<<14)|0x402;
+	cmdbuf[5]=(u32)buf1;
+	
+	cmdbuf[0+0x100/4]=(size2<<14)|2;
+	cmdbuf[1+0x100/4]=(u32)buf2;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(out)*out=cmdbuf[2];
+
+	return cmdbuf[1];
+}
+
+Result _APT_Finalize(Handle* handle, u8 a)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x40040; //request header code
+	cmdbuf[1]=a;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_PrepareToCloseApplication(Handle* handle, u8 a)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x220040; //request header code
+	cmdbuf[1]=a;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_CloseApplication(Handle* handle, u32 a, u32 b, u32 c)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x270044; //request header code
+	cmdbuf[1]=a;
+	cmdbuf[2]=0x0;
+	cmdbuf[3]=b;
+	cmdbuf[4]=(a<<14)|2;
+	cmdbuf[5]=c;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+void _aptExit()
+{
+	__apt_initservicehandle();
+	Result ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
+	svc_closeHandle(_aptuHandle);
+
+	u8 buf1[4], buf2[4];
+
+	buf1[0]=0x02; buf1[1]=0x00; buf1[2]=0x00; buf1[3]=0x00;
+	_aptOpenSession();
+	_APT_AppletUtility(&_aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
+	_aptCloseSession();
+	_aptOpenSession();
+	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_aptCloseSession();
+
+	_aptOpenSession();
+	_APT_AppletUtility(&_aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
+	_aptCloseSession();
+	_aptOpenSession();
+	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_aptCloseSession();
+	_aptOpenSession();
+	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_aptCloseSession();
+
+
+	_aptOpenSession();
+	_APT_Finalize(&_aptuHandle, 0x300);
+	_aptCloseSession();
+
+	_aptOpenSession();
+	_APT_PrepareToCloseApplication(&_aptuHandle, 0x1);
+	_aptCloseSession();
+	
+	_aptOpenSession();
+	_APT_CloseApplication(&_aptuHandle, 0x0, 0x0, 0x0);
+	_aptCloseSession();
+
+	svc_closeHandle(_aptLockHandle);
+}
+
+
 void run3dsx(Handle executable, u32* argbuf)
 {
 	initSrv();
@@ -280,11 +383,11 @@ void run3dsx(Handle executable, u32* argbuf)
 	// use ns:s to launch/kill process and invalidate icache in the process
 	// Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
 	Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
-	if(ret)*(vu32*)0xCAFE0002=ret;
+	if(ret)*(u32*)0xCAFE0002=ret;
 	svc_sleepThread(200*1000*1000);
 	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
 	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
-	if(ret)*(vu32*)0xCAFE0003=ret;
+	if(ret)*(u32*)0xCAFE0003=ret;
 
 	// invalidate_icache();
 
@@ -300,7 +403,7 @@ void runHbmenu()
 	int i;
 	Handle fsuHandle = 0x0;
 	for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "fs:USER"))fsuHandle=_serviceList.services[i].handle;
-	if(!fsuHandle)*(vu32*)0xCAFE0002=0;
+	if(!fsuHandle)*(u32*)0xCAFE0002=0;
 
 	Handle fileHandle;
 	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
@@ -309,4 +412,65 @@ void runHbmenu()
 	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 
 	run3dsx(fileHandle, NULL);
+}
+
+void changeProcess()
+{
+	initSrv();
+	gspGpuInit();
+
+	// free extra data pages if any
+	freeDataPages(0x14000000);
+	freeDataPages(0x30000000);
+
+	// allocate gsp heap
+	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
+
+	// grab un-processed backup ropbin
+	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], 0x8000);
+	doGspwn((u32*)MENU_LOADEDROP_BKP_BUFADR, (u32*)&gspHeap[0x00100000], 0x8000);
+	svc_sleepThread(100*1000*1000);
+
+	// patch it
+	int targetProcessIndex = 0;
+	patchPayload((u32*)&gspHeap[0x00100000], targetProcessIndex);
+
+	// copy it to destination
+	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], 0x8000);
+	doGspwn((u32*)&gspHeap[0x00100000], (u32*)MENU_LOADEDROP_BUFADR, 0x8000);
+	svc_sleepThread(100*1000*1000);
+
+	// grab waitLoop stub
+	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00200000], 0x100);
+	doGspwn((u32*)(MENU_LOADEDROP_BUFADR-0x100), (u32*)&gspHeap[0x00200000], 0x100);
+	svc_sleepThread(20*1000*1000);
+
+	// patch it
+	u32* patchArea = (u32*)&gspHeap[0x00200000];
+	for(int i=0; i<0x100/4; i++)
+	{
+		if(patchArea[i] == 0xBABEBAD0)
+		{
+			patchArea[i-1] = patchArea[i+1];
+			break;
+		}
+	}
+
+	// copy it back
+	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00200000], 0x100);
+	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_LOADEDROP_BUFADR-0x100), 0x100);
+	svc_sleepThread(20*1000*1000);
+
+	//exit to menu
+	_aptExit();
+
+	exitSrv();
+
+	// do that at the end so that release right is one of the last things to happen
+	gspGpuExit();
+
+	// free heap (has to be the very last thing before jumping to app as contains bss)
+	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
+
+	svc_exitProcess();
 }

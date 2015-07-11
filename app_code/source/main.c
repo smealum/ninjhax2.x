@@ -43,7 +43,8 @@ void gspGpuInit()
 {
 	gspInit();
 
-	GSPGPU_AcquireRight(NULL, 0x0);
+	Result ret = GSPGPU_AcquireRight(NULL, 0x0);
+	if(ret)*(u32*)0xBADBABE0 = ret;
 	GSPGPU_SetLcdForceBlack(NULL, 0x0);
 
 	//set subscreen to blue
@@ -101,78 +102,78 @@ void swapBuffers()
 	GSPGPU_WriteHWRegs(NULL, 0x400478, (u32*)&regData, 4);
 }
 
-// const u8 hexTable[]=
-// {
-// 	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-// };
+const u8 hexTable[]=
+{
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+};
 
-// void hex2str(char* out, u32 val)
-// {
-// 	int i;
-// 	for(i=0;i<8;i++){out[7-i]=hexTable[val&0xf];val>>=4;}
-// 	out[8]=0x00;
-// }
+void hex2str(char* out, u32 val)
+{
+	int i;
+	for(i=0;i<8;i++){out[7-i]=hexTable[val&0xf];val>>=4;}
+	out[8]=0x00;
+}
 
-// void renderString(char* str, int x, int y)
-// {
-// 	drawString(topLeftFramebuffers[0],str,x,y);
-// 	drawString(topLeftFramebuffers[1],str,x,y);
-// 	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
-// 	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
-// }
+void renderString(char* str, int x, int y)
+{
+	drawString(topLeftFramebuffers[0],str,x,y);
+	drawString(topLeftFramebuffers[1],str,x,y);
+	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
+	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
+}
 
-// void centerString(char* str, int y)
-// {
-// 	int x=200-(strlen(str)*4);
-// 	drawString(topLeftFramebuffers[0],str,x,y);
-// 	drawString(topLeftFramebuffers[1],str,x,y);
-// 	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
-// 	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
-// }
+void centerString(char* str, int y)
+{
+	int x=200-(strlen(str)*4);
+	drawString(topLeftFramebuffers[0],str,x,y);
+	drawString(topLeftFramebuffers[1],str,x,y);
+	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
+	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
+}
 
-// void drawHex(u32 val, int x, int y)
-// {
-// 	char str[9];
+void drawHex(u32 val, int x, int y)
+{
+	char str[9];
 
-// 	hex2str(str,val);
-// 	renderString(str,x,y);
-// }
+	hex2str(str,val);
+	renderString(str,x,y);
+}
 
-// void clearScreen(u8 shade)
-// {
-// 	memset(topLeftFramebuffers[0], shade, 240*400*3);
-// 	memset(topLeftFramebuffers[1], shade, 240*400*3);
-// 	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
-// 	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
-// }
+void clearScreen(u8 shade)
+{
+	memset(topLeftFramebuffers[0], shade, 240*400*3);
+	memset(topLeftFramebuffers[1], shade, 240*400*3);
+	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
+	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
+}
 
-// void drawTitleScreen(char* str)
-// {
-// 	clearScreen(0x00);
-// 	centerString("snshax",0);
-// 	centerString(BUILDTIME,10);
-// 	renderString(str, 0, 40);
-// }
+void drawTitleScreen(char* str)
+{
+	clearScreen(0x00);
+	centerString("debug",0);
+	centerString(BUILDTIME,10);
+	renderString(str, 0, 40);
+}
 
-// void resetConsole(void)
-// {
-// 	console_buffer[0] = 0x00;
-// 	drawTitleScreen(console_buffer);
-// }
+void resetConsole(void)
+{
+	console_buffer[0] = 0x00;
+	drawTitleScreen(console_buffer);
+}
 
-// void print_str(char* str)
-// {
-// 	strcpy(&console_buffer[strlen(console_buffer)], str);
-// 	drawTitleScreen(console_buffer);
-// }
+void print_str(char* str)
+{
+	strcpy(&console_buffer[strlen(console_buffer)], str);
+	drawTitleScreen(console_buffer);
+}
 
-// void print_hex(u32 val)
-// {
-// 	char str[9];
+void print_hex(u32 val)
+{
+	char str[9];
 
-// 	hex2str(str,val);
-// 	print_str(str);
-// }
+	hex2str(str,val);
+	print_str(str);
+}
 
 void doGspwn(u32* src, u32* dst, u32 size)
 {
@@ -278,23 +279,23 @@ void _main()
 
 	gspGpuInit();
 
-	// resetConsole();
-	// print_str("hello\n");
+	resetConsole();
+	print_str("hello\n");
 
 	__apt_initservicehandle();
 	ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
 	svc_closeHandle(_aptuHandle);
 
-	// print_str("\ngot APT:A lock handle ?\n");
-	// print_hex(ret); print_str(", "); print_hex(_aptuHandle); print_str(", "); print_hex(_aptLockHandle);
+	print_str("\ngot APT:A lock handle ?\n");
+	print_hex(ret); print_str(", "); print_hex(_aptuHandle); print_str(", "); print_hex(_aptLockHandle);
 
 	u32 outbuf[2];
 	_aptOpenSession();
 	ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &fsuHandle);
 	_aptCloseSession();
 
-	// print_str("\ngot apt parameter ?\n");
-	// print_hex(ret); print_str(", "); print_hex(fsuHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+	print_str("\ngot apt parameter ?\n");
+	print_hex(ret); print_str(", "); print_hex(fsuHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
 
 	ret = 1;
 	int cnt = 0;
@@ -306,8 +307,8 @@ void _main()
 		cnt++;
 	}
 
-	// print_str("\ngot apt parameter ?\n");
-	// print_hex(cnt); print_str(", "); print_hex(nssHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+	print_str("\ngot apt parameter ?\n");
+	print_hex(cnt); print_str(", "); print_hex(nssHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
 
 	ret = 1;
 	cnt = 0;
@@ -319,8 +320,21 @@ void _main()
 		cnt++;
 	}
 
-	// print_str("\ngot apt parameter ?\n");
-	// print_hex(cnt); print_str(", "); print_hex(nssHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+	print_str("\ngot apt parameter ?\n");
+	print_hex(cnt); print_str(", "); print_hex(irrstHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+
+	ret = 1;
+	cnt = 0;
+	while(ret)
+	{
+		_aptOpenSession();
+		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &fsuHandle);
+		_aptCloseSession();
+		cnt++;
+	}
+
+	print_str("\ngot apt parameter ?\n");
+	print_hex(cnt); print_str(", "); print_hex(fsuHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
@@ -353,6 +367,8 @@ void _main()
 
 	gspGpuExit();
 	exitSrv();
+
+	svc_closeHandle(_aptLockHandle);
 
 	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);

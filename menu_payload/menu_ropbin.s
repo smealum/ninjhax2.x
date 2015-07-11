@@ -14,7 +14,6 @@ MENU_CONNECTTOPORT equ ROP_MENU_CONNECTTOPORT
 MENU_NSS_LAUNCHTITLE equ ROP_MENU_NSS_LAUNCHTITLE ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
 MENU_GSPGPU_RELEASERIGHT equ ROP_MENU_GSPGPU_RELEASERIGHT ; r0 : handle addr
 MENU_GSPGPU_ACQUIRERIGHT equ ROP_MENU_GSPGPU_ACQUIRERIGHT ; r0 : handle addr
-MENU_GSPGPU_INVALIDATEDATACACHE equ ROP_MENU_GSPGPU_INVALIDATEDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
 MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
 MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
@@ -191,6 +190,14 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_GSPGPU_HANDLE ; r0 (gsp handle ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word 0xFFFF8001 ; r1 (process handle)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word 0x00000000 ; r2 (flags)
+		.word 0xDEADBABE ; r2 (garbage)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
 	.word MENU_GSPGPU_ACQUIRERIGHT
 .endmacro
 
@@ -199,21 +206,6 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_GSPGPU_HANDLE ; r0 (gsp handle ptr)
 	.word MENU_GSPGPU_RELEASERIGHT
-.endmacro
-
-.macro invalidate_dcache,addr,size
-	set_lr MENU_NOP
-	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
-		.word MENU_GSPGPU_HANDLE ; r0 (handle ptr)
-	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
-		.word 0xFFFF8001 ; r1 (process handle)
-	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
-		.word addr ; r2 (addr)
-		.word size ; r3 (src)
-		.word 0xDEADBABE ; r4 (garbage)
-		.word 0xDEADBABE ; r5 (garbage)
-		.word 0xDEADBABE ; r6 (garbage)
-	.word MENU_GSPGPU_INVALIDATEDATACACHE
 .endmacro
 
 .macro flush_dcache,addr,size
@@ -337,6 +329,13 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
 			apt_close_session 0
 
+			; wait_for_parameter 0x101
+			sleep 400*1000*1000, 0x00000000
+
+			apt_open_session 0
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_FS_HANDLE
+			apt_close_session 0
+
 		; memcpy wait loop to destination
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start)
 
@@ -403,15 +402,14 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 				.word 0xBABEBAD0 ; marker
 				.word ROP_MENU_POP_R4R5PC ; rop gadget to replace pivot with
 			gsp_acquire_right
-			invalidate_dcache MENU_OBJECT_LOC, 0x003C0000
+			; todo : add cache invalidation for ropbin
+			sleep 500*1000*1000, 0x00000000
 	waitLoop_end:
 
 
 	.align 0x20
 	appHook:
 		.arm
-			nop
-			nop
 			ldr r0, =500*1000*1000 ; 1000ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
