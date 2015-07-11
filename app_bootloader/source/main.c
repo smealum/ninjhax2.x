@@ -278,10 +278,12 @@ void run3dsx(Handle executable, u32* argbuf)
 	if(!nssHandle)*(vu32*)0xCAFE0001=0;
 
 	// use ns:s to launch/kill process and invalidate icache in the process
-	Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
+	// Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
+	Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
 	if(ret)*(vu32*)0xCAFE0002=ret;
 	svc_sleepThread(200*1000*1000);
-	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
+	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
+	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
 	if(ret)*(vu32*)0xCAFE0003=ret;
 
 	// invalidate_icache();
@@ -303,6 +305,7 @@ void runHbmenu()
 	Handle fileHandle;
 	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
 	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
+	// FS_path filePath = (FS_path){PATH_CHAR, 27, (u8*)"/3ds/hello-world/boot.3dsx"};
 	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 
 	run3dsx(fileHandle, NULL);

@@ -188,7 +188,7 @@ typedef struct {
 	} services[3];
 } nonflexible_service_list_t;
 
-extern Handle aptLockHandle, aptuHandle;
+Handle _aptLockHandle, _aptuHandle;
 
 const char * const __apt_servicenames[3] = {"APT:U", "APT:S", "APT:A"};
 char *__apt_servicestr = NULL;
@@ -200,12 +200,12 @@ static Result __apt_initservicehandle()
 
 	if(__apt_servicestr)
 	{
-		return srv_getServiceHandle(NULL, &aptuHandle, __apt_servicestr);
+		return srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
 	}
 
 	for(i=0; i<3; i++)
 	{
-		ret = srv_getServiceHandle(NULL, &aptuHandle, (char*)__apt_servicenames[i]);
+		ret = srv_getServiceHandle(NULL, &_aptuHandle, (char*)__apt_servicenames[i]);
 		if(ret==0)
 		{
 			__apt_servicestr = (char*)__apt_servicenames[i];
@@ -218,19 +218,34 @@ static Result __apt_initservicehandle()
 
 void _aptOpenSession()
 {
-	svc_waitSynchronization1(aptLockHandle, U64_MAX);
-	srv_getServiceHandle(NULL, &aptuHandle, __apt_servicestr);
+	svc_waitSynchronization1(_aptLockHandle, U64_MAX);
+	srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
 }
 
 void _aptCloseSession()
 {
-	svc_closeHandle(aptuHandle);
-	svc_releaseMutex(aptLockHandle);
+	svc_closeHandle(_aptuHandle);
+	svc_releaseMutex(_aptLockHandle);
+}
+
+Result _APT_GetLockHandle(Handle* handle, u16 flags, Handle* lockHandle)
+{
+	if(!handle)handle=&_aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x10040; //request header code
+	cmdbuf[1]=flags;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+	if(lockHandle)*lockHandle=cmdbuf[5];
+	
+	return cmdbuf[1];
 }
 
 Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buffer, u32* actualSize, u8* signalType, Handle* outhandle)
 {
-	if(!handle)handle=&aptuHandle;
+	if(!handle)handle=&_aptuHandle;
 	u32* cmdbuf=getThreadCommandBuffer();
 	cmdbuf[0]=0xD0080; //request header code
 	cmdbuf[1]=appID;
@@ -267,11 +282,11 @@ void _main()
 	// print_str("hello\n");
 
 	__apt_initservicehandle();
-	ret=APT_GetLockHandle(&aptuHandle, 0x0, &aptLockHandle);
-	svc_closeHandle(aptuHandle);
+	ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
+	svc_closeHandle(_aptuHandle);
 
 	// print_str("\ngot APT:A lock handle ?\n");
-	// print_hex(ret); print_str(", "); print_hex(aptuHandle); print_str(", "); print_hex(aptLockHandle);
+	// print_hex(ret); print_str(", "); print_hex(_aptuHandle); print_str(", "); print_hex(_aptLockHandle);
 
 	u32 outbuf[2];
 	_aptOpenSession();

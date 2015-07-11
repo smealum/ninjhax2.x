@@ -177,9 +177,7 @@ Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
 
-	u32 b1, b2;
-	((u8*)&b1)[0]=0x4e;
-	((u8*)&b2)[0]=0xe4;
+	u32 b1 = 0, b2 = 0;
 
 	cmdbuf[0]=0x080d0144;
 	cmdbuf[1]=archive.handleLow;
@@ -229,6 +227,17 @@ void drawTitleScreen(char* str)
 	centerString("http://smealum.net/regionfour/",20);
 	renderString(str, 0, 40);
 }
+
+// Result _APT_HardwareResetAsync(Handle* handle)
+// {
+// 	u32* cmdbuf=getThreadCommandBuffer();
+// 	cmdbuf[0]=0x4E0000; //request header code
+	
+// 	Result ret=0;
+// 	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+// 	return cmdbuf[1];
+// }
 
 void installerScreen(u32 size)
 {
