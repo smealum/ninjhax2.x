@@ -372,24 +372,24 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			gsp_release_right
 
 			; wait_for_parameter 0x101
-			sleep 400*1000*1000, 0x00000000
+			sleep 500*1000*1000, 0x00000000
 
 			apt_open_session 0
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + nssString, 0x8, MENU_NSS_HANDLE
 			apt_close_session 0
 
 			; wait_for_parameter 0x101
-			sleep 400*1000*1000, 0x00000000
+			sleep 100*1000*1000, 0x00000000
 
 			apt_open_session 0
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
 			apt_close_session 0
 
 			; wait_for_parameter 0x101
-			sleep 400*1000*1000, 0x00000000
+			sleep 100*1000*1000, 0x00000000
 
 			apt_open_session 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_FS_HANDLE
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + fsUserString, 0x8, MENU_FS_HANDLE
 			apt_close_session 0
 
 		; memcpy wait loop to destination

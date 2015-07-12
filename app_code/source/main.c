@@ -167,6 +167,16 @@ void print_str(char* str)
 	drawTitleScreen(console_buffer);
 }
 
+void append_str(char* str)
+{
+	strcpy(&console_buffer[strlen(console_buffer)], str);
+}
+
+void refresh_screen()
+{
+	drawTitleScreen(console_buffer);
+}
+
 void print_hex(u32 val)
 {
 	char str[9];
@@ -265,6 +275,27 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 	return cmdbuf[1];
 }
 
+Result _APT_GlanceParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buffer, u32* actualSize, u8* signalType, Handle* outhandle)
+{
+	if(!handle)handle=&_aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x000E0080; //request header code
+	cmdbuf[1]=appID;
+	cmdbuf[2]=bufferSize;
+	
+	cmdbuf[0+0x100/4]=(bufferSize<<14)|2;
+	cmdbuf[1+0x100/4]=(u32)buffer;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(signalType)*signalType=cmdbuf[3];
+	if(actualSize)*actualSize=cmdbuf[4];
+	if(outhandle)*outhandle=cmdbuf[6];
+
+	return cmdbuf[1];
+}
+
 Result NSS_LaunchTitle(Handle* handle, u64 tid, u8 flags)
 {
 	if(!handle)return -1;
@@ -302,6 +333,25 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 
 extern u32* _bootloaderAddress;
 
+void receive_handle(Handle* out)
+{
+	u32 outbuf[2];
+	Result ret = 1;
+	int cnt = 0;
+	while(ret)
+	{
+		svc_sleepThread(5*1000*1000);
+		_aptOpenSession();
+		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, out);
+		_aptCloseSession();
+		cnt++;
+	}
+
+	append_str("\ngot handle ?\n");
+	append_str((char*)outbuf); append_str("\n");
+	print_hex(*out);
+}
+
 void _main()
 {
 	Result ret;
@@ -322,52 +372,10 @@ void _main()
 	print_str("\ngot APT:A lock handle ?\n");
 	print_hex(ret); print_str(", "); print_hex(_aptuHandle); print_str(", "); print_hex(_aptLockHandle);
 
-	u32 outbuf[2];
-	_aptOpenSession();
-	ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &fsuHandle);
-	_aptCloseSession();
-
-	print_str("\ngot apt parameter ?\n");
-	print_hex(ret); print_str(", "); print_hex(fsuHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
-
-	ret = 1;
-	int cnt = 0;
-	while(ret)
-	{
-		_aptOpenSession();
-		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &nssHandle);
-		_aptCloseSession();
-		cnt++;
-	}
-
-	print_str("\ngot apt parameter ?\n");
-	print_hex(cnt); print_str(", "); print_hex(nssHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
-
-	ret = 1;
-	cnt = 0;
-	while(ret)
-	{
-		_aptOpenSession();
-		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &irrstHandle);
-		_aptCloseSession();
-		cnt++;
-	}
-
-	print_str("\ngot apt parameter ?\n");
-	print_hex(cnt); print_str(", "); print_hex(irrstHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
-
-	ret = 1;
-	cnt = 0;
-	while(ret)
-	{
-		_aptOpenSession();
-		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, &fsuHandle);
-		_aptCloseSession();
-		cnt++;
-	}
-
-	print_str("\ngot apt parameter ?\n");
-	print_hex(cnt); print_str(", "); print_hex(fsuHandle); print_str(", "); print_hex(outbuf[0]); print_str(", "); print_hex(outbuf[1]); print_str(", "); print_hex(outbuf[2]);
+	receive_handle(&fsuHandle);
+	receive_handle(&nssHandle);
+	receive_handle(&irrstHandle);
+	receive_handle(&fsuHandle);
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
