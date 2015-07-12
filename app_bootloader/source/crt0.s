@@ -10,7 +10,8 @@ _runHbmenuVector:
 	b _runHbmenu
 _changeProcessVector:
 	b _changeProcess
-bx lr
+_getBestProcessVector:
+	b getBestProcess
 bx lr
 bx lr
 bx lr
@@ -41,7 +42,14 @@ _start:
 	cmpne r2, #0
 	beq skip_argv
 
+	@ align r2 before doing anything with it
+	add r2, #0xF
+	and r2, #~0xF
+
+	@ reserve stack space
 	sub sp, sp, r2
+
+	@ perform copy
 	stmfd sp!, {r0, r1, r2}
 	add r0, sp, #0xC
 	bl memcpy

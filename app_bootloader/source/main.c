@@ -407,7 +407,8 @@ void runHbmenu()
 
 	Handle fileHandle;
 	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
-	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
+	// FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
+	FS_path filePath = (FS_path){PATH_CHAR, 11, (u8*)"/boot.3dsx"};
 	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 
 	run3dsx(fileHandle, NULL);
@@ -415,7 +416,7 @@ void runHbmenu()
 
 extern Handle gspGpuHandle;
 
-void changeProcess(Handle executable, u32* argbuf)
+void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 {
 	initSrv();
 	gspGpuInit();
@@ -442,7 +443,7 @@ void changeProcess(Handle executable, u32* argbuf)
 	svc_sleepThread(100*1000*1000);
 
 	// copy parameter block
-	if(argbuf)memcpy(&gspHeap[0x00200000], argbuf, MENU_PARAMETER_SIZE);
+	if(argbuf)memcpy(&gspHeap[0x00200000], argbuf, argbuflength);
 	else memset(&gspHeap[0x00200000], 0x00, MENU_PARAMETER_SIZE);
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], MENU_PARAMETER_SIZE);
 	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
@@ -469,7 +470,7 @@ void changeProcess(Handle executable, u32* argbuf)
 	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_LOADEDROP_BUFADR-0x100), 0x100);
 	svc_sleepThread(20*1000*1000);
 
-	// lo-tech cache invalidation
+	// ghetto dcache invalidation
 	// don't judge me
 	int i, j, k;
 	for(k=0; k<0x2; k++)
@@ -508,4 +509,68 @@ void changeProcess(Handle executable, u32* argbuf)
 	*(vu32*)0xdeadcafe = 0;
 
 	svc_exitProcess();
+}
+
+typedef struct
+{
+	int processId;
+	bool capabilities[2];
+	bool reserved[0xe];
+}processEntry_s;
+
+static inline int countBools(bool* b, bool* b2, int size)
+{
+	if(!b || !b2)return 0;
+	int i, cnt=0;
+	for(i=0;i<size;i++)if(b[i] && b2[i])cnt++;
+	return cnt;
+}
+
+// 1 if a better than b, 0 if equivalent, -1 if a worse than b
+int compareProcessEntries(processEntry_s* a, processEntry_s* b, bool requirements[2])
+{
+	if(!a || !b)return 0;
+
+	int cnt_a = countBools(a->capabilities, requirements, 2);
+	int cnt_b = countBools(b->capabilities, requirements, 2);
+
+	if(cnt_a > cnt_b)return 1;
+	else if(cnt_a < cnt_b)return -1;
+	else if(a->processId < 0)return 1;
+	else if(b->processId < 0)return -1;
+
+	return 0;
+}
+
+void getBestProcess(u32 sectionSizes[3], bool requirements[2], processEntry_s* out, int out_size, int* out_len)
+{
+	if(!out || !out_len || !out_size)return;
+
+	int i;
+	*out_len = 0;
+	for(i=0; i<numTargetProcesses; i++)
+	{
+		memorymap_t* mm = app_maps[i];
+		int processIndex = i;
+		if(processIndex == *(vu32*)&_targetProcessIndex)processIndex = -1;
+		if(sectionSizes[0] < (mm->text_end - 0x00100000))
+		{
+			processEntry_s new_entry = {processIndex, {mm->capabilities[0], mm->capabilities[1]}, {false, false, false, false, false, false, false, false, false, false, false, false, false, false}};
+
+			// light ordering : we only really care that the best one be first; the rest can be unsorted
+			if(*out_len > 0 && compareProcessEntries(&new_entry, &out[0], requirements) > 0)
+			{
+				// swap first and new if new is better
+				processEntry_s tmp = out[0];
+				out[0] = new_entry;
+				new_entry = tmp;
+			}
+
+			if(*out_len < out_size)
+			{
+				out[*out_len] = new_entry;
+				(*out_len)++;
+			}
+		}
+	}
 }

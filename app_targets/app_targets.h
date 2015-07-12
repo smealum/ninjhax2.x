@@ -24,6 +24,7 @@ typedef struct {
 	u32 text_end;
 	u32 data_address;
 	u32 data_size;
+	bool capabilities[2]; // {socuAccess, csndAccess}
 	struct {
 		u32 src, dst, size;
 	} map[];
@@ -35,6 +36,7 @@ static const memorymap_t camapp_map =
 		0x00347000,
 		0x00429000,
 		0x00046680 + 0x00099430,
+		{false, true},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x00070000, 0x00070000},
@@ -49,6 +51,7 @@ static const memorymap_t dlplay_map =
 		0x00193000,
 		0x001A0000,
 		0x00013790 + 0x0002A538,
+		{true, true},
 		{
 			{0x00100000, 0x00008000, 0x000B0000 - 0x00008000},
 			{0x00100000 + 0x000B0000 - 0x00008000, - 0x000B4000, 0x00004000},
@@ -63,6 +66,7 @@ static const memorymap_t actapp_map =
 		0x00388000,
 		0x003F3000,
 		0x0001A2FC + 0x00061ED4,
+		{true, false},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x0000E000, 0x0000E000},
@@ -77,6 +81,8 @@ static const memorymap_t * const app_maps[] =
 		(memorymap_t*)&dlplay_map, // dlplay app
 		(memorymap_t*)&actapp_map, // act app
 	};
+
+static const int numTargetProcesses = 3;
 
 static void patchPayload(u32* payload_dst, int targetProcessIndex)
 {

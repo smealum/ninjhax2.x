@@ -396,15 +396,6 @@ void _main()
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
 
-	// use ns:s to launch/kill process and invalidate icache in the process
-	// ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
-	ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
-	if(ret)*(u32*)0xCAFE0008=ret;
-	svc_sleepThread(200*1000*1000);
-	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
-	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
-	if(ret)*(u32*)0xCAFE0009=ret;
-
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
 
@@ -414,6 +405,17 @@ void _main()
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
+
+	// TODO : fix bug where bootloader gspwn copies all 00s to .text ? think that's what happens when app_code is executed twice in a row
+
+	// use ns:s to launch/kill process and invalidate icache in the process
+	// ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
+	ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
+	if(ret)*(u32*)0xCAFE0008=ret;
+	svc_sleepThread(200*1000*1000);
+	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
+	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
+	if(ret)*(u32*)0xCAFE0009=ret;
 
 	// grab parameter block
 	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], MENU_PARAMETER_SIZE);
