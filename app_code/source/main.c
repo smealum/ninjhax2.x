@@ -415,6 +415,14 @@ void _main()
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
 
+	// grab parameter block
+	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], MENU_PARAMETER_SIZE);
+	doGspwn((u32*)(MENU_PARAMETER_BUFADR), (u32*)&gspHeap[0x00100000], MENU_PARAMETER_SIZE);
+	svc_sleepThread(20*1000*1000);
+
+	u32 argbuffer[MENU_PARAMETER_SIZE/4];
+	memcpy(argbuffer, &gspHeap[0x00100000], MENU_PARAMETER_SIZE);
+
 	gspGpuExit();
 	exitSrv();
 
@@ -423,6 +431,19 @@ void _main()
 	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
 
-	void (*app_runmenu)() = (void*)(0x00100000 + 4);
-	app_runmenu();
+	if(argbuffer[0] == 0)
+	{
+		void (*app_runmenu)() = (void*)(0x00100000 + 4);
+		app_runmenu();
+	}else{
+		Handle fileHandle;
+		FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
+		char* filename = ((char*)&argbuffer[1]) + 5; // skip "sdmc:"
+		FS_path filePath = (FS_path){PATH_CHAR, strlen(filename)+1, (u8*)filename};
+		ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
+		if(ret)*(u32*)0xC0DE0000=ret;
+
+		void (*app_run3dsx)(Handle executable, u32* argbuf, u32 size) = (void*)(0x00100000);
+		app_run3dsx(fileHandle, argbuffer, 0x200*4);
+	}
 }

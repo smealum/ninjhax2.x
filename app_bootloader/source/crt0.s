@@ -31,8 +31,6 @@ _runHbmenu:
 
 _changeProcess:
 	ldr r4, =changeProcess
-	mov r1, #0
-	mov r2, #0
 	b _start
 
 _start:

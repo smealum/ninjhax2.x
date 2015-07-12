@@ -415,7 +415,7 @@ void runHbmenu()
 
 extern Handle gspGpuHandle;
 
-void changeProcess()
+void changeProcess(Handle executable, u32* argbuf)
 {
 	initSrv();
 	gspGpuInit();
@@ -440,6 +440,13 @@ void changeProcess()
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
 	doGspwn((u32*)&gspHeap[0x00100000], (u32*)MENU_LOADEDROP_BUFADR, 0x8000);
 	svc_sleepThread(100*1000*1000);
+
+	// copy parameter block
+	if(argbuf)memcpy(&gspHeap[0x00200000], argbuf, MENU_PARAMETER_SIZE);
+	else memset(&gspHeap[0x00200000], 0x00, MENU_PARAMETER_SIZE);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], MENU_PARAMETER_SIZE);
+	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
+	svc_sleepThread(20*1000*1000);
 
 	// grab waitLoop stub
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], 0x100);

@@ -520,6 +520,12 @@ int main(u32 size, char** argv)
 	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BUFADR, binsize);
 	svc_sleepThread(100*1000*1000);
 
+	// copy parameter block
+	memset((u32*)0x14100000, 0x00, MENU_PARAMETER_SIZE);
+	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, MENU_PARAMETER_SIZE);
+	doGspwn((u32*)0x14100000, (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
+	svc_sleepThread(20*1000*1000);
+
 	#endif
 
 	int cnt = 0;

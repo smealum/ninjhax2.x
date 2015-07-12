@@ -485,4 +485,5 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	appBootloader:
 		.incbin "app_bootloader.bin"
 
+
 .Close
