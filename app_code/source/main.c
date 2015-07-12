@@ -265,6 +265,39 @@ Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buf
 	return cmdbuf[1];
 }
 
+Result NSS_LaunchTitle(Handle* handle, u64 tid, u8 flags)
+{
+	if(!handle)return -1;
+
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x000200C0; //request header code
+	cmdbuf[1]=tid&0xFFFFFFFF;
+	cmdbuf[2]=(tid>>32)&0xFFFFFFFF;
+	cmdbuf[3]=flags;
+
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
+{
+	if(!handle)return -1;
+
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x00110100; //request header code
+	cmdbuf[1]=tid&0xFFFFFFFF;
+	cmdbuf[2]=(tid>>32)&0xFFFFFFFF;
+	cmdbuf[3]=timeout&0xFFFFFFFF;
+	cmdbuf[4]=(timeout>>32)&0xFFFFFFFF;
+
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
 #define APP_START_LINEAR 0xBABE0002
 
 extern u32* _bootloaderAddress;
@@ -354,6 +387,15 @@ void _main()
 
 	// sleep for 200ms
 	svc_sleepThread(200*1000*1000);
+
+	// use ns:s to launch/kill process and invalidate icache in the process
+	// ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
+	ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
+	if(ret)*(u32*)0xCAFE0008=ret;
+	svc_sleepThread(200*1000*1000);
+	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
+	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
+	if(ret)*(u32*)0xCAFE0009=ret;
 
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};

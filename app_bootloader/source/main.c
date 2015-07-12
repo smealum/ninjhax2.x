@@ -56,17 +56,17 @@ void gspGpuExit()
 {
 	GSPGPU_UnregisterInterruptRelayQueue(NULL);
 
-	GSPGPU_ReleaseRight(NULL);
-
 	//unmap GSP shared mem
 	svc_unmapMemoryBlock(gspSharedMemHandle, 0x10002000);
 	svc_closeHandle(gspSharedMemHandle);
 	svc_closeHandle(gspEvent);
-	
-	gspExit();
 
 	//free GSP heap
 	svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
+
+	GSPGPU_ReleaseRight(NULL);
+	
+	gspExit();
 }
 
 void doGspwn(u32* src, u32* dst, u32 size)
@@ -129,6 +129,7 @@ void start_execution(void);
 
 const u32 _targetProcessIndex = 0xBABE0001;
 const u32 _APP_START_LINEAR = 0xBABE0002;
+const u32 _processTidlow = 0xBABE0004;
 
 void apply_map(memorymap_t* m)
 {
@@ -305,48 +306,47 @@ Result _APT_CloseApplication(Handle* handle, u32 a, u32 b, u32 c)
 	return cmdbuf[1];
 }
 
-void _aptExit()
-{
-	__apt_initservicehandle();
-	Result ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
-	svc_closeHandle(_aptuHandle);
+// void _aptExit()
+// {
+// 	__apt_initservicehandle();
+// 	Result ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
+// 	svc_closeHandle(_aptuHandle);
 
-	u8 buf1[4], buf2[4];
+// 	u8 buf1[4], buf2[4];
 
-	buf1[0]=0x02; buf1[1]=0x00; buf1[2]=0x00; buf1[3]=0x00;
-	_aptOpenSession();
-	_APT_AppletUtility(&_aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
-	_aptCloseSession();
-	_aptOpenSession();
-	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
-	_aptCloseSession();
+// 	buf1[0]=0x02; buf1[1]=0x00; buf1[2]=0x00; buf1[3]=0x00;
+// 	_aptOpenSession();
+// 	_APT_AppletUtility(&_aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
+// 	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+// 	_aptCloseSession();
 
-	_aptOpenSession();
-	_APT_AppletUtility(&_aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
-	_aptCloseSession();
-	_aptOpenSession();
-	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
-	_aptCloseSession();
-	_aptOpenSession();
-	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
-	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_AppletUtility(&_aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
+// 	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+// 	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_AppletUtility(&_aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+// 	_aptCloseSession();
 
 
-	_aptOpenSession();
-	_APT_Finalize(&_aptuHandle, 0x300);
-	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_Finalize(&_aptuHandle, 0x300);
+// 	_aptCloseSession();
 
-	_aptOpenSession();
-	_APT_PrepareToCloseApplication(&_aptuHandle, 0x1);
-	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_PrepareToCloseApplication(&_aptuHandle, 0x1);
+// 	_aptCloseSession();
 	
-	_aptOpenSession();
-	_APT_CloseApplication(&_aptuHandle, 0x0, 0x0, 0x0);
-	_aptCloseSession();
+// 	_aptOpenSession();
+// 	_APT_CloseApplication(&_aptuHandle, 0x0, 0x0, 0x0);
+// 	_aptCloseSession();
 
-	svc_closeHandle(_aptLockHandle);
-}
-
+// 	svc_closeHandle(_aptLockHandle);
+// }
 
 void run3dsx(Handle executable, u32* argbuf)
 {
@@ -408,11 +408,12 @@ void runHbmenu()
 	Handle fileHandle;
 	FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
 	FS_path filePath = (FS_path){PATH_CHAR, 18, (u8*)"/3ds_hb_menu.3dsx"};
-	// FS_path filePath = (FS_path){PATH_CHAR, 27, (u8*)"/3ds/hello-world/boot.3dsx"};
 	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 
 	run3dsx(fileHandle, NULL);
 }
+
+extern Handle gspGpuHandle;
 
 void changeProcess()
 {
@@ -427,21 +428,21 @@ void changeProcess()
 	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
 
 	// grab un-processed backup ropbin
-	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], 0x8000);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
 	doGspwn((u32*)MENU_LOADEDROP_BKP_BUFADR, (u32*)&gspHeap[0x00100000], 0x8000);
 	svc_sleepThread(100*1000*1000);
 
 	// patch it
-	int targetProcessIndex = 0;
+	int targetProcessIndex = 2 - *(vu32*)&_targetProcessIndex;
 	patchPayload((u32*)&gspHeap[0x00100000], targetProcessIndex);
 
 	// copy it to destination
-	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], 0x8000);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
 	doGspwn((u32*)&gspHeap[0x00100000], (u32*)MENU_LOADEDROP_BUFADR, 0x8000);
 	svc_sleepThread(100*1000*1000);
 
 	// grab waitLoop stub
-	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00200000], 0x100);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], 0x100);
 	doGspwn((u32*)(MENU_LOADEDROP_BUFADR-0x100), (u32*)&gspHeap[0x00200000], 0x100);
 	svc_sleepThread(20*1000*1000);
 
@@ -457,20 +458,47 @@ void changeProcess()
 	}
 
 	// copy it back
-	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00200000], 0x100);
+	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], 0x100);
 	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_LOADEDROP_BUFADR-0x100), 0x100);
 	svc_sleepThread(20*1000*1000);
 
+	// lo-tech cache invalidation
+	// don't judge me
+	int i, j, k;
+	for(k=0; k<0x2; k++)
+		for(j=0; j<0x4; j++)
+			for(i=0; i<0x02000000/0x4; i+=0x4)
+				((u32*)gspHeap)[i+j]^=0xDEADBABE;
+
 	//exit to menu
-	_aptExit();
+	// _aptExit();
 
 	exitSrv();
 
 	// do that at the end so that release right is one of the last things to happen
-	gspGpuExit();
+	{
+		GSPGPU_UnregisterInterruptRelayQueue(NULL);
 
-	// free heap (has to be the very last thing before jumping to app as contains bss)
-	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
+		//unmap GSP shared mem
+		svc_unmapMemoryBlock(gspSharedMemHandle, 0x10002000);
+		svc_closeHandle(gspSharedMemHandle);
+		svc_closeHandle(gspEvent);
+
+		//free GSP heap
+		svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
+
+		Handle _gspGpuHandle = gspGpuHandle;
+
+		// free heap (has to be the very last thing before jumping to app as contains bss)
+		u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
+
+		GSPGPU_ReleaseRight(&_gspGpuHandle);
+
+		svc_closeHandle(_gspGpuHandle);
+	}
+
+	// crash on purpose
+	*(vu32*)0xdeadcafe = 0;
 
 	svc_exitProcess();
 }
