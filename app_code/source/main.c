@@ -340,7 +340,7 @@ void receive_handle(Handle* out)
 	int cnt = 0;
 	while(ret)
 	{
-		svc_sleepThread(5*1000*1000);
+		svc_sleepThread(1*1000*1000);
 		_aptOpenSession();
 		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, NULL, NULL, out);
 		_aptCloseSession();
@@ -375,7 +375,6 @@ void _main()
 	receive_handle(&fsuHandle);
 	receive_handle(&nssHandle);
 	receive_handle(&irrstHandle);
-	receive_handle(&fsuHandle);
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
@@ -394,7 +393,7 @@ void _main()
 	doGspwn(_bootloaderAddress, (u32*)&gspHeap[0x00100000], 0x00005000);
 
 	// sleep for 200ms
-	svc_sleepThread(200*1000*1000);
+	svc_sleepThread(100*1000*1000);
 
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
@@ -403,8 +402,8 @@ void _main()
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
 	doGspwn((u32*)&gspHeap[0x00100000], (u32*)APP_START_LINEAR, 0x00005000);
 
-	// sleep for 200ms
-	svc_sleepThread(200*1000*1000);
+	// sleep for 100ms
+	svc_sleepThread(100*1000*1000);
 
 	// TODO : fix bug where bootloader gspwn copies all 00s to .text ? think that's what happens when app_code is executed twice in a row
 
@@ -412,7 +411,7 @@ void _main()
 	// ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
 	ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
 	if(ret)*(u32*)0xCAFE0008=ret;
-	svc_sleepThread(200*1000*1000);
+	svc_sleepThread(100*1000*1000);
 	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
 	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
 	if(ret)*(u32*)0xCAFE0009=ret;

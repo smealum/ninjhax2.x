@@ -28,7 +28,9 @@ def getMenuVersion(v):
 			return "16404"
 		elif v[1]==7:
 			return "17415"
-		elif v[1]==8:
+		elif v[1]==9 and v[4]=="U":
+			return "20480_usa"
+		elif v[1]>=8:
 			return "19456"
 	return "unsupported"
 

@@ -372,7 +372,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			gsp_release_right
 
 			; wait_for_parameter 0x101
-			sleep 500*1000*1000, 0x00000000
+			sleep 300*1000*1000, 0x00000000
 
 			apt_open_session 0
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + nssString, 0x8, MENU_NSS_HANDLE
@@ -383,13 +383,6 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			apt_open_session 0
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
-			apt_close_session 0
-
-			; wait_for_parameter 0x101
-			sleep 100*1000*1000, 0x00000000
-
-			apt_open_session 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + fsUserString, 0x8, MENU_FS_HANDLE
 			apt_close_session 0
 
 		; memcpy wait loop to destination
@@ -460,14 +453,14 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			gsp_acquire_right
 			writehwreg 0x202A04, 0x01FF00FF
 			; todo : add cache invalidation for ropbin
-			sleep 500*1000*1000, 0x00000000
+			sleep 100*1000*1000, 0x00000000
 	waitLoop_end:
 
 
 	.align 0x20
 	appHook:
 		.arm
-			ldr r0, =500*1000*1000 ; 1000ms
+			ldr r0, =200*1000*1000 ; 200ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
 			ldr r2, =0x00105000

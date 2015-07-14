@@ -3,6 +3,7 @@ static const u32 processLinearOffset[] =
 	0x00300000, // camera app
 	0x000B0000, // dlplay app
 	0x00300000, // act app
+	0x00100000, // mset app
 };
 
 static const u32 processHookAddress[] =
@@ -10,6 +11,8 @@ static const u32 processHookAddress[] =
 	0x00104be0, // camera app
 	0x00100D00, // dlplay app
 	0x00100160, // act app
+	0x00101530, // mset app (9.0 - 9.6)
+	// 0x00101480, // mset app (9.6+)
 };
 
 static const u32 processHookTidLow[] =
@@ -17,6 +20,7 @@ static const u32 processHookTidLow[] =
 	CAMAPP_TIDLOW, // camera app
 	DLPLAY_TIDLOW, // dlplay app
 	ACTAPP_TIDLOW, // act app
+	MSET_TIDLOW, // mset app
 };
 
 typedef struct {
@@ -75,14 +79,36 @@ static const memorymap_t actapp_map =
 		}
 	};
 
+
+static const memorymap_t msetapp_map =
+	// 9.2-9.6
+	{
+		8,
+		0x00268000,
+		0x00291000,
+		0x00017B98 + 0x004EB108,
+		{true, false},
+		{
+			{0x100000,  0x8000, 0x100000 - 0x8000},
+			{0x200000 - 0x8000, -0xa0000, 0xa0000},
+			{0x2a0000 - 0x8000, -0xa9000, 0x9000},
+			{0x2a9000 - 0x8000, -0xac000, 0x3000},
+			{0x2ac000 - 0x8000, -0x594000, 0x54000},
+			{0x300000 - 0x8000, -0x500000, 0x450000},
+			{0x750000 - 0x8000, -0x540000, 0x40000},
+			{0x790000 - 0x8000, -0xb0000, 0x4000},
+		}
+	};
+
 static const memorymap_t * const app_maps[] =
 	{
 		(memorymap_t*)&camapp_map, // camera app
 		(memorymap_t*)&dlplay_map, // dlplay app
 		(memorymap_t*)&actapp_map, // act app
+		(memorymap_t*)&msetapp_map, // mset app
 	};
 
-static const int numTargetProcesses = 3;
+static const int numTargetProcesses = 4;
 
 static void patchPayload(u32* payload_dst, int targetProcessIndex)
 {

@@ -207,10 +207,12 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_
 		// prmStruct[5] <-- __system_arglist (default: NULL)
 
 		prmStruct[2] = 0x300;
+		// prmStruct[2] = 0x101;
 		prmStruct[3] = heap_size;
 		prmStruct[4] = 32*1024*1024;
 		prmStruct[5] = argbuf;
 		prmStruct[6] = RUNFLAG_APTWORKAROUND; //__system_runflags
+		// prmStruct[6] = RUNFLAG_APTREINIT; //__system_runflags
 
 		// XXX: Notes on __system_arglist:
 		//     Contains a pointer to a u32 specifying the number of arguments immediately followed

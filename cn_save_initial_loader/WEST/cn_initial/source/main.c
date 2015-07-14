@@ -190,9 +190,11 @@ int _main()
 	Handle* addressArbiterHandle=(Handle*)0x334960;
 
 	Result (*_DSP_UnloadComponent)(Handle* handle)=(void*)0x002BA368;
+	Result (*_DSP_RegisterInterruptEvents)(Handle* handle, Handle event, u32 param0, u32 param1)=(void*)0x002AED20;
 	Handle** dspHandle=(Handle**)0x334EFC;
 
 	_DSP_UnloadComponent(*dspHandle);
+	_DSP_RegisterInterruptEvents(*dspHandle, 0x0, 0x2, 0x2);
 
 	//close threads
 		//patch gsp event handler addr to kill gsp thread ASAP

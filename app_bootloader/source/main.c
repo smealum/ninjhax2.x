@@ -146,9 +146,8 @@ void apply_map(memorymap_t* m)
 			if(size > 0x00080000)size = 0x00080000;
 
 			GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[m->map[i].src + offset], size);
-			svc_sleepThread(10*1000*1000);
+			svc_sleepThread(5*1000*1000);
 			doGspwn((u32*)&gspHeap[m->map[i].src + offset], (u32*)(*APP_START_LINEAR + m->map[i].dst + offset), size);
-			svc_sleepThread(10*1000*1000);
 
 			remaining_size -= size;
 			offset += size;
@@ -358,7 +357,9 @@ void run3dsx(Handle executable, u32* argbuf)
 	freeDataPages(0x30000000);
 
 	// duplicate service list on the stack
-	u8 serviceBuffer[0x4+0xC*_serviceList.num];
+	// also add hid:SPVR as hid:USER if appropriate
+	// (for backwards compat as old homebrew only supports hid:USER)
+	u8 serviceBuffer[0x4+0xC*(_serviceList.num + 1)];
 	service_list_t* serviceList = (service_list_t*)serviceBuffer;
 	serviceList->num = _serviceList.num;
 	int i;
@@ -366,6 +367,18 @@ void run3dsx(Handle executable, u32* argbuf)
 	{
 		memcpy(serviceList->services[i].name, _serviceList.services[i].name, 8);
 		svc_duplicateHandle(&serviceList->services[i].handle, _serviceList.services[i].handle);
+	}
+
+	// handle hid:USER missing case
+	{
+		Handle hidUSER = 0;
+
+		if(srv_getServiceHandle(NULL, &hidUSER, "hid:USER") && !srv_getServiceHandle(NULL, &hidUSER, "hid:SPVR"))
+		{
+			memcpy(serviceList->services[serviceList->num].name, "hid:USER", 8);
+			serviceList->services[serviceList->num].handle = hidUSER;
+			serviceList->num++;
+		}else svc_closeHandle(hidUSER);
 	}
 
 	vu32* targetProcessIndex = &_targetProcessIndex;
@@ -384,7 +397,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	// Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000003702LL, 0x1);
 	Result ret = NSS_LaunchTitle(&nssHandle, 0x0004013000002A02LL, 0x1);
 	if(ret)*(u32*)0xCAFE0002=ret;
-	svc_sleepThread(200*1000*1000);
+	svc_sleepThread(100*1000*1000);
 	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
 	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
 	if(ret)*(u32*)0xCAFE0003=ret;
@@ -431,7 +444,7 @@ void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 	// grab un-processed backup ropbin
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
 	doGspwn((u32*)MENU_LOADEDROP_BKP_BUFADR, (u32*)&gspHeap[0x00100000], 0x8000);
-	svc_sleepThread(100*1000*1000);
+	svc_sleepThread(50*1000*1000);
 
 	// patch it
 	int targetProcessIndex = 2 - *(vu32*)&_targetProcessIndex;
@@ -440,7 +453,7 @@ void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 	// copy it to destination
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
 	doGspwn((u32*)&gspHeap[0x00100000], (u32*)MENU_LOADEDROP_BUFADR, 0x8000);
-	svc_sleepThread(100*1000*1000);
+	svc_sleepThread(50*1000*1000);
 
 	// copy parameter block
 	if(argbuf)memcpy(&gspHeap[0x00200000], argbuf, argbuflength);
