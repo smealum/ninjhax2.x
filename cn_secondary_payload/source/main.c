@@ -501,7 +501,7 @@ int main(u32 size, char** argv)
 	const block_size = 0x00010000;
 	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
 
-	int targetProcessIndex = 3;
+	int targetProcessIndex = 0;
 
 	#ifdef LOADROPBIN
 	// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.

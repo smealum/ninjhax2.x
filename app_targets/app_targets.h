@@ -28,7 +28,7 @@ typedef struct {
 	u32 text_end;
 	u32 data_address;
 	u32 data_size;
-	bool capabilities[2]; // {socuAccess, csndAccess}
+	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, reserved}
 	struct {
 		u32 src, dst, size;
 	} map[];
@@ -40,7 +40,8 @@ static const memorymap_t camapp_map =
 		0x00347000,
 		0x00429000,
 		0x00046680 + 0x00099430,
-		{false, true},
+		{false, true, false,
+			false, false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x00070000, 0x00070000},
@@ -55,7 +56,8 @@ static const memorymap_t dlplay_map =
 		0x00193000,
 		0x001A0000,
 		0x00013790 + 0x0002A538,
-		{true, true},
+		{true, true, false,
+			false, false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x00100000, 0x00008000, 0x000B0000 - 0x00008000},
 			{0x00100000 + 0x000B0000 - 0x00008000, - 0x000B4000, 0x00004000},
@@ -70,7 +72,8 @@ static const memorymap_t actapp_map =
 		0x00388000,
 		0x003F3000,
 		0x0001A2FC + 0x00061ED4,
-		{true, false},
+		{true, false, false,
+			false, false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x0000E000, 0x0000E000},
@@ -87,7 +90,8 @@ static const memorymap_t msetapp_map =
 		0x00268000,
 		0x00291000,
 		0x00017B98 + 0x004EB108,
-		{true, false},
+		{true, false, true,
+			false, false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x100000,  0x8000, 0x100000 - 0x8000},
 			{0x200000 - 0x8000, -0xa0000, 0xa0000},

@@ -429,7 +429,7 @@ void runHbmenu()
 
 extern Handle gspGpuHandle;
 
-void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
+void changeProcess(int processId, u32* argbuf, u32 argbuflength)
 {
 	initSrv();
 	gspGpuInit();
@@ -447,7 +447,7 @@ void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 	svc_sleepThread(50*1000*1000);
 
 	// patch it
-	int targetProcessIndex = 2 - *(vu32*)&_targetProcessIndex;
+	int targetProcessIndex = processId;
 	patchPayload((u32*)&gspHeap[0x00100000], targetProcessIndex);
 
 	// copy it to destination
@@ -485,10 +485,10 @@ void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 
 	// ghetto dcache invalidation
 	// don't judge me
-	int i, j, k;
-	for(k=0; k<0x2; k++)
+	int i, j;//, k;
+	// for(k=0; k<0x2; k++)
 		for(j=0; j<0x4; j++)
-			for(i=0; i<0x02000000/0x4; i+=0x4)
+			for(i=0; i<0x01000000/0x4; i+=0x4)
 				((u32*)gspHeap)[i+j]^=0xDEADBABE;
 
 	//exit to menu
@@ -518,8 +518,8 @@ void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 		svc_closeHandle(_gspGpuHandle);
 	}
 
-	// crash on purpose
-	*(vu32*)0xdeadcafe = 0;
+	// // crash on purpose
+	// *(vu32*)0xdeadcafe = 0;
 
 	svc_exitProcess();
 }
@@ -527,8 +527,7 @@ void changeProcess(Handle executable, u32* argbuf, u32 argbuflength)
 typedef struct
 {
 	int processId;
-	bool capabilities[2];
-	bool reserved[0xe];
+	bool capabilities[0x10];
 }processEntry_s;
 
 static inline int countBools(bool* b, bool* b2, int size)
@@ -540,12 +539,12 @@ static inline int countBools(bool* b, bool* b2, int size)
 }
 
 // 1 if a better than b, 0 if equivalent, -1 if a worse than b
-int compareProcessEntries(processEntry_s* a, processEntry_s* b, bool requirements[2])
+int compareProcessEntries(processEntry_s* a, processEntry_s* b, bool* requirements)
 {
 	if(!a || !b)return 0;
 
-	int cnt_a = countBools(a->capabilities, requirements, 2);
-	int cnt_b = countBools(b->capabilities, requirements, 2);
+	int cnt_a = countBools(a->capabilities, requirements, 3);
+	int cnt_b = countBools(b->capabilities, requirements, 3);
 
 	if(cnt_a > cnt_b)return 1;
 	else if(cnt_a < cnt_b)return -1;
@@ -555,7 +554,7 @@ int compareProcessEntries(processEntry_s* a, processEntry_s* b, bool requirement
 	return 0;
 }
 
-void getBestProcess(u32 sectionSizes[3], bool requirements[2], processEntry_s* out, int out_size, int* out_len)
+void getBestProcess(u32 sectionSizes[3], bool* requirements, int num_requirements, processEntry_s* out, int out_size, int* out_len)
 {
 	if(!out || !out_len || !out_size)return;
 
@@ -568,7 +567,11 @@ void getBestProcess(u32 sectionSizes[3], bool requirements[2], processEntry_s* o
 		if(processIndex == *(vu32*)&_targetProcessIndex)processIndex = -1;
 		if(sectionSizes[0] < (mm->text_end - 0x00100000))
 		{
-			processEntry_s new_entry = {processIndex, {mm->capabilities[0], mm->capabilities[1]}, {false, false, false, false, false, false, false, false, false, false, false, false, false, false}};
+			processEntry_s new_entry = {processIndex, {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}};
+
+			if(num_requirements > 0) new_entry.capabilities[0] = mm->capabilities[0];
+			if(num_requirements > 1) new_entry.capabilities[1] = mm->capabilities[1];
+			if(num_requirements > 2) new_entry.capabilities[2] = mm->capabilities[2];
 
 			// light ordering : we only really care that the best one be first; the rest can be unsorted
 			if(*out_len > 0 && compareProcessEntries(&new_entry, &out[0], requirements) > 0)
