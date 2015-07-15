@@ -34,18 +34,11 @@ def getMenuVersion(v):
 			return "19456"
 	return "unsupported"
 
-def getSpiderVersion(v):
-	if v[5]==1:
-		return "SKATER_10"
+def getMsetVersion(v):
+	if v[0] == 9 and v[1] < 6:
+		return "8203"
 	else:
-		if v[3]<7:
-			return "1024"
-		elif v[3]<11:
-			return "2050"
-		elif v[3]<16:
-			return "3074"
-		else:
-			return "4096"
+		return "9221"
 
 def getRegion(v):
 	return v[4]
@@ -80,6 +73,6 @@ if r:
 			extraparams+=" OTHERAPP=1"
 	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
 	os.system("make clean")	
-	os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" SPIDERVERSION="+getSpiderVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
+	os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
 else:
 	print("invalid version format; learn2read.")

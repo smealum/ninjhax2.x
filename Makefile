@@ -20,7 +20,7 @@ export FIRMVERSION
 export CNVERSION
 export REGION
 export ROVERSION
-export SPIDERVERSION
+export MSETVERSION
 export MENUVERSION
 export LOADROPBIN
 
@@ -34,7 +34,7 @@ endif
 ROPDB_VERSIONS = 11272 12288 13330 15360 16404 17415 19456 20480_usa
 ROPDB_TARGETS = $(addsuffix _ropdb.txt, $(addprefix menu_ropdb/, $(ROPDB_VERSIONS)))
 
-OUTNAME = $(FIRMVERSION)_$(REGION)_$(MENUVERSION)
+OUTNAME = $(FIRMVERSION)_$(REGION)_$(MENUVERSION)_$(MSETVERSION)
 
 SCRIPTS = "scripts"
 
@@ -68,7 +68,7 @@ menu_ropdb/ropdb.txt:
 	@cd menu_ropdb && make
 
 build/constants: firm_constants/constants.txt cn_constants/constants.txt region_constants/constants.txt menu_ropdb/ropdb.txt
-	@python $(SCRIPTS)/makeHeaders.py $(FIRMVERSION) $(CNVERSION) $(SPIDERVERSION) $(ROVERSION) $(MENUVERSION) $(REGION) build/constants $^
+	@python $(SCRIPTS)/makeHeaders.py $(FIRMVERSION) $(CNVERSION) $(MSETVERSION) $(ROVERSION) $(MENUVERSION) $(REGION) $(OUTNAME) build/constants $^
 
 build/cn_qr_initial_loader.bin.png: cn_qr_initial_loader/cn_qr_initial_loader.bin.png
 	@cp cn_qr_initial_loader/cn_qr_initial_loader.bin.png build

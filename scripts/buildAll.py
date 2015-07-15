@@ -12,11 +12,11 @@ def isVersionPossible(v):
 
 firmVersions=["POST5", "N3DS"]
 regionVersions=["E", "U", "J"]
-spiderVersions=[4096]
+msetVersions=[8203, 9221]
 roVersions=[4096]
 menuVersions=[11272, 12288, 13330, 15360, 16404, 17415, 19456, "20480_usa"]
 
-a=[firmVersions, regionVersions, spiderVersions, roVersions, menuVersions]
+a=[firmVersions, regionVersions, msetVersions, roVersions, menuVersions]
 
 extraparams=""
 for arg in sys.argv:
@@ -29,5 +29,5 @@ cnt=0
 for v in (list(itertools.product(*a))):
 	if isVersionPossible(v):
 		os.system("make clean")	
-		os.system("make FIRMVERSION="+str(v[0])+" REGION="+str(v[1])+" SPIDERVERSION="+str(v[2])+" ROVERSION="+str(v[3])+" MENUVERSION="+str(v[4])+extraparams)
+		os.system("make FIRMVERSION="+str(v[0])+" REGION="+str(v[1])+" MSETVERSION="+str(v[2])+" ROVERSION="+str(v[3])+" MENUVERSION="+str(v[4])+extraparams)
 print(cnt)
