@@ -4,6 +4,7 @@ static const u32 processLinearOffset[] =
 	0x000B0000, // dlplay app
 	0x00300000, // act app
 	0x00100000, // mset app
+	0x00300000, // N3DS FACE app
 };
 
 static const u32 processHookAddress[] =
@@ -16,6 +17,7 @@ static const u32 processHookAddress[] =
 	#else
 		0x00101480, // mset app (9.6+)
 	#endif
+	0x001001A0, // N3DS FACE app
 };
 
 static const u32 processHookTidLow[] =
@@ -24,6 +26,7 @@ static const u32 processHookTidLow[] =
 	DLPLAY_TIDLOW, // dlplay app
 	ACTAPP_TIDLOW, // act app
 	MSET_TIDLOW, // mset app
+	NFACE_TIDLOW, // N3DS FACE app
 };
 
 typedef struct {
@@ -31,7 +34,7 @@ typedef struct {
 	u32 text_end;
 	u32 data_address;
 	u32 data_size;
-	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, reserved}
+	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, nfcAccess, reserved...}
 	struct {
 		u32 src, dst, size;
 	} map[];
@@ -43,8 +46,8 @@ static const memorymap_t camapp_map =
 		0x00347000,
 		0x00429000,
 		0x00046680 + 0x00099430,
-		{false, true, false,
-			false, false, false, false, false, false, false, false, false, false, false, false, false},
+		{false, true, false, false,
+			false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x00070000, 0x00070000},
@@ -59,8 +62,8 @@ static const memorymap_t dlplay_map =
 		0x00193000,
 		0x001A0000,
 		0x00013790 + 0x0002A538,
-		{true, true, false,
-			false, false, false, false, false, false, false, false, false, false, false, false, false},
+		{true, true, false, false,
+			false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x00100000, 0x00008000, 0x000B0000 - 0x00008000},
 			{0x00100000 + 0x000B0000 - 0x00008000, - 0x000B4000, 0x00004000},
@@ -75,8 +78,8 @@ static const memorymap_t actapp_map =
 		0x00388000,
 		0x003F3000,
 		0x0001A2FC + 0x00061ED4,
-		{true, false, false,
-			false, false, false, false, false, false, false, false, false, false, false, false, false},
+		{true, false, false, false,
+			false, false, false, false, false, false, false, false, false, false, false, false},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x0000E000, 0x0000E000},
@@ -94,8 +97,8 @@ static const memorymap_t msetapp_map =
 			0x00268000,
 			0x00291000,
 			0x00017B98 + 0x004EB108,
-			{true, false, true,
-				false, false, false, false, false, false, false, false, false, false, false, false, false},
+			{true, false, true, false,
+				false, false, false, false, false, false, false, false, false, false, false, false},
 			{
 				{0x100000,  0x8000, 0x100000 - 0x8000},
 				{0x200000 - 0x8000, -0xa0000, 0xa0000},
@@ -114,8 +117,8 @@ static const memorymap_t msetapp_map =
 			0x0026A000,
 			0x00293000,
 			0x00017BA0 + 0x004EB100,
-			{true, false, true,
-				false, false, false, false, false, false, false, false, false, false, false, false, false},
+			{true, false, true, false,
+				false, false, false, false, false, false, false, false, false, false, false, false},
 			{
 				{0x100000, 0x8000, 0x100000 - 0x8000},
 				{0x200000 - 0x8000, -0xa0000, 0xa0000},
@@ -130,15 +133,36 @@ static const memorymap_t msetapp_map =
 		};
 	#endif
 
+static const memorymap_t nfaceapp_map =
+	{
+		6,
+		0x003C6000,
+		0x004C3000,
+		0x0003AA8C + 0x000AE4C4,
+		{true, false, false, true,
+			false, false, false, false, false, false, false, false, false, false, false, false},
+		{
+			{0x100000, 0x8000, 0x300000 - 0x8000},
+			{0x400000 - 0x8000, -0xf0000, 0xf0000},
+			{0x4f0000 - 0x8000, -0xfe000, 0xe000},
+			{0x4fe000 - 0x8000, -0x1ac000, 0x2000},
+			{0x500000 - 0x8000, -0x1a0000, 0xa2000},
+			{0x5a2000 - 0x8000, -0x1aa000, 0xa000},
+		}
+	};
+
 static const memorymap_t * const app_maps[] =
 	{
 		(memorymap_t*)&camapp_map, // camera app
 		(memorymap_t*)&dlplay_map, // dlplay app
 		(memorymap_t*)&actapp_map, // act app
 		(memorymap_t*)&msetapp_map, // mset app
+		(memorymap_t*)&nfaceapp_map, // n3ds FACE app
 	};
 
-static const int numTargetProcesses = 4;
+// IS_N3DS is used to add n3ds-specific targets
+// this way i only need to have the define in one location instead of #ifdefs everywhere
+static const int numTargetProcesses = 4 + IS_N3DS;
 
 static void patchPayload(u32* payload_dst, int targetProcessIndex)
 {
