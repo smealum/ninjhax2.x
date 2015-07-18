@@ -19,9 +19,10 @@ menuVersions=[11272, 12288, 13330, 15360, 16404, 17415, 19456, "20480_usa"]
 a=[firmVersions, regionVersions, msetVersions, roVersions, menuVersions]
 
 extraparams=""
+extraparams+=" LOADROPBIN=1"
 for arg in sys.argv:
-	if(arg=="--enableloadropbin"):
-		extraparams+=" LOADROPBIN=1"
+	# if(arg=="--enableloadropbin"):
+		# extraparams+=" LOADROPBIN=1"
 	if(arg=="--enableotherapp"):
 		extraparams+=" OTHERAPP=1"
 

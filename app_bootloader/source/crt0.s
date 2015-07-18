@@ -3,6 +3,7 @@
 .align 4
 .global _start
 .global _serviceList
+.global _run3dsx_directly
 
 _run3dsxVector:
 	b _run3dsx
@@ -34,6 +35,21 @@ _changeProcess:
 	ldr r4, =changeProcess
 	b _start
 
+_stackless_memcpy:
+	@ we want to be able to copy over the param block even if it's on the old stack
+	@ memcpy can corrupt that old stack so we write our own crappy version that dont need no stack
+	@ needs to preserve r0, r1, r2, r3 and r4; fuck the rest
+	@ param block should be 4-byte aligned
+	@ sp : dst, r1 : src, r2 : size
+	mov r6, #0
+	_loop:
+		ldr r5, [r1, r6]
+		str r5, [sp, r6]
+		add r6, #4
+		cmp r6, r2
+		blt _loop
+	bx lr
+
 _start:
 	@ reset stack and copy argv buffer over
 	@ need to copy argv to the stack because else it might be overwritten by the time the app gets to it
@@ -50,10 +66,7 @@ _start:
 	sub sp, sp, r2
 
 	@ perform copy
-	stmfd sp!, {r0, r1, r2}
-	add r0, sp, #0xC
-	bl memcpy
-	ldmfd sp!, {r0, r1, r2}
+	bl _stackless_memcpy
 	mov r1, sp
 	b done_argv
 

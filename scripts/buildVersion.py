@@ -66,9 +66,10 @@ if r:
 	nupVersion=int(r.group(5))
 	nupRegion=r.group(6)
 	extraparams=""
+	extraparams+=" LOADROPBIN=1"
 	for arg in sys.argv:
-		if(arg=="--enableloadropbin"):
-			extraparams+=" LOADROPBIN=1"
+		# if(arg=="--enableloadropbin"):
+		# 	extraparams+=" LOADROPBIN=1"
 		if(arg=="--enableotherapp"):
 			extraparams+=" OTHERAPP=1"
 	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)

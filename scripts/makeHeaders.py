@@ -36,6 +36,8 @@ l+=[("FIRM_VERSION", "\""+sys.argv[1]+"\""),
 	("MENU_VERSION", "\""+sys.argv[5]+"\""),
 	("REGION", "\""+sys.argv[6]+"\""),
 	("IS_N3DS", str(1 if sys.argv[1][0:4] == "N3DS" else 0)),
+	("CN_NINJHAX_URL", "\"http://192.168.109.1/\""),
+	# ("CN_NINJHAX_URL", "\"http://smealum.github.io/ninjhax2/rMVPFSoVNs/p/\""),
 	("OUTNAME", "\""+sys.argv[7]+"\"")]
 l+=[("BUILDTIME", "\""+datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"\"")]
 l+=[("HB_NUM_HANDLES", "16")]

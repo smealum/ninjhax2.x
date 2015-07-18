@@ -197,6 +197,24 @@ Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
 	return cmdbuf[1];
 }
 
+Result FSUSER_FormatThisUserSaveData(Handle handle, u32 sizeblock, u32 countDirectoryEntry, u32 countFileEntry, u32 countDirectoryEntryBucket, u32 countFileEntryBucket, bool isDuplicateAll)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+
+	cmdbuf[0]=0x080F0180;
+	cmdbuf[1]=sizeblock;
+	cmdbuf[2]=countDirectoryEntry;
+	cmdbuf[3]=countFileEntry;
+	cmdbuf[4]=countDirectoryEntryBucket;
+	cmdbuf[5]=countFileEntryBucket;
+	cmdbuf[6]=isDuplicateAll;
+ 
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(handle)))return ret;
+ 
+	return cmdbuf[1];
+}
+
 void clearScreen(u8 shade)
 {
 	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
@@ -223,10 +241,30 @@ void errorScreen(char* str, u32* dv, u8 n)
 void drawTitleScreen(char* str)
 {
 	clearScreen(0x00);
-	centerString("regionFOUR v1.0",0);
+	centerString("ninjhax 2.0 beta",0);
 	centerString(BUILDTIME,10);
-	centerString("http://smealum.net/regionfour/",20);
+	centerString("smealum.github.io/ninjhax2/",20);
 	renderString(str, 0, 40);
+}
+
+Result FSUSER_CreateDirectory(Handle handle, FS_archive archive, FS_path dirLowPath)
+{
+	u32 *cmdbuf = getThreadCommandBuffer();
+
+	cmdbuf[0] = 0x08090182;
+	cmdbuf[1] = 0;
+	cmdbuf[2] = archive.handleLow;
+	cmdbuf[3] = archive.handleHigh;
+	cmdbuf[4] = dirLowPath.type;
+	cmdbuf[5] = dirLowPath.size;
+	cmdbuf[6] = 0;
+	cmdbuf[7] = (dirLowPath.size << 14) | 0x2;
+	cmdbuf[8] = (u32)dirLowPath.data;
+
+	Result ret = 0;
+	if((ret = svc_sendSyncRequest(handle)))return ret;
+
+	return cmdbuf[1];
 }
 
 // Result _APT_HardwareResetAsync(Handle* handle)
@@ -244,8 +282,8 @@ void installerScreen(u32 size)
 {
 	char str[512] =
 		"install the exploit to your savegame ?\n"
-		"this will overwrite your custom levels\n"
-		"and make some of the game inoperable.\n"
+		"this will delete your savegame and make some\n"
+		"of the game temporarily inoperable.\n"
 		"the exploit can later be uninstalled.\n"
 		"    A : Yes \n"
 		"    B : No  ";
@@ -257,31 +295,39 @@ void installerScreen(u32 size)
 		drawHex(PAD,100,100);
 		if(PAD&PAD_A)
 		{
-			//install
+			// install
 			int state=0;
 			Result ret;
 			Handle fsuHandle=*(Handle*)CN_FSHANDLE_ADR;
 			FS_archive saveArchive=(FS_archive){0x00000004, (FS_path){PATH_EMPTY, 1, (u8*)""}};
-			u32 totalWritten;
+			u32 totalWritten1 = 0x0deaddad;
+			u32 totalWritten2 = 0x1deaddad;
 			Handle fileHandle;
 
 			_strappend(str, "\n\n   installing..."); drawTitleScreen(str);
 
+			// format the shit out of the archive
+			ret=FSUSER_FormatThisUserSaveData(fsuHandle, 0x200, 0x20, 0x40, 0x25, 0x43, true);
+			state++; if(ret)goto installEnd;
+
 			ret=FSUSER_OpenArchive(fsuHandle, &saveArchive);
 			state++; if(ret)goto installEnd;
 
-			//write exploit map file
+			ret=FSUSER_CreateDirectory(fsuHandle, saveArchive, FS_makePath(PATH_CHAR, "/edit/"));
+			state++; if(ret)goto installEnd;
+
+			// write exploit map file
 			ret=FSUSER_OpenFile(fsuHandle, &fileHandle, saveArchive, FS_makePath(PATH_CHAR, "/edit/mslot0.map"), FS_OPEN_WRITE|FS_OPEN_CREATE, FS_ATTRIBUTE_NONE);
 			state++; if(ret)goto installEnd;
-			ret=FSFILE_Write(fileHandle, &totalWritten, 0x0, (u32*)cn_save_initial_loader_bin, cn_save_initial_loader_bin_size, 0x10001);
+			ret=FSFILE_Write(fileHandle, &totalWritten1, 0x0, (u32*)cn_save_initial_loader_bin, cn_save_initial_loader_bin_size, 0x10001);
 			state++; if(ret)goto installEnd;
 			ret=FSFILE_Close(fileHandle);
 			state++; if(ret)goto installEnd;
 
-			//write secondary payload file
+			// write secondary payload file
 			ret=FSUSER_OpenFile(fsuHandle, &fileHandle, saveArchive, FS_makePath(PATH_CHAR, "/edit/payload.bin"), FS_OPEN_WRITE|FS_OPEN_CREATE, FS_ATTRIBUTE_NONE);
 			state++; if(ret)goto installEnd;
-			ret=FSFILE_Write(fileHandle, &totalWritten, 0x0, (u32*)0x14300000, size, 0x10001);
+			ret=FSFILE_Write(fileHandle, &totalWritten2, 0x0, (u32*)0x14300000, size, 0x10001);
 			state++; if(ret)goto installEnd;
 			ret=FSFILE_Close(fileHandle);
 			state++; if(ret)goto installEnd;
@@ -295,8 +341,8 @@ void installerScreen(u32 size)
 			installEnd:
 			if(ret)
 			{
-				u32 v[2]={ret, state};
-				errorScreen("   installation process failed.\n   please report the below information by\n   email to sme@lum.sexy", v, 2);
+				u32 v[5]={ret, state, totalWritten1, totalWritten2, size};
+				errorScreen("   installation process failed.\n   please report the below information by\n   email to sme@lum.sexy", v, 5);
 			}
 
 			_strappend(str, " done.\n\n   press A to run the exploit."); drawTitleScreen(str);
