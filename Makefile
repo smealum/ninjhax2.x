@@ -31,7 +31,7 @@ ifneq ($(strip $(LOADROPBIN)),)
 	ROPBIN_CMD1	:=	@cp menu_payload/menu_ropbin.bin build/
 endif
 
-ROPDB_VERSIONS = 11272 12288 13330 15360 16404 17415 19456 20480_usa
+ROPDB_VERSIONS = 11272 12288 13330 14336 15360 16404 17415 19456 20480_usa
 ROPDB_TARGETS = $(addsuffix _ropdb.txt, $(addprefix menu_ropdb/, $(ROPDB_VERSIONS)))
 
 OUTNAME = $(FIRMVERSION)_$(REGION)_$(MENUVERSION)_$(MSETVERSION)

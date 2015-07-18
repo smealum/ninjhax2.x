@@ -20,8 +20,10 @@ def getMenuVersion(v):
 			return "11272"
 		elif v[1]==2:
 			return "12288"
-		elif (v[1]==3 or v[1]==4):
+		elif v[1]==3:
 			return "13330"
+		elif v[1]==4:
+			return "14336"
 		elif v[1]==5:
 			return "15360"
 		elif v[1]==6:
@@ -47,10 +49,7 @@ def getFirmVersion(v):
 	if v[5]==1:
 		return "N3DS"
 	else:
-		if v[0]<5:
-			return "PRE5"
-		else:
-			return "POST5"
+		return "POST5"
 
 
 #format : "X.X.X-XR"
