@@ -354,7 +354,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_close_session 0
 
 		; launch app that we want to takeover
-			nss_launch_title 0xBABE0004, 0x00040010
+			nss_launch_title 0xBABE0004, 0xBABE0005
 
 		; adjust gsp commands (can't preprocess aliases)
 			add_and_store_3 APP_START_LINEAR, 0xBABE0003, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppHook - object + 0x8

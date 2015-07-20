@@ -136,7 +136,7 @@ void apply_map(memorymap_t* m)
 	if(!m)return;
 	int i;
 	vu32* APP_START_LINEAR = &_APP_START_LINEAR;
-	for(i=0; i<m->num; i++)
+	for(i=0; i<m->header.num; i++)
 	{
 		int remaining_size = m->map[i].size;
 		u32 offset = 0;
@@ -159,7 +159,7 @@ void setup3dsx(Handle executable, memorymap_t* m, service_list_t* serviceList, u
 {
 	if(!m)return;
 
-	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)m->data_address, m->data_size, serviceList, argbuf);
+	Result ret = Load3DSX(executable, (void*)(0x00100000 + 0x00008000), (void*)m->header.data_address, m->header.data_size, serviceList, argbuf);
 
 	apply_map(m);
 
@@ -347,6 +347,9 @@ Result _APT_CloseApplication(Handle* handle, u32 a, u32 b, u32 c)
 // 	svc_closeHandle(_aptLockHandle);
 // }
 
+const u32 customProcessBuffer[0x200] = {0xBABE0006};
+memorymap_t* const customProcessMap = (memorymap_t*)customProcessBuffer;
+
 void run3dsx(Handle executable, u32* argbuf)
 {
 	initSrv();
@@ -382,7 +385,8 @@ void run3dsx(Handle executable, u32* argbuf)
 	}
 
 	vu32* targetProcessIndex = &_targetProcessIndex;
-	setup3dsx(executable, (memorymap_t*)app_maps[*targetProcessIndex], serviceList, argbuf);
+	if(*targetProcessIndex == -2) setup3dsx(executable, (memorymap_t*)customProcessMap, serviceList, argbuf);
+	else setup3dsx(executable, (memorymap_t*)app_maps[*targetProcessIndex], serviceList, argbuf);
 	FSFILE_Close(executable);
 
 	gspGpuExit();
@@ -447,8 +451,11 @@ void changeProcess(int processId, u32* argbuf, u32 argbuflength)
 	svc_sleepThread(50*1000*1000);
 
 	// patch it
-	int targetProcessIndex = processId;
-	patchPayload((u32*)&gspHeap[0x00100000], targetProcessIndex);
+	if(processId == -2 && argbuf && argbuf[0] == 2)
+	{
+		memorymap_t* mmap = (memorymap_t*)((((u32)&argbuf[1]) + strlen((char*)&argbuf[1]) + 1 + 0x3) & ~0x3);
+		patchPayload((u32*)&gspHeap[0x00100000], processId, mmap);
+	}else patchPayload((u32*)&gspHeap[0x00100000], processId, NULL);
 
 	// copy it to destination
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
@@ -518,9 +525,6 @@ void changeProcess(int processId, u32* argbuf, u32 argbuflength)
 		svc_closeHandle(_gspGpuHandle);
 	}
 
-	// // crash on purpose
-	// *(vu32*)0xdeadcafe = 0;
-
 	svc_exitProcess();
 }
 
@@ -548,8 +552,8 @@ int compareProcessEntries(processEntry_s* a, processEntry_s* b, bool* requiremen
 
 	if(cnt_a > cnt_b)return 1;
 	else if(cnt_a < cnt_b)return -1;
-	else if(a->processId < 0)return 1;
-	else if(b->processId < 0)return -1;
+	else if(a->processId == -1)return 1;
+	else if(b->processId == -1)return -1;
 
 	return 0;
 }
@@ -565,14 +569,14 @@ void getBestProcess(u32 sectionSizes[3], bool* requirements, int num_requirement
 		memorymap_t* mm = app_maps[i];
 		int processIndex = i;
 		if(processIndex == *(vu32*)&_targetProcessIndex)processIndex = -1;
-		if(sectionSizes[0] < (mm->text_end - 0x00100000))
+		if(sectionSizes[0] < (mm->header.text_end - 0x00100000))
 		{
 			processEntry_s new_entry = {processIndex, {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}};
 
-			if(num_requirements > 0) new_entry.capabilities[0] = mm->capabilities[0];
-			if(num_requirements > 1) new_entry.capabilities[1] = mm->capabilities[1];
-			if(num_requirements > 2) new_entry.capabilities[2] = mm->capabilities[2];
-			if(num_requirements > 3) new_entry.capabilities[3] = mm->capabilities[3];
+			if(num_requirements > 0) new_entry.capabilities[0] = mm->header.capabilities[0];
+			if(num_requirements > 1) new_entry.capabilities[1] = mm->header.capabilities[1];
+			if(num_requirements > 2) new_entry.capabilities[2] = mm->header.capabilities[2];
+			if(num_requirements > 3) new_entry.capabilities[3] = mm->header.capabilities[3];
 
 			// light ordering : we only really care that the best one be first; the rest can be unsorted
 			if(*out_len > 0 && compareProcessEntries(&new_entry, &out[0], requirements) > 0)

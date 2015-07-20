@@ -547,7 +547,7 @@ int main(u32 size, char** argv)
 	const block_size = 0x00010000;
 	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
 
-	int targetProcessIndex = 0;
+	int targetProcessIndex = 1;
 
 	#ifdef LOADROPBIN
 	// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
@@ -560,7 +560,7 @@ int main(u32 size, char** argv)
 	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BKP_BUFADR, binsize);
 	svc_sleepThread(100*1000*1000);
 
-	patchPayload((u32*)0x14100000, targetProcessIndex);
+	patchPayload((u32*)0x14100000, targetProcessIndex, NULL);
 
 	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
 	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BUFADR, binsize);

@@ -1,53 +1,38 @@
-static const u32 processLinearOffset[] =
+typedef struct
 {
-	0x00300000, // camera app
-	0x000B0000, // dlplay app
-	0x00300000, // act app
-	0x00100000, // mset app
-	0x00300000, // N3DS FACE app
-};
-
-static const u32 processHookAddress[] =
-{
-	0x00104be0, // camera app
-	0x00100D00, // dlplay app
-	0x00100160, // act app
-	#if (MSET_VERSION == 8203)
-		0x00101530, // mset app (9.0 - 9.6)
-	#else
-		0x00101480, // mset app (9.6+)
-	#endif
-	0x001001A0, // N3DS FACE app
-};
-
-static const u32 processHookTidLow[] =
-{
-	CAMAPP_TIDLOW, // camera app
-	DLPLAY_TIDLOW, // dlplay app
-	ACTAPP_TIDLOW, // act app
-	MSET_TIDLOW, // mset app
-	NFACE_TIDLOW, // N3DS FACE app
-};
-
-typedef struct {
 	u32 num;
 	u32 text_end;
 	u32 data_address;
 	u32 data_size;
+	u32 processLinearOffset;
+	u32 processHookAddress;
+	u32 processHookTidLow, processHookTidHigh;
 	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, nfcAccess, reserved...}
-	struct {
-		u32 src, dst, size;
-	} map[];
+} memorymap_header_t;
+
+typedef struct
+{
+	u32 src, dst, size;
+} memorymap_entry_t;
+
+typedef struct {
+	memorymap_header_t header;
+	memorymap_entry_t map[];
 } memorymap_t;
 
 static const memorymap_t camapp_map =
 	{
-		4,
-		0x00347000,
-		0x00429000,
-		0x00046680 + 0x00099430,
-		{false, true, false, false,
-			false, false, false, false, false, false, false, false, false, false, false, false},
+		{
+			4,
+			0x00347000,
+			0x00429000,
+			0x00046680 + 0x00099430,
+			0x00300000, // processLinearOffset
+			0x00104be0, // processHookAddress
+			CAMAPP_TIDLOW, 0x00040010,
+			{false, true, false, false,
+				false, false, false, false, false, false, false, false, false, false, false, false},
+			},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x00070000, 0x00070000},
@@ -58,28 +43,39 @@ static const memorymap_t camapp_map =
 
 static const memorymap_t dlplay_map =
 	{
-		4,
-		0x00193000,
-		0x001A0000,
-		0x00013790 + 0x0002A538,
-		{true, true, false, false,
-			false, false, false, false, false, false, false, false, false, false, false, false},
 		{
-			{0x00100000, 0x00008000, 0x000B0000 - 0x00008000},
-			{0x00100000 + 0x000B0000 - 0x00008000, - 0x000B4000, 0x00004000},
-			{0x00100000 + 0x000B4000 - 0x00008000, - 0x000DE000, 0x0002A000},
-			{0x00100000 + 0x000B4000 + 0x0002A000 - 0x00008000, - 0x000D2000, 0x00002000},
+			4,
+			0x00193000,
+			0x001A0000,
+			0x00013790 + 0x0002A538,
+			0x000B0000, // processLinearOffset
+			0x00100D00, // processHookAddress
+			DLPLAY_TIDLOW, 0x00040010,
+			{true, true, false, false,
+				false, false, false, false, false, false, false, false, false, false, false, false},
+			},
+		{
+			{0x100000, 0x8000, 0xb0000 - 0x8000},
+			{0x1b0000 - 0x8000, -0x4000, 0x4000},
+			{0x1b4000 - 0x8000, -0x2e000, 0xc000},
+			{0x1c0000 - 0x8000, -0x20000, 0x1c000},
+			{0x1dc000 - 0x8000, -0x22000, 0x2000},
 		}
 	};
 
 static const memorymap_t actapp_map =
 	{
-		4,
-		0x00388000,
-		0x003F3000,
-		0x0001A2FC + 0x00061ED4,
-		{true, false, false, false,
-			false, false, false, false, false, false, false, false, false, false, false, false},
+		{
+			4,
+			0x00388000,
+			0x003F3000,
+			0x0001A2FC + 0x00061ED4,
+			0x00300000, // processLinearOffset
+			0x00100160, // processHookAddress
+			ACTAPP_TIDLOW, 0x00040010,
+			{true, false, false, false,
+				false, false, false, false, false, false, false, false, false, false, false, false},
+			},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
 			{0x00100000 + 0x00300000 - 0x00008000, - 0x0000E000, 0x0000E000},
@@ -91,14 +87,19 @@ static const memorymap_t actapp_map =
 
 static const memorymap_t msetapp_map =
 	#if (MSET_VERSION == 8203)
-		// 9.2-9.6
+		// 9.0-9.6
 		{
-			8,
-			0x00268000,
-			0x00291000,
-			0x00017B98 + 0x004EB108,
-			{true, false, true, false,
-				false, false, false, false, false, false, false, false, false, false, false, false},
+			{
+				8,
+				0x00268000,
+				0x00291000,
+				0x00017B98 + 0x004EB108,
+				0x00100000, // processLinearOffset
+				0x00101530, // processHookAddress
+				MSET_TIDLOW, 0x00040010,
+				{true, false, true, false,
+					false, false, false, false, false, false, false, false, false, false, false, false},
+			},
 			{
 				{0x100000,  0x8000, 0x100000 - 0x8000},
 				{0x200000 - 0x8000, -0xa0000, 0xa0000},
@@ -113,12 +114,17 @@ static const memorymap_t msetapp_map =
 	#else
 		// 9.6+
 		{
-			9,
-			0x0026A000,
-			0x00293000,
-			0x00017BA0 + 0x004EB100,
-			{true, false, true, false,
-				false, false, false, false, false, false, false, false, false, false, false, false},
+			{
+				9,
+				0x0026A000,
+				0x00293000,
+				0x00017BA0 + 0x004EB100,
+				0x00100000, // processLinearOffset
+				0x00101480, // processHookAddress
+				MSET_TIDLOW, 0x00040010,
+				{true, false, true, false,
+					false, false, false, false, false, false, false, false, false, false, false, false},
+			},
 			{
 				{0x100000, 0x8000, 0x100000 - 0x8000},
 				{0x200000 - 0x8000, -0xa0000, 0xa0000},
@@ -135,12 +141,17 @@ static const memorymap_t msetapp_map =
 
 static const memorymap_t nfaceapp_map =
 	{
-		6,
-		0x003C6000,
-		0x004C3000,
-		0x0003AA8C + 0x000AE4C4,
-		{true, false, false, true,
-			false, false, false, false, false, false, false, false, false, false, false, false},
+		{
+			6,
+			0x003C6000,
+			0x004C3000,
+			0x0003AA8C + 0x000AE4C4,
+			0x00300000, // processLinearOffset
+			0x001001A0, // processHookAddress
+			NFACE_TIDLOW, 0x00040010,
+			{true, false, false, true,
+				false, false, false, false, false, false, false, false, false, false, false, false},
+		},
 		{
 			{0x100000, 0x8000, 0x300000 - 0x8000},
 			{0x400000 - 0x8000, -0xf0000, 0xf0000},
@@ -164,8 +175,9 @@ static const memorymap_t * const app_maps[] =
 // this way i only need to have the define in one location instead of #ifdefs everywhere
 static const int numTargetProcesses = 4 + IS_N3DS;
 
-static void patchPayload(u32* payload_dst, int targetProcessIndex)
+static void patchPayload(u32* payload_dst, int targetProcessIndex, memorymap_t* mmap)
 {
+	if(!mmap) mmap = app_maps[targetProcessIndex];
 	// payload has a bunch of aliases to handle multiple target processes "gracefully"
 	int i;
 	for(i=0; i<0x10000/4; i++)
@@ -178,15 +190,23 @@ static void patchPayload(u32* payload_dst, int targetProcessIndex)
 				break;
 			// target process APP_START_LINEAR
 			case 0xBABE0002:
-				payload_dst[i] = 0x30000000 + FIRM_APPMEMALLOC - processLinearOffset[targetProcessIndex];
+				payload_dst[i] = 0x30000000 + FIRM_APPMEMALLOC - mmap->header.processLinearOffset;
 				break;
 			// target process hook virtual address
 			case 0xBABE0003:
-				payload_dst[i] = processHookAddress[targetProcessIndex];
+				payload_dst[i] = mmap->header.processHookAddress;
 				break;
 			// target process TID low
 			case 0xBABE0004:
-				payload_dst[i] = processHookTidLow[targetProcessIndex];
+				payload_dst[i] = mmap->header.processHookTidLow;
+				break;
+			// target process TID high
+			case 0xBABE0005:
+				payload_dst[i] = mmap->header.processHookTidHigh;
+				break;
+			// cur process map
+			case 0xBABE0006:
+				memcpy(&payload_dst[i], mmap, sizeof(memorymap_header_t) + sizeof(memorymap_entry_t) * mmap->header.num);
 				break;
 		}
 	}
