@@ -385,6 +385,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
 			apt_close_session 0
 
+			; wait_for_parameter 0x101
+			sleep 100*1000*1000, 0x00000000
+
+			apt_open_session 0
+			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + amsysString, 0x8, MENU_AMSYS_HANDLE
+			apt_close_session 0
+
 		; memcpy wait loop to destination
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start)
 
@@ -434,6 +441,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.byte 0x00
 	irrstString:
 		.ascii "ir:rst"
+		.byte 0x00
+		.byte 0x00
+	amsysString:
+		.ascii "am:sys"
 		.byte 0x00
 		.byte 0x00
 

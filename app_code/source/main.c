@@ -196,7 +196,7 @@ typedef struct {
 	struct {
 		char name[8];
 		Handle handle;
-	} services[3];
+	} services[4];
 } nonflexible_service_list_t;
 
 Handle _aptLockHandle, _aptuHandle;
@@ -355,7 +355,7 @@ void receive_handle(Handle* out)
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle;
+	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle, amsysHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -375,6 +375,7 @@ void _main()
 	receive_handle(&fsuHandle);
 	receive_handle(&nssHandle);
 	receive_handle(&irrstHandle);
+	receive_handle(&amsysHandle);
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
@@ -396,7 +397,7 @@ void _main()
 	svc_sleepThread(100*1000*1000);
 
 	// setup service list structure
-	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){3, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}}};
+	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){4, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}, {"am:sys", amsysHandle}}};
 
 	// flush and copy
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
