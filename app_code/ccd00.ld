@@ -12,6 +12,11 @@ SECTIONS
 		build/crt0.o(.init)
 		*(.text)
 		*(.rodata)
+		_got_start = .;
+		*(.got)
+		*(.got.plt)
+		*(.data.rel.ro.local)
+		_got_end = .;
 	}
 
 	.bss : {

@@ -32,7 +32,7 @@ u8* gspHeap;
 u32* gxCmdBuf;
 
 u8* _heap_base; // should be 0x08000000
-const u32 _heap_size = 0x01000000;
+extern const u32 _heap_size;
 
 u8 currentBuffer;
 u8* topLeftFramebuffers[2];

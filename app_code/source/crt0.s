@@ -4,11 +4,15 @@
 .global _init
 .global _start
 .global _bootloaderAddress
+.global _heap_size
 
 b _start
 
 _bootloaderAddress:
 	.word 0x00000000
+
+_heap_size:
+	.word 0x01000000
 
 _start:
 	@ allocate bss/heap
@@ -22,7 +26,7 @@ _start:
 		@ addr1
 		mov r2, #0
 		@ size
-		ldr r3, =_heap_size
+		adr r3, _heap_size
 		ldr r3, [r3]
 		@ RW permissions
 		mov r4, #3

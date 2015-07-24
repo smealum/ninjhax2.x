@@ -84,7 +84,9 @@ cn_save_initial_loader/cn_save_initial_loader.bin:
 
 build/app_code.bin: app_code/app_code.bin
 	@cp app_code/app_code.bin build
-app_code/app_code.bin:
+build/app_code_reloc.s: app_code/app_code_reloc.s
+	@cp app_code/app_code_reloc.s build
+app_code/app_code.bin app_code/app_code_reloc.s:
 	@cd app_code && make
 
 
@@ -109,9 +111,10 @@ build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_r
 	@cp menu_payload/menu_payload_regionfree.bin build/
 	@cp menu_payload/menu_payload_loadropbin.bin build/
 	$(ROPBIN_CMD1)
-menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin: build/app_code.bin build/app_bootloader.bin
+menu_payload/menu_payload_regionfree.bin menu_payload/menu_payload_loadropbin.bin menu_payload/menu_ropbin.bin: build/app_code.bin build/app_code_reloc.s build/app_bootloader.bin
 	@cp build/app_bootloader.bin menu_payload/
 	@cp build/app_code.bin menu_payload/
+	@cp build/app_code_reloc.s menu_payload/
 	@cd menu_payload && make
 
 

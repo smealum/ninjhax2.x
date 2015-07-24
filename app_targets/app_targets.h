@@ -208,6 +208,10 @@ static void patchPayload(u32* payload_dst, int targetProcessIndex, memorymap_t* 
 			case 0xBABE0006:
 				memcpy(&payload_dst[i], mmap, sizeof(memorymap_header_t) + sizeof(memorymap_entry_t) * mmap->header.num);
 				break;
+			// app_code base address
+			case 0xBABE0007:
+				payload_dst[i] = 0x00107000;
+				break;
 		}
 	}
 }

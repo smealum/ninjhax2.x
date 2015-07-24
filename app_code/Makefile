@@ -10,12 +10,14 @@ ifeq ($(filter $(DEVKITARM)/bin,$(PATH)),)
 export PATH:=$(DEVKITARM)/bin:$(PATH)
 endif
 
+CTRULIB := $(CTRULIB)-fpic
+
 CC = arm-none-eabi-gcc
 # LINK = arm-none-eabi-gcc
 LINK = arm-none-eabi-ld
 AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
-CFLAGS += -Wall -std=c99 -march=armv6 -Os -I"$(CTRULIB)/include" -I$(DEVKITPRO)/libnds/include
+CFLAGS += -Wall -std=c99 -march=armv6 -Os -fpie -I"$(CTRULIB)/include" -I$(DEVKITPRO)/libnds/include
 LDFLAGS += --script=ccd00.ld -L"$(DEVKITARM)/arm-none-eabi/lib" -L"$(CTRULIB)/lib" -Map=output.map
 
 CFILES = $(wildcard source/*.c)
@@ -40,7 +42,7 @@ endef
 
 .PHONY:=all dirs
 
-all: dirs $(PROJECTNAME).bin
+all: dirs $(PROJECTNAME).bin $(PROJECTNAME)_reloc.s
 
 dirs:
 	@mkdir -p build
@@ -50,6 +52,9 @@ ctrulib:
 
 $(PROJECTNAME).bin: $(PROJECTNAME).elf
 	$(OBJCOPY) -O binary $< $@
+
+$(PROJECTNAME)_reloc.s: $(PROJECTNAME).elf $(PROJECTNAME).bin
+	@readelf --symbols $(PROJECTNAME).elf | grep got | python ../scripts/relocROP.py $(PROJECTNAME).bin > $(PROJECTNAME)_reloc.s
 
 $(PROJECTNAME).elf: $(OFILES) ctrulib
 	$(LINK) $(LDFLAGS) -o $(PROJECTNAME).elf $(filter-out build/crt0.o, $(OFILES)) -g -lctru -lm -lc -lg
