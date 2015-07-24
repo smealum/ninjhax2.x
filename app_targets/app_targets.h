@@ -6,6 +6,7 @@ typedef struct
 	u32 data_size;
 	u32 processLinearOffset;
 	u32 processHookAddress;
+	u32 processAppCodeAddress;
 	u32 processHookTidLow, processHookTidHigh;
 	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, nfcAccess, reserved...}
 } memorymap_header_t;
@@ -20,6 +21,8 @@ typedef struct {
 	memorymap_entry_t map[];
 } memorymap_t;
 
+#define size_memmap(m) (sizeof(memorymap_header_t) + sizeof(memorymap_entry_t) * (m).header.num)
+
 static const memorymap_t camapp_map =
 	{
 		{
@@ -29,6 +32,7 @@ static const memorymap_t camapp_map =
 			0x00046680 + 0x00099430,
 			0x00300000, // processLinearOffset
 			0x00104be0, // processHookAddress
+			0x00105000, // processAppCodeAddress
 			CAMAPP_TIDLOW, 0x00040010,
 			{false, true, false, false,
 				false, false, false, false, false, false, false, false, false, false, false, false},
@@ -50,6 +54,7 @@ static const memorymap_t dlplay_map =
 			0x00013790 + 0x0002A538,
 			0x000B0000, // processLinearOffset
 			0x00100D00, // processHookAddress
+			0x00105000, // processAppCodeAddress
 			DLPLAY_TIDLOW, 0x00040010,
 			{true, true, false, false,
 				false, false, false, false, false, false, false, false, false, false, false, false},
@@ -72,6 +77,7 @@ static const memorymap_t actapp_map =
 			0x0001A2FC + 0x00061ED4,
 			0x00300000, // processLinearOffset
 			0x00100160, // processHookAddress
+			0x00105000, // processAppCodeAddress
 			ACTAPP_TIDLOW, 0x00040010,
 			{true, false, false, false,
 				false, false, false, false, false, false, false, false, false, false, false, false},
@@ -96,6 +102,7 @@ static const memorymap_t msetapp_map =
 				0x00017B98 + 0x004EB108,
 				0x00100000, // processLinearOffset
 				0x00101530, // processHookAddress
+				0x00105000, // processAppCodeAddress
 				MSET_TIDLOW, 0x00040010,
 				{true, false, true, false,
 					false, false, false, false, false, false, false, false, false, false, false, false},
@@ -121,6 +128,7 @@ static const memorymap_t msetapp_map =
 				0x00017BA0 + 0x004EB100,
 				0x00100000, // processLinearOffset
 				0x00101480, // processHookAddress
+				0x00105000, // processAppCodeAddress
 				MSET_TIDLOW, 0x00040010,
 				{true, false, true, false,
 					false, false, false, false, false, false, false, false, false, false, false, false},
@@ -148,6 +156,7 @@ static const memorymap_t nfaceapp_map =
 			0x0003AA8C + 0x000AE4C4,
 			0x00300000, // processLinearOffset
 			0x001001A0, // processHookAddress
+			0x00105000, // processAppCodeAddress
 			NFACE_TIDLOW, 0x00040010,
 			{true, false, false, true,
 				false, false, false, false, false, false, false, false, false, false, false, false},
@@ -210,7 +219,7 @@ static void patchPayload(u32* payload_dst, int targetProcessIndex, memorymap_t* 
 				break;
 			// app_code base address
 			case 0xBABE0007:
-				payload_dst[i] = 0x00107000;
+				payload_dst[i] = mmap->header.processAppCodeAddress;
 				break;
 		}
 	}

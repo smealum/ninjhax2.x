@@ -10,6 +10,7 @@
 
 #include "sys.h"
 #include "3dsx.h"
+#include "takeover.h"
 
 #include "../../build/constants.h"
 #include "../../app_targets/app_targets.h"
@@ -526,6 +527,48 @@ void changeProcess(int processId, u32* argbuf, u32 argbuflength)
 	}
 
 	svc_exitProcess();
+}
+
+void _changeProcess(int processId, u32* argbuf, u32 arglength);
+
+void runTitle(u8 mediatype, u32* argbuf, u32 argbuflength, u32 tid_low, u32 tid_high)
+{
+	initSrv();
+	gspGpuInit();
+
+	// free extra data pages if any
+	freeDataPages(0x14000000);
+	freeDataPages(0x30000000);
+
+	// allocate gsp heap
+	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x02000000, 0x10003, 0x3);
+
+	// put new argv buffer on stack
+	u32 argbuffer[0x200];
+	u32 argbuffer_length = argbuflength;
+
+	memcpy(argbuffer, argbuf, argbuflength);
+
+	argbuffer[0] = 2;
+	u32 mmap_offset = (4 + strlen((char*)&argbuffer[1]) + 1 + 0x3) & ~0x3;
+	memorymap_t* mmap = (memorymap_t*)((u32)argbuffer + mmap_offset);
+
+	// grab fs:USER handle
+	Handle fsuserHandle = 0x0;
+	int i; for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "fs:USER"))fsuserHandle=_serviceList.services[i].handle;
+	if(!fsuserHandle)*(vu32*)0xCAFE0001=0;
+
+	getProcessMap(fsuserHandle, mediatype, tid_low, tid_high, mmap, (u32*)gspHeap);
+
+	argbuffer_length = mmap_offset + size_memmap(*mmap);
+
+	gspGpuExit();
+	exitSrv();
+	
+	// free heap (has to be the very last thing before jumping to app as contains bss)
+	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
+
+	_changeProcess(-2, argbuffer, argbuffer_length);
 }
 
 typedef struct
