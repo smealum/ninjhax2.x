@@ -67,11 +67,13 @@ void gspGpuInit()
 	gxCmdBuf=(u32*)(0x10002000+0x800+threadID*0x200);
 
 	//grab main left screen framebuffer addresses
-	topLeftFramebuffers[0] = &gspHeap[0] - 0x10000000;
-	topLeftFramebuffers[1] = &gspHeap[0x46500] - 0x10000000;
+	int linear_offset = (((u32)gspHeap) < 0x30000000) ? (-0x0c000000) : 0x10000000;
+
+	topLeftFramebuffers[0] = &gspHeap[0] - linear_offset;
+	topLeftFramebuffers[1] = &gspHeap[0x46500] - linear_offset;
 	GSPGPU_WriteHWRegs(NULL, 0x400468, (u32*)&topLeftFramebuffers, 8);
-	topLeftFramebuffers[0] += 0x10000000;
-	topLeftFramebuffers[1] += 0x10000000;
+	topLeftFramebuffers[0] += linear_offset;
+	topLeftFramebuffers[1] += linear_offset;
 
 	currentBuffer=0;
 }
