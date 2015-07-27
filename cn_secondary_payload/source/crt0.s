@@ -21,6 +21,7 @@ _start:
 	mov r11, #0
 	mov r12, #0
 	mov sp, #0x10000000
+	push {r0} @ Write r0 to the very top of the stack, so that code elsewhere can load that value globally via a fixed address.
 	blx main
 
 _init:

@@ -6,10 +6,14 @@
 #include <ctr/svc.h>
 #include <ctr/APT.h>
 #include <ctr/FS.h>
+#include <ctr/GSP.h>
 #include "text.h"
 #include "menu_payload_regionfree_bin.h"
 #include "menu_payload_loadropbin_bin.h"
+
+#ifndef OTHERAPP
 #include "cn_save_initial_loader_bin.h"
+#endif
 
 #ifdef LOADROPBIN
 #include "menu_ropbin_bin.h"
@@ -17,9 +21,6 @@
 
 #include "../../build/constants.h"
 #include "../../app_targets/app_targets.h"
-
-#define TOPFBADR1 ((u8*)CN_TOPFBADR1)
-#define TOPFBADR2 ((u8*)CN_TOPFBADR2)
 
 typedef enum
 {
@@ -94,6 +95,58 @@ Result _srv_getServiceHandle(Handle* handleptr, Handle* out, char* server)
 	return cmdbuf[1];
 }
 
+Result _GSPGPU_ImportDisplayCaptureInfo(Handle* handle, GSP_CaptureInfo *captureinfo)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x00180000; //request header code
+
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	ret = cmdbuf[1];
+
+	if(ret==0)
+	{
+		memcpy(captureinfo, &cmdbuf[2], 0x20);
+	}
+
+	return ret;
+}
+
+u8 *GSP_GetTopFBADR()
+{
+	GSP_CaptureInfo capinfo;
+	u32 ptr;
+
+	#ifndef OTHERAPP
+		Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
+	#else
+		u32 *paramblk = (u32*)*((u32*)0xFFFFFFC);
+		Handle* gspHandle=(Handle*)paramblk[0x58>>2];
+	#endif
+
+	if(_GSPGPU_ImportDisplayCaptureInfo(gspHandle, &capinfo)!=0)return NULL;
+
+	ptr = (u32)capinfo.screencapture[0].framebuf0_vaddr;
+	if(ptr>=0x1f000000 && ptr<0x1f600000)return NULL;//Don't return a ptr to VRAM if framebuf is located there, since writing there will only crash.
+
+	return (u8*)ptr;
+}
+
+Result GSP_FlushDCache(u32* addr, u32 size)
+{
+	#ifndef OTHERAPP
+		Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u32* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
+		Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
+		return _GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, addr, size);
+	#else
+		Result (*_GSP_FlushDCache)(u32* addr, u32 size);
+		u32 *paramblk = (u32*)*((u32*)0xFFFFFFC);
+		_GSP_FlushDCache=(void*)paramblk[0x20>>2];
+		return _GSP_FlushDCache(addr, size);
+	#endif
+}
+
 const u8 hexTable[]=
 {
 	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
@@ -108,23 +161,15 @@ void hex2str(char* out, u32 val)
 
 void renderString(char* str, int x, int y)
 {
-	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
-	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u8* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
-	drawString(TOPFBADR1,str,x,y);
-	drawString(TOPFBADR2,str,x,y);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, TOPFBADR1, 240*400*3);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, TOPFBADR2, 240*400*3);
+	u8 *ptr = GSP_GetTopFBADR();
+	if(ptr==NULL)return;
+	drawString(ptr,str,x,y);
+	GSP_FlushDCache((u32*)ptr, 240*400*3);
 }
 
 void centerString(char* str, int y)
 {
-	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
-	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u8* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
-	int x=200-(_strlen(str)*4);
-	drawString(TOPFBADR1,str,x,y);
-	drawString(TOPFBADR2,str,x,y);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, TOPFBADR1, 240*400*3);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, TOPFBADR2, 240*400*3);
+	renderString(str, 200-(_strlen(str)*4), y);
 }
 
 void drawHex(u32 val, int x, int y)
@@ -146,9 +191,16 @@ Result _GSPGPU_ReleaseRight(Handle handle)
 	return cmdbuf[1];
 }
 
+const char* const aptServiceNames[] = {"APT:U", "APT:A", "APT:S"};
+
+#define _aptSessionInit() \
+	int aptIndex; \
+	for(aptIndex = 0; aptIndex < 3; aptIndex++)	if(!_srv_getServiceHandle(srvHandle, &aptuHandle, (char*)aptServiceNames[aptIndex]))break;\
+	svc_closeHandle(aptuHandle);\
+
 #define _aptOpenSession() \
 	svc_waitSynchronization1(aptLockHandle, U64_MAX);\
-	_srv_getServiceHandle(srvHandle, &aptuHandle, "APT:U");\
+	_srv_getServiceHandle(srvHandle, &aptuHandle, (char*)aptServiceNames[aptIndex]);\
 
 #define _aptCloseSession()\
 	svc_closeHandle(aptuHandle);\
@@ -156,22 +208,72 @@ Result _GSPGPU_ReleaseRight(Handle handle)
 
 void doGspwn(u32* src, u32* dst, u32 size)
 {
-	Result (*nn__gxlow__CTR__CmdReqQueueTx__TryEnqueue)(u32** sharedGspCmdBuf, u32* cmdAdr)=(void*)CN_nn__gxlow__CTR__CmdReqQueueTx__TryEnqueue;
-	u32 gxCommand[]=
-	{
-		0x00000004, //command header (SetTextureCopy)
-		(u32)src, //source address
-		(u32)dst, //destination address
-		size, //size
-		0xFFFFFFFF, // dim in
-		0xFFFFFFFF, // dim out
-		0x00000008, // flags
-		0x00000000, //unused
-	};
+	#ifndef OTHERAPP
+		Result (*nn__gxlow__CTR__CmdReqQueueTx__TryEnqueue)(u32** sharedGspCmdBuf, u32* cmdAdr)=(void*)CN_nn__gxlow__CTR__CmdReqQueueTx__TryEnqueue;
+		u32 gxCommand[]=
+		{
+			0x00000004, //command header (SetTextureCopy)
+			(u32)src, //source address
+			(u32)dst, //destination address
+			size, //size
+			0xFFFFFFFF, // dim in
+			0xFFFFFFFF, // dim out
+			0x00000008, // flags
+			0x00000000, //unused
+		};
 
-	u32** sharedGspCmdBuf=(u32**)(CN_GSPSHAREDBUF_ADR);
-	nn__gxlow__CTR__CmdReqQueueTx__TryEnqueue(sharedGspCmdBuf, gxCommand);
+		u32** sharedGspCmdBuf=(u32**)(CN_GSPSHAREDBUF_ADR);
+		nn__gxlow__CTR__CmdReqQueueTx__TryEnqueue(sharedGspCmdBuf, gxCommand);
+	#else
+		Result (*gxcmd4)(u32 *src, u32 *dst, u32 size, u16 width0, u16 height0, u16 width1, u16 height1, u32 flags);
+		u32 *paramblk = (u32*)*((u32*)0xFFFFFFC);
+		gxcmd4=(void*)paramblk[0x1c>>2];
+		gxcmd4(src, dst, size, 0, 0, 0, 0, 0x8);
+	#endif
 }
+
+void clearScreen(u8 shade)
+{
+	u8 *ptr = GSP_GetTopFBADR();
+	if(ptr==NULL)return;
+	memset(ptr, shade, 240*400*3);
+	GSP_FlushDCache((u32*)ptr, 240*400*3);
+}
+
+void errorScreen(char* str, u32* dv, u8 n)
+{
+	clearScreen(0x00);
+	renderString("FATAL ERROR",0,0);
+	renderString(str,0,10);
+	if(dv && n)
+	{
+		int i;
+		for(i=0;i<n;i++)drawHex(dv[i], 8, 50+i*10);
+	}
+	while(1);
+}
+
+void drawTitleScreen(char* str)
+{
+	clearScreen(0x00);
+	centerString("ninjhax 2.0 beta",0);
+	centerString(BUILDTIME,10);
+	centerString("smealum.github.io/ninjhax2/",20);
+	renderString(str, 0, 40);
+}
+
+// Result _APT_HardwareResetAsync(Handle* handle)
+// {
+// 	u32* cmdbuf=getThreadCommandBuffer();
+// 	cmdbuf[0]=0x4E0000; //request header code
+	
+// 	Result ret=0;
+// 	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+// 	return cmdbuf[1];
+// }
+
+#ifndef OTHERAPP
 
 //no idea what this does; apparently used to switch up save partitions
 Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
@@ -215,38 +317,6 @@ Result FSUSER_FormatThisUserSaveData(Handle handle, u32 sizeblock, u32 countDire
 	return cmdbuf[1];
 }
 
-void clearScreen(u8 shade)
-{
-	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
-	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u8* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
-	memset(TOPFBADR1, shade, 240*400*3);
-	memset(TOPFBADR2, shade, 240*400*3);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, TOPFBADR1, 240*400*3);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, TOPFBADR2, 240*400*3);
-}
-
-void errorScreen(char* str, u32* dv, u8 n)
-{
-	clearScreen(0x00);
-	renderString("FATAL ERROR",0,0);
-	renderString(str,0,10);
-	if(dv && n)
-	{
-		int i;
-		for(i=0;i<n;i++)drawHex(dv[i], 8, 50+i*10);
-	}
-	while(1);
-}
-
-void drawTitleScreen(char* str)
-{
-	clearScreen(0x00);
-	centerString("ninjhax 2.0 beta",0);
-	centerString(BUILDTIME,10);
-	centerString("smealum.github.io/ninjhax2/",20);
-	renderString(str, 0, 40);
-}
-
 Result FSUSER_CreateDirectory(Handle handle, FS_archive archive, FS_path dirLowPath)
 {
 	u32 *cmdbuf = getThreadCommandBuffer();
@@ -266,17 +336,6 @@ Result FSUSER_CreateDirectory(Handle handle, FS_archive archive, FS_path dirLowP
 
 	return cmdbuf[1];
 }
-
-// Result _APT_HardwareResetAsync(Handle* handle)
-// {
-// 	u32* cmdbuf=getThreadCommandBuffer();
-// 	cmdbuf[0]=0x4E0000; //request header code
-	
-// 	Result ret=0;
-// 	if((ret=svc_sendSyncRequest(*handle)))return ret;
-	
-// 	return cmdbuf[1];
-// }
 
 void installerScreen(u32 size)
 {
@@ -359,6 +418,7 @@ void installerScreen(u32 size)
 		}else if(PAD&PAD_B)break;
 	}
 }
+#endif
 
 Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, u32 size2, u8* buf2)
 {
@@ -421,11 +481,38 @@ Result _APT_CloseApplication(Handle* handle, u32 a, u32 b, u32 c)
 	return cmdbuf[1];
 }
 
+Result _APT_GetLockHandle(Handle* handle, u16 flags, Handle* lockHandle)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x10040; //request header code
+	cmdbuf[1]=flags;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+	if(lockHandle)*lockHandle=cmdbuf[5];
+	
+	return cmdbuf[1];
+}
+
 void _aptExit()
 {
-	Handle* srvHandle=(Handle*)CN_SRVHANDLE_ADR;
-	Handle aptLockHandle=*((Handle*)CN_APTLOCKHANDLE_ADR);
+	Handle _srvHandle;
+	Handle* srvHandle = &_srvHandle;
+	Handle aptLockHandle = 0;
 	Handle aptuHandle=0x00;
+
+	_initSrv(srvHandle);
+
+	_aptSessionInit();
+
+	#ifndef OTHERAPP
+		aptLockHandle=*((Handle*)CN_APTLOCKHANDLE_ADR);
+	#else
+		_aptOpenSession();
+		_APT_GetLockHandle(&aptuHandle, 0x0, &aptLockHandle);
+		_aptCloseSession();
+	#endif
 
 	u8 buf1[4], buf2[4];
 
@@ -463,20 +550,16 @@ void _aptExit()
 	svc_closeHandle(aptLockHandle);
 }
 
-void inject_payload(u32 target_address)
+void inject_payload(u32* linear_buffer, u32 target_address)
 {
-	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
-
-	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u32* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
-
 	u32 target_base = target_address & ~0xFF;
 	u32 target_offset = target_address - target_base;
 
 	//read menu memory
 	{
-		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+		GSP_FlushDCache(linear_buffer, 0x00001000);
 		
-		doGspwn((u32*)(target_base), (u32*)0x14100000, 0x00001000);
+		doGspwn((u32*)(target_base), linear_buffer, 0x00001000);
 	}
 
 	svc_sleepThread(10000000); //sleep long enough for memory to be read
@@ -487,14 +570,14 @@ void inject_payload(u32 target_address)
 		u32 payload_size;
 
 		#ifndef LOADROPBIN
-		payload_src = (u32*)menu_payload_regionfree_bin;
-		payload_size = menu_payload_regionfree_bin_size;
+			payload_src = (u32*)menu_payload_regionfree_bin;
+			payload_size = menu_payload_regionfree_bin_size;
 		#else
-		payload_src = (u32*)menu_payload_loadropbin_bin;
-		payload_size = menu_payload_loadropbin_bin_size;
+			payload_src = (u32*)menu_payload_loadropbin_bin;
+			payload_size = menu_payload_loadropbin_bin_size;
 		#endif
 
-		u32* payload_dst = &((u32*)0x14100000)[target_offset/4];
+		u32* payload_dst = &(linear_buffer)[target_offset/4];
 
 		//patch in payload
 		int i;
@@ -506,37 +589,34 @@ void inject_payload(u32 target_address)
 			}else if(payload_src[i] != 0xDEADCAFE) payload_dst[i] = payload_src[i];
 		}
 
-		_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x00001000);
+		GSP_FlushDCache(linear_buffer, 0x00001000);
 
-		doGspwn((u32*)0x14100000, (u32*)(target_base), 0x00001000);
+		doGspwn(linear_buffer, (u32*)(target_base), 0x00001000);
 	}
 
 	svc_sleepThread(10000000); //sleep long enough for memory to be written
 }
 
-void bruteforceCloseHandle(u16 index, u32 maxCnt)
+int main(u32 loaderparam, char** argv)
 {
-	int i;
-	for(i=0;i<maxCnt;i++)if(!svc_closeHandle((index)|(i<<15)))return;
-}
+	#ifdef OTHERAPP
+		u32 *paramblk = (u32*)loaderparam;
+	#endif
 
-int main(u32 size, char** argv)
-{
 	int line=10;
 	drawTitleScreen("");
 
-	Handle* srvHandle=(Handle*)CN_SRVHANDLE_ADR;
-	Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
+	#ifndef OTHERAPP
+		Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
+		u32* linear_buffer = (u32*)0x14100000;
+	#else
+		Handle* gspHandle=(Handle*)paramblk[0x58>>2];
+		u32* linear_buffer = (u32*)((((u32)paramblk) + 0x1000) & ~0xfff);
+	#endif
 
-	Handle aptLockHandle=*((Handle*)CN_APTLOCKHANDLE_ADR);
-	Handle aptuHandle=0x00;
-	Result ret;
-
-	u8 recvbuf[0x1000];
-
-	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u32* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
-
-	if(size)installerScreen(size);
+	#ifndef OTHERAPP
+		if(loaderparam)installerScreen(loaderparam);
+	#endif
 
 	// regionfour stuff
 	drawTitleScreen("searching for target...");
@@ -550,28 +630,27 @@ int main(u32 size, char** argv)
 	int targetProcessIndex = 1;
 
 	#ifdef LOADROPBIN
-	// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
-	u32 binsize = 0x8000; // fuck modularity
+		// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
+		u32 binsize = 0x8000; // fuck modularity
 
-	memcpy((u32*)0x14100000, (u32*)menu_ropbin_bin, menu_ropbin_bin_size); // Copy menu_ropbin_bin into homemenu linearmem.
+		memcpy(linear_buffer, (u32*)menu_ropbin_bin, menu_ropbin_bin_size); // Copy menu_ropbin_bin into homemenu linearmem.
 
-	// copy un-processed ropbin to backup location
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
-	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BKP_BUFADR, binsize);
-	svc_sleepThread(100*1000*1000);
+		// copy un-processed ropbin to backup location
+		GSP_FlushDCache(linear_buffer, binsize);
+		doGspwn(linear_buffer, (u32*)MENU_LOADEDROP_BKP_BUFADR, binsize);
+		svc_sleepThread(100*1000*1000);
 
-	patchPayload((u32*)0x14100000, targetProcessIndex, NULL);
+		patchPayload(linear_buffer, targetProcessIndex, NULL);
 
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, binsize);
-	doGspwn((u32*)0x14100000, (u32*)MENU_LOADEDROP_BUFADR, binsize);
-	svc_sleepThread(100*1000*1000);
+		GSP_FlushDCache(linear_buffer, binsize);
+		doGspwn(linear_buffer, (u32*)MENU_LOADEDROP_BUFADR, binsize);
+		svc_sleepThread(100*1000*1000);
 
-	// copy parameter block
-	memset((u32*)0x14100000, 0x00, MENU_PARAMETER_SIZE);
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, MENU_PARAMETER_SIZE);
-	doGspwn((u32*)0x14100000, (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
-	svc_sleepThread(20*1000*1000);
-
+		// copy parameter block
+		memset(linear_buffer, 0x00, MENU_PARAMETER_SIZE);
+		GSP_FlushDCache(linear_buffer, MENU_PARAMETER_SIZE);
+		doGspwn(linear_buffer, (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
+		svc_sleepThread(20*1000*1000);
 	#endif
 
 	int cnt = 0;
@@ -581,9 +660,9 @@ int main(u32 size, char** argv)
 	{
 		//read menu memory
 		{
-			_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, block_size);
+			GSP_FlushDCache(linear_buffer, block_size);
 			
-			doGspwn((u32*)(block_start), (u32*)0x14100000, block_size);
+			doGspwn((u32*)(block_start), linear_buffer, block_size);
 		}
 
 		svc_sleepThread(1000000); //sleep long enough for memory to be read
@@ -592,7 +671,7 @@ int main(u32 size, char** argv)
 		u32 end = block_size/4-0x10;
 		for(i=0; i<end; i++)
 		{
-			const u32* adr = &((u32*)0x14100000)[i];
+			const u32* adr = &(linear_buffer)[i];
 			if(adr[2]==0x5544 && adr[3]==0x80 && adr[6]!=0x0 && adr[0x1F]==0x6E4C5F4E)break;
 		}
 		if(i<end)
@@ -602,10 +681,10 @@ int main(u32 size, char** argv)
 			target_address = block_start + i * 4;
 
 			drawHex(target_address, 8, 50+cnt*10);
-			drawHex(((u32*)0x14100000)[i+6], 100, 50+cnt*10);
-			drawHex(((u32*)0x14100000)[i+0x1f], 200, 50+cnt*10);
+			drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
+			drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
 
-			inject_payload(target_address+0x18);
+			inject_payload(linear_buffer, target_address+0x18);
 
 			block_start = target_address + 0x10 - block_stride;
 			cnt++;
@@ -615,44 +694,11 @@ int main(u32 size, char** argv)
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
-	//cleanup
-	{
-		//unmap GSP and HID shared mem
-		svc_unmapMemoryBlock(*((Handle*)CN_HIDMEMHANDLE_ADR), 0x10000000);
-		svc_unmapMemoryBlock(*((Handle*)CN_GSPMEMHANDLE_ADR), 0x10002000);
-
-		Handle _srvHandle=*srvHandle;
-		Handle _gspHandle=*gspHandle;
-
-		//close all handles in data and .bss sections
-		int i;
-		for(i=0;i<(CN_DATABSS_SIZE)/4;i++)
-		{
-			Handle val=((Handle*)(CN_DATABSS_START))[i];
-			if(val && (val&0x7FFF)<0x30 && val!=_srvHandle && val!=_gspHandle)svc_closeHandle(val);
-		}
-
-		//bruteforce the cnt part of the remaining 3 handles
-		bruteforceCloseHandle(0x4, 0x1FFFF);
-		bruteforceCloseHandle(0xA, 0x1FFFF);
-		bruteforceCloseHandle(0x1E, 0x1FFFF);
-		bruteforceCloseHandle(0x1F, 0x1FFFF);
-		bruteforceCloseHandle(0x20, 0x1FFFF);
-
-		//free regular heap
-		u32 out;
-		svc_controlMemory(&out, 0x08000000, 0x00000000, CN_HEAPSIZE, MEMOP_FREE, 0x0);
-	}
-
 	#ifndef LOADROPBIN
-	drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
+		drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
 	#else
-	drawTitleScreen("\n   The homemenu ropbin is ready.");
+		drawTitleScreen("\n   The homemenu ropbin is ready.");
 	#endif
-	
-	//free GSP heap
-	u32 out;
-	svc_controlMemory(&out, 0x14000000, 0x00000000, 0x02000000, MEMOP_FREE, 0x0);
 	
 	//disable GSP module access
 	_GSPGPU_ReleaseRight(*gspHandle);
@@ -660,9 +706,6 @@ int main(u32 size, char** argv)
 
 	//exit to menu
 	_aptExit();
-
-	//close srv:
-	svc_closeHandle(*srvHandle);
 
 	svc_exitProcess();
 

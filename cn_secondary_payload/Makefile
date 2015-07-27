@@ -11,9 +11,15 @@ export PATH:=$(DEVKITARM)/bin:$(PATH)
 endif
 
 DEFINES	:=	
+LDPATH	:=	ccd00.ld
 
 ifneq ($(strip $(LOADROPBIN)),)
 	DEFINES	:=	$(DEFINES) -DLOADROPBIN=1
+endif
+
+ifneq ($(strip $(OTHERAPP)),)
+	DEFINES	:=	$(DEFINES) -DOTHERAPP=1
+	LDPATH	:=	otherapp.ld
 endif
 
 CC = arm-none-eabi-gcc
@@ -22,7 +28,7 @@ LINK = arm-none-eabi-ld
 AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
 CFLAGS += -Wall -std=c99 -march=armv6 -Os -I"$(CTRULIB)/include" -I$(DEVKITPRO)/libnds/include $(DEFINES)
-LDFLAGS += --script=ccd00.ld -L"$(DEVKITARM)/arm-none-eabi/lib" -L"$(CTRULIB)/lib" -Map=output.map
+LDFLAGS += --script=$(LDPATH) -L"$(DEVKITARM)/arm-none-eabi/lib" -L"$(CTRULIB)/lib" -Map=output.map
 
 CFILES = $(wildcard source/*.c)
 BINFILES = $(wildcard data/*.bin)
