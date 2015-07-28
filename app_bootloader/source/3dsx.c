@@ -103,15 +103,22 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_
 	d.segPtrs[2] = (char*)d.segPtrs[1] + d.segSizes[1];
 	SEC_ASSERT((u32)d.segPtrs[2] >= d.segSizes[1]); // int overflow
 
-	if(hdr.dataSegSize > dataSize)
+	// not enough room for rodata/data ? no problem dawg
+	if(((u32)d.segPtrs[1] >= (u32)dataAddr + dataSize) || d.segSizes[1] > (u32)dataAddr + dataSize - (u32)d.segPtrs[1])
 	{
-		// not enough room for data ? no problem dawg
-		dataSize = d.segSizes[2];
-		svc_controlMemory(&dataAddr, 0x0, 0x0, dataSize, 0x10003, 0x3);
-		heap_size -= dataSize;
+		// no room for rodata
+		svc_controlMemory(&d.segPtrs[1], 0x0, 0x0, d.segSizes[1], 0x10003, 0x3);
+		heap_size -= d.segSizes[1];
 	}
 	
 	if(d.segPtrs[2] < dataAddr)d.segPtrs[2] = dataAddr;
+
+	if(((u32)d.segPtrs[2] >= (u32)dataAddr + dataSize) || (hdr.dataSegSize > dataSize - ((u32)d.segPtrs[2] - (u32)dataAddr)))
+	{
+		// no room for data
+		svc_controlMemory(&d.segPtrs[2], 0x0, 0x0, d.segSizes[2], 0x10003, 0x3);
+		heap_size -= d.segSizes[2];
+	}
 
 	void* outputBaseAddr = getOutputBaseAddr();
 
