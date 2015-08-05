@@ -34,8 +34,8 @@ u32* gxCmdBuf;
 u8* _heap_base; // should be 0x08000000
 extern const u32 _heap_size;
 
-u8 currentBuffer;
-u8* topLeftFramebuffers[2];
+u8* top_framebuffer;
+u8* low_framebuffer;
 
 Handle gspEvent, gspSharedMemHandle;
 
@@ -66,16 +66,14 @@ void gspGpuInit()
 	//GSP shared mem : 0x2779F000
 	gxCmdBuf=(u32*)(0x10002000+0x800+threadID*0x200);
 
-	//grab main left screen framebuffer addresses
-	int linear_offset = (((u32)gspHeap) < 0x30000000) ? (-0x0c000000) : 0x10000000;
+	top_framebuffer = &gspHeap[0];
+	low_framebuffer = &gspHeap[0x46500];
 
-	topLeftFramebuffers[0] = &gspHeap[0] - linear_offset;
-	topLeftFramebuffers[1] = &gspHeap[0x46500] - linear_offset;
-	GSPGPU_WriteHWRegs(NULL, 0x400468, (u32*)&topLeftFramebuffers, 8);
-	topLeftFramebuffers[0] += linear_offset;
-	topLeftFramebuffers[1] += linear_offset;
-
-	currentBuffer=0;
+	GSP_FramebufferInfo topfb = (GSP_FramebufferInfo){0, (u32*)top_framebuffer, (u32*)top_framebuffer, 240 * 3, (1<<8)|(1<<6)|1, 0, 0};
+	GSP_FramebufferInfo lowfb = (GSP_FramebufferInfo){0, (u32*)low_framebuffer, (u32*)low_framebuffer, 240 * 3, 1, 0, 0};
+	
+	GSPGPU_SetBufferSwap(NULL, 0, &topfb);
+	GSPGPU_SetBufferSwap(NULL, 1, &lowfb);
 }
 
 void gspGpuExit()
@@ -97,11 +95,6 @@ void gspGpuExit()
 
 void swapBuffers()
 {
-	u32 regData;
-	GSPGPU_ReadHWRegs(NULL, 0x400478, (u32*)&regData, 4);
-	regData^=1;
-	currentBuffer=regData&1;
-	GSPGPU_WriteHWRegs(NULL, 0x400478, (u32*)&regData, 4);
 }
 
 const u8 hexTable[]=
@@ -118,19 +111,15 @@ void hex2str(char* out, u32 val)
 
 void renderString(char* str, int x, int y)
 {
-	drawString(topLeftFramebuffers[0],str,x,y);
-	drawString(topLeftFramebuffers[1],str,x,y);
-	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
-	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
+	drawString(top_framebuffer,str,x,y);
+	GSPGPU_FlushDataCache(NULL, top_framebuffer, 240*400*3);
 }
 
 void centerString(char* str, int y)
 {
 	int x=200-(strlen(str)*4);
-	drawString(topLeftFramebuffers[0],str,x,y);
-	drawString(topLeftFramebuffers[1],str,x,y);
-	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
-	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
+	drawString(top_framebuffer,str,x,y);
+	GSPGPU_FlushDataCache(NULL, top_framebuffer, 240*400*3);
 }
 
 void drawHex(u32 val, int x, int y)
@@ -143,10 +132,8 @@ void drawHex(u32 val, int x, int y)
 
 void clearScreen(u8 shade)
 {
-	memset(topLeftFramebuffers[0], shade, 240*400*3);
-	memset(topLeftFramebuffers[1], shade, 240*400*3);
-	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[0], 240*400*3);
-	GSPGPU_FlushDataCache(NULL, topLeftFramebuffers[1], 240*400*3);
+	memset(top_framebuffer, shade, 240*400*3);
+	GSPGPU_FlushDataCache(NULL, top_framebuffer, 240*400*3);
 }
 
 void drawTitleScreen(char* str)
@@ -434,6 +421,8 @@ void _main()
 
 	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
+
+	// TODO : add error display for when can't find 3DSX
 
 	if(argbuffer[0] == 0)
 	{

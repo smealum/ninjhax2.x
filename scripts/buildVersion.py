@@ -71,6 +71,8 @@ if r:
 		# 	extraparams+=" LOADROPBIN=1"
 		if(arg=="--enableotherapp"):
 			extraparams+=" OTHERAPP=1"
+		if(arg=="--enablerecovery"):
+			extraparams+=" RECOVERY=1"
 	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
 	os.system("make clean")	
 	os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)

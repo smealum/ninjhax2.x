@@ -22,6 +22,8 @@
 #include "../../build/constants.h"
 #include "../../app_targets/app_targets.h"
 
+#define HID_PAD (*(vu32*)0x1000001C)
+
 typedef enum
 {
 	PAD_A = (1<<0),
@@ -274,7 +276,6 @@ void drawTitleScreen(char* str)
 // }
 
 #ifndef OTHERAPP
-
 //no idea what this does; apparently used to switch up save partitions
 Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
 {
@@ -350,9 +351,8 @@ void installerScreen(u32 size)
 
 	while(1)
 	{
-		u32 PAD=((u32*)0x10000000)[7];
-		drawHex(PAD,100,100);
-		if(PAD&PAD_A)
+		u32 PAD = HID_PAD;
+		if(PAD & PAD_A)
 		{
 			// install
 			int state=0;
@@ -420,6 +420,19 @@ void installerScreen(u32 size)
 }
 #endif
 
+#ifdef RECOVERY
+void doRecovery()
+{
+	char str[512] =
+		"Recovery mode\n\n"
+		"please select your current firmware version\n";
+	drawTitleScreen(str);
+
+	u8 firmwareVersion[6] = {IS_N3DS, 9, 0, 0, 20, }; //[old/new][NUP0][NUP1][NUP2]-[NUP][region]
+
+}
+#endif
+
 Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, u32 size2, u8* buf2)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
@@ -441,7 +454,58 @@ Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, 
 	return cmdbuf[1];
 }
 
-Result _APT_Finalize(Handle* handle, u8 a)
+Result _APT_NotifyToWait(Handle* handle, u32 a)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x430040; //request header code
+	cmdbuf[1]=a;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_CancelLibraryApplet(Handle* handle, u32 is_end)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x3b0040; //request header code
+	cmdbuf[1]=is_end;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_IsRegistered(Handle* handle, u32 app_id, u8* out)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x90040; //request header code
+	cmdbuf[1]=app_id;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(out)*out = cmdbuf[2];
+
+	return cmdbuf[1];
+}
+
+Result _APT_ReceiveParameter(Handle* handle, u32 app_id)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0xd0080; //request header code
+	cmdbuf[1]=app_id;
+	cmdbuf[2]=0x0;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_Finalize(Handle* handle, u32 a)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
 	cmdbuf[0]=0x40040; //request header code
@@ -514,35 +578,45 @@ void _aptExit()
 		_aptCloseSession();
 	#endif
 
-	u8 buf1[4], buf2[4];
-
-	buf1[0]=0x02; buf1[1]=0x00; buf1[2]=0x00; buf1[3]=0x00;
 	_aptOpenSession();
-	_APT_AppletUtility(&aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
-	_aptCloseSession();
-	_aptOpenSession();
-	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_APT_CancelLibraryApplet(&aptuHandle, 0x1);
 	_aptCloseSession();
 
 	_aptOpenSession();
-	_APT_AppletUtility(&aptuHandle, NULL, 0x7, 0x4, buf1, 0x1, buf2);
-	_aptCloseSession();
-	_aptOpenSession();
-	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
-	_aptCloseSession();
-	_aptOpenSession();
-	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, buf1, 0x1, buf2);
+	_APT_NotifyToWait(&aptuHandle, 0x300);
 	_aptCloseSession();
 
+	u32 buf1;
+	u8 buf2[4];
 
 	_aptOpenSession();
-	_APT_Finalize(&aptuHandle, 0x300);
+	buf1 = 0x00;
+	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, (u8*)&buf1, 0x1, buf2);
 	_aptCloseSession();
+
+	u8 out = 1;
+	while(out)
+	{
+		_aptOpenSession();
+		_APT_IsRegistered(&aptuHandle, 0x401, &out); // wait until swkbd is dead
+		_aptCloseSession();
+	}
+
+	_aptOpenSession();
+	buf1 = 0x10;
+	_APT_AppletUtility(&aptuHandle, NULL, 0x7, 0x4, (u8*)&buf1, 0x1, buf2);
+	_aptCloseSession();
+
+	_aptOpenSession();
+	buf1 = 0x00;
+	_APT_AppletUtility(&aptuHandle, NULL, 0x4, 0x1, (u8*)&buf1, 0x1, buf2);
+	_aptCloseSession();
+
 
 	_aptOpenSession();
 	_APT_PrepareToCloseApplication(&aptuHandle, 0x1);
 	_aptCloseSession();
-	
+
 	_aptOpenSession();
 	_APT_CloseApplication(&aptuHandle, 0x0, 0x0, 0x0);
 	_aptCloseSession();
@@ -614,6 +688,11 @@ int main(u32 loaderparam, char** argv)
 		u32* linear_buffer = (u32*)((((u32)paramblk) + 0x1000) & ~0xfff);
 	#endif
 
+	#ifdef RECOVERY
+	u32 PAD = HID_PAD;
+	if((PAD & KEY_L) && (PAD & KEY_R)) doRecovery();
+	#endif
+
 	#ifndef OTHERAPP
 		if(loaderparam)installerScreen(loaderparam);
 	#endif
@@ -624,8 +703,8 @@ int main(u32 loaderparam, char** argv)
 	//search for target object in home menu's linear heap
 	const u32 start_addr = FIRM_LINEARSYSTEM;
 	const u32 end_addr = FIRM_LINEARSYSTEM + 0x01000000;
-	const block_size = 0x00010000;
-	const block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
+	const u32 block_size = 0x00010000;
+	const u32 block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
 
 	int targetProcessIndex = 1;
 

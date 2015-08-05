@@ -26,6 +26,8 @@ for arg in sys.argv:
 		# extraparams+=" LOADROPBIN=1"
 	if(arg=="--enableotherapp"):
 		extraparams+=" OTHERAPP=1"
+	if(arg=="--enablerecovery"):
+		extraparams+=" RECOVERY=1"
 
 cnt=0
 for v in (list(itertools.product(*a))):

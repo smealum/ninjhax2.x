@@ -75,7 +75,7 @@ build/%.o: source/%.c
 	@$(CC) -MM $< > build/$*.d
 
 build/%.o: source/%.s
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) -x assembler-with-cpp $(CFLAGS) -c $< -o $@
 	@$(CC) -MM $< > build/$*.d
 
 build/%.bin.o: data/%.bin
