@@ -355,6 +355,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + fsUserString, 0x8, MENU_FS_HANDLE
 			apt_close_session 0
 
+		; invalidate dcache for app_code before we write to it
+			invalidate_dcache MENU_OBJECT_LOC + appCode, 0x4000
+
 		; adjust gsp commands (can't preprocess aliases)
 			add_and_store_3 APP_START_LINEAR, 0xBABE0003, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppHook - object + 0x8
 			add_and_store_3 APP_START_LINEAR, 0xBABE0007, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
