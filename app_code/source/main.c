@@ -353,6 +353,7 @@ void _main()
 
 	resetConsole();
 	print_str("hello\n");
+	print_hex(_bootloaderAddress);
 
 	__apt_initservicehandle();
 	ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);

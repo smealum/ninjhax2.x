@@ -500,11 +500,11 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 		.fill ((appHook + 0x200) - .), 0xDA
 
-	.align 0x20
+	.align 0x100
 	appCode:
 		.incbin "app_code.bin"
 
-	.align 0x20
+	.align 0x100
 	appBootloader:
 		.incbin "app_bootloader.bin"
 
