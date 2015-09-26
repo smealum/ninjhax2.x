@@ -205,6 +205,21 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word MENU_GSPGPU_ACQUIRERIGHT
 .endmacro
 
+.macro dsp_register_interrupt_events
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_DSP_HANDLE_STRUCT + 0x10 ; r0 (dsp handle ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word 0x00000000 ; r1 (interrupt handle)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word 0x00000002 ; r2 (param0)
+		.word 0x00000002 ; r2 (param1)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_DSP_REGISTERINTERRUPTEVENTS
+.endmacro
+
 .macro gsp_release_right
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -349,6 +364,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 		; debug
 			writehwreg 0x202A04, 0x01FFFFFF
+
+		; looks like this is actually not needed
+		; plug dsp handle leak
+			dsp_register_interrupt_events
 
 		; send app parameter
 			apt_open_session 0
