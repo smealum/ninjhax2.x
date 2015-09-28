@@ -125,6 +125,86 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; arg_4 (handle passed to dst) (will be overwritten by dereferenced handle_ptr) (r5 (garbage))
 .endmacro
 
+.macro apt_prepare_start_application,tid_low,tid_high,mediatype,flag
+	; first dereference handle_ptr
+	set_lr ROP_MENU_POP_R2R3R4R5R6PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_OBJECT_LOC + @@tid_struct ; r0
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word flag ; r1
+	.word ROP_MENU_APT_PREPARETOSTARTAPPLICATION
+		@@tid_struct:
+		.word tid_low ; r2
+		.word tid_high ; r3
+		.word mediatype ; r4
+		.word 0 ; r5
+		.word 0xDEADBABE ; r6 (garbage)
+.endmacro
+
+.macro apt_start_application,buf0,buf0_size,buf1,buf1_size,flag
+	set_lr ROP_MENU_POP_R4PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word buf0 ; r0 (buf0 ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word buf0_size ; r1 (buf0 size)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word buf1 ; r2 (buf1 ptr)
+		.word buf1_size ; r3 (buf1 size)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_APT_STARTAPPLICATION
+		.word flag ; arg_0 (flag) (r4 (garbage))
+.endmacro
+
+.macro apt_send_deliver_arg,buf0,buf0_size,buf1,buf1_size
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word buf0 ; r0 (buf0 ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word buf0_size ; r1 (buf0 size)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word buf1 ; r2 (buf1 ptr)
+		.word buf1_size ; r3 (buf1 size)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_APT_SENDDELIVERARG
+.endmacro
+
+.macro apt_reply_sleepquery,appid,a
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word appid ; r0
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word a ; r1
+	.word ROP_MENU_APT_REPLYSLEEPQUERY
+.endmacro
+
+.macro apt_is_registered,appid,out
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word appid ; r0
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word out ; r1
+	.word ROP_MENU_APT_ISREGISTERED
+.endmacro
+
+.macro apt_order_close_application
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_APT_ORDERTOCLOSEAPPLICATION
+.endmacro
+
+.macro apt_wakeup_application
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_APT_WAKEUPAPPLICATION
+.endmacro
+
+.macro apt_applet_utility_cmd2
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_APT_APPLETUTILITYCMD2
+.endmacro
+
 .macro apt_glance_parameter,app_id,buffer_ptr,buffer_size,out_handle_ptr,skip
 	; first dereference handle_ptr
 	set_lr ROP_MENU_POP_R4R5R6PC
@@ -220,6 +300,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_DSP_REGISTERINTERRUPTEVENTS
 .endmacro
 
+.macro dsp_unload_component
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_DSP_HANDLE_STRUCT + 0x10 ; r0 (dsp handle ptr)
+	.word ROP_MENU_DSP_UNLOADCOMPONENT
+.endmacro
+
 .macro gsp_release_right
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -285,6 +372,38 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	memcpy_r0_lr_prev (4 * 5), 1
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_GSPGPU_HANDLE ; r0 (gsp:gpu handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro nss_terminate_tid,tid_low,tid_high,timeout_low
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
+		; nss_terminate_tid_cmd_buf:
+		.word 0x00110100 ; command header
+		.word tid_low ; tid low
+		.word tid_high ; tid high
+		.word timeout_low ; timeout low
+		.word 0x00000000 ; timeout high
+	memcpy_r0_lr_prev (4 * 5), 1
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro apt_get_appletinfo,appid
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5PC ; pop {r4, r5, r6, r7, r8, pc}
+		.word 0x00060040 ; command header
+		.word appid ; id
+	memcpy_r0_lr_prev (4 * 2), 1
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_APT_HANDLE ; r0 (apt handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
 	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
@@ -368,6 +487,96 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; looks like this is actually not needed
 		; plug dsp handle leak
 			dsp_register_interrupt_events
+
+		; unload dsp stuff
+			dsp_unload_component
+
+		; this will be overwritten in the ropbin bkp so that it'll skip the APT title launch section
+			jump_sp MENU_LOADEDROP_BUFADR + APT_TitleLaunch
+
+		APT_TitleLaunch:
+
+			gsp_release_right
+
+			apt_open_session 0
+			; apt_prepare_start_application 0x20020D00, 0x00040010, 0, 1
+			apt_prepare_start_application 0x00020100, 0x00040010, 0, 1
+			apt_close_session 0
+
+			apt_open_session 0
+			apt_start_application DUMMY_PTR, 0, DUMMY_PTR, 0, 0
+			apt_close_session 0
+
+			sleep 100*1000*1000, 0x00000000
+
+			; apt_open_session 0
+			; apt_order_close_application
+			; apt_close_session 0
+			; nss_terminate_tid 0x00020D00, 0x00040010, 100*1000*1000
+			nss_terminate_tid 0x00020100, 0x00040010, 100*1000*1000
+			
+			sleep 1000*1000*1000, 0x00000000
+
+			gsp_acquire_right
+
+			; sleep 500*1000*1000, 0x00000000
+
+			; apt_open_session 0
+			; apt_is_registered 0x300, DUMMY_PTR
+			; apt_close_session 0
+
+			; sleep 500*1000*1000, 0x00000000
+
+			; apt_open_session 0
+			; apt_is_registered 0x300, DUMMY_PTR
+			; apt_close_session 0
+
+			; sleep 500*1000*1000, 0x00000000
+
+			; apt_open_session 0
+			; apt_is_registered 0x300, DUMMY_PTR
+			; apt_close_session 0
+
+			; sleep 500*1000*1000, 0x00000000
+
+			; apt_open_session 0
+			; apt_is_registered 0x300, DUMMY_PTR
+			; apt_close_session 0
+
+			; apt_open_session 0
+			; apt_wakeup_application
+			; apt_close_session 0
+
+			; apt_open_session 0
+			; apt_get_appletinfo 0x300
+			; apt_close_session 0
+			
+			; sleep 1000*1000*1000, 0x00000000
+
+			apt_applet_utility_cmd2 ; includes open/close session
+
+			; ; apt_open_session 0
+			; ; apt_order_close_application
+			; ; apt_close_session 0
+			; ; nss_terminate_tid 0x00020D00, 0x00040010, 100*1000*1000 
+
+			; ; apt_open_session 0
+			; ; apt_send_deliver_arg MENU_LOADEDROP_BUFADR + argData, argDataEnd-argData, DUMMY_PTR, 0x0 
+			; ; apt_close_session 0
+
+			; ; sleep 1000*1000*1000, 0x00000000
+
+			; overwrite jump_sp APT_TitleLaunch's destination
+				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
+
+
+			; ; memcpy wait loop to destination
+			; 	memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start)
+
+			; ; jump to wait loop
+			; 	jump_sp WAITLOOP_DST
+
+		APT_TitleLaunch_end:
 
 		; send app parameter
 			apt_open_session 0
@@ -497,6 +706,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			sleep 100*1000*1000, 0x00000000
 	waitLoop_end:
 
+	.align 0x4
+	argData:
+		.word 0x00000000
+	argDataEnd:
 
 	.align 0x20
 	appHook:
