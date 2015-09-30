@@ -169,6 +169,16 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word DUMMY_PTR ; arg_8 (handle out ptr) (r6 (garbage))
 .endmacro
 
+.macro apt_inquire_notification,app_id,out_ptr
+	; first dereference handle_ptr
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word app_id ; r0 (app_id out ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word out_ptr ; r1 (app_id)
+	.word ROP_MENU_APT_INQUIRENOTIFICATION
+.endmacro
+
 .macro apt_send_parameter,dst_id,buffer_ptr,buffer_size,handle_ptr
 	; first dereference handle_ptr
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -272,6 +282,18 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 .macro apt_applet_utility_cmd2
 	set_lr ROP_MENU_POP_PC
 	.word ROP_MENU_APT_APPLETUTILITYCMD2
+.endmacro
+
+.macro apt_applet_utility_cmd7,val
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word val ; r0
+	.word ROP_MENU_APT_APPLETUTILITYCMD7
+.endmacro
+
+.macro apt_clear_homebutton_state
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_CLEARHOMEBUTTONSTATE
 .endmacro
 
 .macro apt_prepare_leave_homemenu,skip,offset
@@ -941,10 +963,14 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_loop + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + argData, 0xB
 
-			; this only happens if we get a wakeup event, which means app is trying to return to menu
-			apt_open_session 1, WAITLOOP_OFFSET
-			apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 1, WAITLOOP_OFFSET
-			apt_close_session 1, WAITLOOP_OFFSET
+			; what follows only happens if we get a wakeup event, which means app is trying to return to menu
+			apt_open_session 0, WAITLOOP_OFFSET
+			apt_inquire_notification 0x101, DUMMY_PTR
+			apt_close_session 0, WAITLOOP_OFFSET
+
+			apt_open_session 0, WAITLOOP_OFFSET
+			apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 0, WAITLOOP_OFFSET
+			apt_close_session 0, WAITLOOP_OFFSET
 
 			gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
 
@@ -1003,6 +1029,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			; deallocate linear buffer
 			free_memory_deref MENU_LOADEDROP_BUFADR + linearMem, 0x47000
+
+			apt_clear_homebutton_state
+
+			apt_open_session 0, WAITLOOP_OFFSET
+			apt_reply_sleepquery 0x101, 0x0
+			apt_close_session 0, WAITLOOP_OFFSET
 
 			; reply to APT return-to-menu stuff
 			; (no need for skips because we just did a fresh memcpy)
