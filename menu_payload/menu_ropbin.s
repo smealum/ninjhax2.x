@@ -605,7 +605,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 .macro apt_hardware_reboot_async
 	get_cmdbuf 0
-	.word ROP_MENU_POP_R4R5PC
+	.word ROP_MENU_POP_R4PC
 		.word 0x004E0000 ; command header
 	memcpy_r0_lr_prev (4 * 1), 1
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -1122,8 +1122,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 				; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
 				; only copy whatever's before the memcpy so we dont overwrite the return address
-				waitLoop_param_memcpy:
-				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_param_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
+				waitLoop_notif_memcpy:
+				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_notif_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
 			waitLoop_notificationend:
 
