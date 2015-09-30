@@ -20,16 +20,20 @@
 	# load gadgets
 	("ROP_MENU_STACK_PIVOT", 0x00100fb8, 0x1), # ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
 	("ROP_MENU_LDR_R0R0_POP_R4PC", 0x0011f5d0, 0x2), # ldr r0, [r0] ; pop {r4, pc}
+	("ROP_MENU_LDR_R1R4x4_ADD_R0R0R1_POP_R3R4R5PC", 0x002e43ac, 0x3), # ldr r1, [r0, #4] ; add r0, r0, r1 ; pop {r3, r4, r5, pc}
 
 	# store gadgets
 	("ROP_MENU_STREQ_R5R2x30_POP_R4R5R6PC", 0x001550fc, 0x2), # streq r5, [r2, #0x30] ; pop {r4, r5, r6, pc}
   	("ROP_MENU_STR_R4R0x4_POP_R4PC", 0x001958e8, 0x2),  # strne r4, [r0, #4] ; pop {r4, pc}
 	("ROP_MENU_STR_R0R4_POP_R4PC", 0x0010b298, 0x2), # str r0, [r4]; pop {r4, pc}
+	("ROP_MENU_STRB_R0R4_POP_R4PC", 0x00236a74, 0x2), # strb r0, [r4]; pop {r4, pc}
+	("ROP_MENU_STR_R1R0_POP_R4PC", 0x002ebf18, 0x2), # str r1, [r0] ; pop {r4, pc}
 
 	# arithmetic gadgets
 	("ROP_MENU_AND_R0R0R4_POP_R4R5R6R7R8PC", 0x0011f148, 0x2), # and r0, r0, r4 ; pop {r4, r5, r6, r7, r8, pc}
 	("ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC", 0x00204688, 0x2), # add r0, r0, r1, lsl #2; pop {r4, pc}
-	("ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC", 0x00133810, 0x2), # add r0, r0, r1, lsl #2; pop {r4, pc}
+	("ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC", 0x00133810, 0x2), # add r0, r0, r1; pop {r4, r5, r6, pc}
+	("ROP_MENU_AND_R0R0x7_POP_R4PC", 0x2e7f98, 0x2), # and r0, r0, #7 ; pop {r4, pc}
 
 	# comparison gadgets
 	("ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC", 0x0021e6cc, 0x4), # cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
@@ -45,6 +49,7 @@
 
 	# functions
 	("ROP_MENU_SLEEPTHREAD", 0x0012b044, 0x2), # svc 0xa, bx lr
+	("ROP_MENU_CONTROLMEMORY", 0x002355EC, 0x9),
 	("ROP_MENU_CONNECTTOPORT", 0x001186f8, 0x6),
 	("ROP_MENU_APT_OPENSESSION", 0x00236650, 0x6),
 	("ROP_MENU_APT_CLOSESESSION", 0x002365E0, 0x6),
@@ -68,9 +73,15 @@
 	("ROP_MENU_GSPGPU_WRITEHWREGS", 0x0014BBEC, 0x12),
 	("ROP_MENU_GSPGPU_FLUSHDATACACHE", 0x001517c0, 0xF),
 	("ROP_MENU_GSPGPU_GXTRYENQUEUE", 0x00217E38, 0x8),
+	("ROP_MENU_GSPGPU_IMPORTDISPLAYCAPTUREINFO", 0x00145D68, 0x14),
 	("ROP_MENU_DSP_REGISTERINTERRUPTEVENTS", 0x00137A14, 0xF),
 	("ROP_MENU_DSP_UNLOADCOMPONENT", 0x0012C4AC, 0xA),
 	("ROP_MENU_MEMCPY", 0x00235B7C, 0x8),
+	("ROP_MENU_MOUNTSDMC", 0x00118B68, (0x4, 0x1, 0x6, 0x1, 0x9)),
+	("ROP_MENU_FOPEN", 0x0022B980, (0x6, 0x1, 0xC, 0x1, 0x10)),
+	("ROP_MENU_FWRITE", 0x00220C14, (0x15, 0x1, 0x16)),
+	("ROP_MENU_FSEEK", 0x002213A0, (0x10, 0x1, 0x10)),
+	("ROP_MENU_FCLOSE", 0x0022F718, (0x6)),
 
 	("MENU_IRRST_HANDLE", 0x0010F3EC, 0x4, 0x11),
 	("MENU_AMSYS_HANDLE", 0x0014a680, 0x7, 0x7),

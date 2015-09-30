@@ -348,7 +348,7 @@ Result _APT_CloseApplication(Handle* handle, u32 a, u32 b, u32 c)
 // 	svc_closeHandle(_aptLockHandle);
 // }
 
-const u32 customProcessBuffer[0x200] = {0xBABE0006};
+const u32 customProcessBuffer[0x40] = {0xBABE0006};
 memorymap_t* const customProcessMap = (memorymap_t*)customProcessBuffer;
 
 void run3dsx(Handle executable, u32* argbuf)

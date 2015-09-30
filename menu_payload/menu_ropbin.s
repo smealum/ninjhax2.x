@@ -2,6 +2,8 @@
 
 .include "../build/constants.s"
 
+.loadtable "unicode.tbl"
+
 .create "menu_ropbin.bin",0x0
 
 MENU_OBJECT_LOC equ MENU_LOADEDROP_BUFADR
@@ -25,6 +27,8 @@ GPU_REG_BASE equ 0x1EB00000
 
 WAITLOOP_DST equ (MENU_LOADEDROP_BUFADR - (waitLoop_end - waitLoop_start))
 WAITLOOP_OFFSET equ (- waitLoop_start - (waitLoop_end - waitLoop_start))
+
+MENU_SCREENSHOTS_FILEOBJECT equ (MENU_LOADEDROP_BUFADR + screenshots_obj)
 
 DUMMY_PTR equ (WAITLOOP_DST - 4)
 
@@ -50,18 +54,6 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x00000001 ; sp_0 (flag)
 .endmacro
 
-.macro memcpy_r0_lr,src,size
-	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
-		.word src ; r1 (src)
-	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
-		.word size ; r2 (size)
-		.word 0xDEADBABE ; r3 (garbage)
-		.word 0xDEADBABE ; r4 (garbage)
-		.word 0xDEADBABE ; r5 (garbage)
-		.word 0xDEADBABE ; r6 (garbage)
-	.word MENU_MEMCPY
-.endmacro
-
 ; this memcpy's the size bytes that immediately preceed its call
 .macro memcpy_r0_lr_prev,size,skip
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
@@ -78,11 +70,26 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word MENU_MEMCPY
 .endmacro
 
-.macro memcpy,dst,src,size
+.macro memcpy,dst,src,size,skip,offset
 	set_lr MENU_NOP
+	.if skip != 0
+		store MENU_MEMCPY, @@function_call + MENU_LOADEDROP_BUFADR + offset
+	.endif
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word dst ; r0 (out ptr)
-	memcpy_r0_lr src, size
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word src ; r1 (src)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word size ; r2 (size)
+		.word 0xDEADBABE ; r3 (garbage)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.if skip != 0
+		skip_0x84
+	.endif
+	@@function_call:
+	.word MENU_MEMCPY
 .endmacro
 
 .macro skip_0x84
@@ -441,6 +448,44 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word MENU_GSPGPU_WRITEHWREGS
 .endmacro
 
+.macro control_memory,outaddr,addr0,addr1,size,operation,permissions
+	set_lr ROP_MENU_POP_R4R5PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word outaddr ; r0
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word addr0 ; r1
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word addr1 ; r2
+		.word size ; r3 (size)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_CONTROLMEMORY
+		.word operation ; arg_0
+		.word permissions ; arg_4
+.endmacro
+
+.macro free_memory_deref,ptr,size
+	set_lr ROP_MENU_POP_R4R5PC
+	.word ROP_MENU_POP_R4PC ; pop {r1, pc}
+		.word ptr - 4 ; r1
+	.word ROP_MENU_LDR_R1R4x4_ADD_R0R0R1_POP_R3R4R5PC
+		.word 0xDEADBABE ; r3 (garbage)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word DUMMY_PTR ; r0
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word 0x00000000 ; r2
+		.word size ; r3 (size)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word ROP_MENU_CONTROLMEMORY
+		.word 0x00000001 ; arg_0
+		.word 0x00000000 ; arg_4
+.endmacro
+
 .macro writehwreg,reg,data
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		@@reg_data:
@@ -516,6 +561,96 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word MENU_GSPGPU_GXTRYENQUEUE
 .endmacro
 
+.macro gsp_import_display_captureinfo,out_ptr
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (handle ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word out_ptr ; r1 (output buffer)
+	.word ROP_MENU_GSPGPU_IMPORTDISPLAYCAPTUREINFO
+.endmacro
+
+.macro mount_sdmc,name
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC
+		.word name
+	.word ROP_MENU_MOUNTSDMC
+.endmacro
+
+.macro fopen,f,name,flags
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC
+		.word f
+	.word ROP_MENU_POP_R1PC
+		.word name
+	.word ROP_MENU_POP_R2R3R4R5R6PC
+		.word flags ; r2
+		.word 0xFFFFFFFF ; r3
+		.word 0xFFFFFFFF ; r4
+		.word 0xFFFFFFFF ; r5
+		.word 0xFFFFFFFF ; r6
+	.word ROP_MENU_FOPEN
+.endmacro
+
+.macro fwrite,f,bytes_written,data,size,flush
+	set_lr ROP_MENU_POP_R1PC
+	.word ROP_MENU_POP_R0PC
+		.word f
+	.word ROP_MENU_POP_R1PC
+		.word bytes_written ; bytes written
+	.word ROP_MENU_POP_R2R3R4R5R6PC
+		.word data ; r2
+		.word size ; r3
+		.word 0xFFFFFFFF ; r4
+		.word 0xFFFFFFFF ; r5
+		.word 0xFFFFFFFF ; r6
+	.word ROP_MENU_FWRITE
+		.word flush
+.endmacro
+
+.macro fwrite_deref,f,bytes_written,dataptr,size,flush,offset
+	set_lr ROP_MENU_POP_R1PC
+	load_store dataptr, @@dataptr_dst + MENU_LOADEDROP_BUFADR + offset
+	.word ROP_MENU_POP_R0PC
+		.word f
+	.word ROP_MENU_POP_R1PC
+		.word bytes_written ; bytes written
+	.word ROP_MENU_POP_R2R3R4R5R6PC
+		@@dataptr_dst:
+		.word 0xDEADBABE ; r2
+		.word size ; r3
+		.word 0xFFFFFFFF ; r4
+		.word 0xFFFFFFFF ; r5
+		.word 0xFFFFFFFF ; r6
+	.word ROP_MENU_FWRITE
+		.word flush
+.endmacro
+
+.macro fseek,f,offset,origin
+	set_lr ROP_MENU_POP_R1PC
+	.word ROP_MENU_POP_R0PC
+		.word f
+	.word ROP_MENU_POP_R1PC
+		.word 0x00000000 ; r1 (?)
+	.word ROP_MENU_POP_R2R3R4R5R6PC
+		.word offset ; r2 (offset low)
+		.word 0x00000000 ; r3 (offset high)
+		.word 0xFFFFFFFF ; r4
+		.word 0xFFFFFFFF ; r5
+		.word 0xFFFFFFFF ; r6
+	.word ROP_MENU_FSEEK
+		.word origin
+.endmacro
+
+.macro fclose,f
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC
+		.word f
+	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+	.word ROP_MENU_FCLOSE
+.endmacro
+
 .macro sleep,nanosec_low,nanosec_high
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
@@ -531,6 +666,63 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 		.word dst ; r4
 	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro storeb,a,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word a ; r0
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word dst ; r4
+	.word ROP_MENU_STRB_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro load_store,src,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word src ; r0
+	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		.word dst ; r4
+	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro load_and_add_storeb,src,add,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word src ; r0
+	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+	.word ROP_MENU_AND_R0R0x7_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word add ; r1
+	.word ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC
+		.word dst ; r4
+	.word ROP_MENU_STRB_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro load_addlsl2_store,src,add,dst
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word src ; r0
+	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word add ; r1
+	.word ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC
+		.word dst ; r4
+	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro loadadr_store,src,val
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word src ; r0
+	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word val ; r1
+	.word ROP_MENU_STR_R1R0_POP_R4PC
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
@@ -616,62 +808,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			gsp_acquire_right
 
-			; sleep 500*1000*1000, 0x00000000
-
-			; apt_open_session 0, 0
-			; apt_is_registered 0x300, DUMMY_PTR
-			; apt_close_session 0, 0
-
-			; sleep 500*1000*1000, 0x00000000
-
-			; apt_open_session 0, 0
-			; apt_is_registered 0x300, DUMMY_PTR
-			; apt_close_session 0, 0
-
-			; sleep 500*1000*1000, 0x00000000
-
-			; apt_open_session 0, 0
-			; apt_is_registered 0x300, DUMMY_PTR
-			; apt_close_session 0, 0
-
-			; sleep 500*1000*1000, 0x00000000
-
-			; apt_open_session 0, 0
-			; apt_is_registered 0x300, DUMMY_PTR
-			; apt_close_session 0, 0
-
-			; apt_open_session 0, 0
-			; apt_wakeup_application
-			; apt_close_session 0, 0
-
-			; apt_open_session 0, 0
-			; apt_get_appletinfo 0x300
-			; apt_close_session 0, 0
-			
-			; sleep 1000*1000*1000, 0x00000000
-
 			apt_applet_utility_cmd2 ; includes open/close session
 
-			; ; apt_open_session 0, 0
-			; ; apt_order_close_application
-			; ; apt_close_session 0, 0
-			; ; nss_terminate_tid 0x00020D00, 0x00040010, 100*1000*1000 
-
-			; ; apt_open_session 0, 0
-			; ; apt_send_deliver_arg MENU_LOADEDROP_BUFADR + argData, argDataEnd-argData, DUMMY_PTR, 0x0 
-			; ; apt_close_session 0, 0
-
-			; ; sleep 1000*1000*1000, 0x00000000
+			mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
 
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
-
-
-			; ; memcpy wait loop to destination
-			; 	memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start)
-
-			; ; jump to wait loop
-			; 	jump_sp WAITLOOP_DST
 
 		APT_TitleLaunch_end:
 
@@ -729,7 +871,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_close_session 0, 0
 
 		; memcpy wait loop to destination
-			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start)
+			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
 
 		; jump to wait loop
 			jump_sp WAITLOOP_DST
@@ -804,13 +946,78 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 1, WAITLOOP_OFFSET
 			apt_close_session 1, WAITLOOP_OFFSET
 
-			apt_open_session 1, WAITLOOP_OFFSET
-			apt_prepare_leave_homemenu 1, WAITLOOP_OFFSET
-			apt_close_session 1, WAITLOOP_OFFSET
+			gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
 
-			apt_open_session 1, WAITLOOP_OFFSET
-			apt_leave_homemenu 1, WAITLOOP_OFFSET
-			apt_close_session 1, WAITLOOP_OFFSET
+			; allocate buffer where we'll put all the stuff
+			control_memory MENU_LOADEDROP_BUFADR + linearMem, 0, 0, 0x47000, 0x10003, 0x3
+
+			gsp_acquire_right
+
+			; open file, seek EOF
+			fopen MENU_SCREENSHOTS_FILEOBJECT, MENU_LOADEDROP_BUFADR + screenshots_filename, 0x7
+			fseek MENU_SCREENSHOTS_FILEOBJECT, 0x0, 0x2
+
+			; top screen left
+				load_store MENU_LOADEDROP_BUFADR + displayCapture, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+				load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+
+				send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+
+				sleep 100*1000*1000, 0x00000000
+
+				; write magic number
+				loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x30524353
+
+				fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+
+			; top screen right
+				load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x4, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+				load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+
+				send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+
+				sleep 100*1000*1000, 0x00000000
+
+				; write magic number
+				loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x31524353
+
+				fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+
+			; sub screen
+				load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x10, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+				load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+
+				send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+
+				sleep 100*1000*1000, 0x00000000
+
+				; write magic number
+				loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x32524353
+
+				fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+
+			; close file
+			fclose MENU_SCREENSHOTS_FILEOBJECT
+
+			gsp_release_right
+
+			; deallocate linear buffer
+			free_memory_deref MENU_LOADEDROP_BUFADR + linearMem, 0x47000
+
+			; reply to APT return-to-menu stuff
+			; (no need for skips because we just did a fresh memcpy)
+			apt_open_session 0, WAITLOOP_OFFSET
+			apt_prepare_leave_homemenu 0, WAITLOOP_OFFSET
+			apt_close_session 0, WAITLOOP_OFFSET
+
+			apt_open_session 0, WAITLOOP_OFFSET
+			apt_leave_homemenu 0, WAITLOOP_OFFSET
+			apt_close_session 0, WAITLOOP_OFFSET
+
+			; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
+			; only copy whatever's before the memcpy so we dont overwrite the return address
+			waitLoop_memcpy:
+			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
 			waitLoop_loop:
 			.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -828,6 +1035,42 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	argData:
 		.word 0x00000000
 	argDataEnd:
+
+	.align 0x4
+	linearMem:
+		.word 0x00000000
+	
+	.align 0x4
+	gxCommandFramebufferTop:
+		.word 0x00000004 ; command header (TextureCopy)
+		gxCommandFramebufferTopSource:
+		.word 0xDEADBABE ; source address
+		gxCommandFramebufferTopDestination:
+		.word 0xDEADBABE ; destination address
+		.word 0x00046500 + 0x200 ; size
+		.word 0x00000000 ; dim in
+		.word 0x00000000 ; dim out
+		.word 0x00000008 ; flags
+		.word 0x00000000 ; unused
+
+	sdmc_str:
+		.ascii "sdmc:"
+		.word 0x00
+	screenshots_filename:
+		.string "sdmc:/screenshots_raw.bin"
+		.byte 0x00, 0x00
+	.align 0x4
+	screenshots_obj:
+		.word 0x00000000
+		.word 0x00000000
+		.word 0x00000000
+		.word 0x00000000
+		.word 0x00000000
+
+	.align 0x4
+	displayCapture:
+		.fill ((displayCapture + 0x20) - .), 0xDA
+	displayCaptureEnd:
 
 	.align 0x20
 	appHook:
