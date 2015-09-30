@@ -260,12 +260,19 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_APT_REPLYSLEEPQUERY
 .endmacro
 
-.macro apt_is_registered,appid,out
+.macro apt_is_registered,appid,out,skip,offset
 	set_lr ROP_MENU_POP_PC
+	.if skip != 0
+		store ROP_MENU_APT_ISREGISTERED, @@function_call + MENU_LOADEDROP_BUFADR + offset
+	.endif
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word appid ; r0
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word out ; r1
+	.if skip != 0
+		skip_0x84
+	.endif
+	@@function_call:
 	.word ROP_MENU_APT_ISREGISTERED
 .endmacro
 
@@ -274,8 +281,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_APT_ORDERTOCLOSEAPPLICATION
 .endmacro
 
-.macro apt_wakeup_application
+.macro apt_wakeup_application,skip,offset
 	set_lr ROP_MENU_POP_PC
+	.if skip != 0
+		store ROP_MENU_APT_WAKEUPAPPLICATION, @@function_call + MENU_LOADEDROP_BUFADR + offset
+		skip_0x84
+	.endif
+	@@function_call:
 	.word ROP_MENU_APT_WAKEUPAPPLICATION
 .endmacro
 
@@ -554,6 +566,37 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	memcpy_r0_lr_prev (4 * 5), 1
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro apt_prepare_jump_application
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5PC
+		.word 0x00230040 ; command header
+		.word 0x00000000
+	memcpy_r0_lr_prev (4 * 2), 1
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_APT_HANDLE ; r0 (apt handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro apt_jump_application
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6R7R8PC
+		.word 0x00240044 ; command header
+		.word 0x00000000
+		.word 0x00000000
+		.word 0x00000000
+		.word 0x00000002
+	memcpy_r0_lr_prev (4 * 5), 1
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_APT_HANDLE ; r0 (apt handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
 	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
@@ -961,97 +1004,122 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_glance_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 1, WAITLOOP_OFFSET
 			apt_close_session 1, WAITLOOP_OFFSET
 
-			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_loop + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + argData, 0xB
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_retmenuend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + argData, 0xB
 
 			; what follows only happens if we get a wakeup event, which means app is trying to return to menu
-			apt_open_session 0, WAITLOOP_OFFSET
-			apt_inquire_notification 0x101, DUMMY_PTR
-			apt_close_session 0, WAITLOOP_OFFSET
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_inquire_notification 0x101, DUMMY_PTR
+				apt_close_session 0, WAITLOOP_OFFSET
 
-			apt_open_session 0, WAITLOOP_OFFSET
-			apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 0, WAITLOOP_OFFSET
-			apt_close_session 0, WAITLOOP_OFFSET
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 0, WAITLOOP_OFFSET
+				apt_close_session 0, WAITLOOP_OFFSET
 
-			gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
+				gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
 
-			; allocate buffer where we'll put all the stuff
-			control_memory MENU_LOADEDROP_BUFADR + linearMem, 0, 0, 0x47000, 0x10003, 0x3
+				; allocate buffer where we'll put all the stuff
+				control_memory MENU_LOADEDROP_BUFADR + linearMem, 0, 0, 0x47000, 0x10003, 0x3
 
-			gsp_acquire_right
+				gsp_acquire_right
 
-			; open file, seek EOF
-			fopen MENU_SCREENSHOTS_FILEOBJECT, MENU_LOADEDROP_BUFADR + screenshots_filename, 0x7
-			fseek MENU_SCREENSHOTS_FILEOBJECT, 0x0, 0x2
+				; open file, seek EOF
+				fopen MENU_SCREENSHOTS_FILEOBJECT, MENU_LOADEDROP_BUFADR + screenshots_filename, 0x7
+				fseek MENU_SCREENSHOTS_FILEOBJECT, 0x0, 0x2
 
-			; top screen left
-				load_store MENU_LOADEDROP_BUFADR + displayCapture, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
-				load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+				; top screen left
+					load_store MENU_LOADEDROP_BUFADR + displayCapture, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+					load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
 
-				send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+					send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
 
-				sleep 100*1000*1000, 0x00000000
+					sleep 100*1000*1000, 0x00000000
 
-				; write magic number
-				loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x30524353
+					; write magic number
+					loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x30524353
 
-				fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+					fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
 
-			; top screen right
-				load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x4, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
-				load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+				; top screen right
+					load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x4, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+					load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
 
-				send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+					send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
 
-				sleep 100*1000*1000, 0x00000000
+					sleep 100*1000*1000, 0x00000000
 
-				; write magic number
-				loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x31524353
+					; write magic number
+					loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x31524353
 
-				fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+					fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
 
-			; sub screen
-				load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x10, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
-				load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+				; sub screen
+					load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x10, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+					load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
 
-				send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+					send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
 
-				sleep 100*1000*1000, 0x00000000
+					sleep 100*1000*1000, 0x00000000
 
-				; write magic number
-				loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x32524353
+					; write magic number
+					loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x32524353
 
-				fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+					fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
 
-			; close file
-			fclose MENU_SCREENSHOTS_FILEOBJECT
+				; close file
+				fclose MENU_SCREENSHOTS_FILEOBJECT
 
-			gsp_release_right
+				gsp_release_right
 
-			; deallocate linear buffer
-			free_memory_deref MENU_LOADEDROP_BUFADR + linearMem, 0x47000
+				; deallocate linear buffer
+				free_memory_deref MENU_LOADEDROP_BUFADR + linearMem, 0x47000
 
-			apt_clear_homebutton_state
+				apt_clear_homebutton_state
 
-			apt_open_session 0, WAITLOOP_OFFSET
-			apt_reply_sleepquery 0x101, 0x0
-			apt_close_session 0, WAITLOOP_OFFSET
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_reply_sleepquery 0x101, 0x0
+				apt_close_session 0, WAITLOOP_OFFSET
 
-			; reply to APT return-to-menu stuff
-			; (no need for skips because we just did a fresh memcpy)
-			apt_open_session 0, WAITLOOP_OFFSET
-			apt_prepare_leave_homemenu 0, WAITLOOP_OFFSET
-			apt_close_session 0, WAITLOOP_OFFSET
+				; reply to APT return-to-menu stuff
+				; (no need for skips because we just did a fresh memcpy)
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_prepare_leave_homemenu 0, WAITLOOP_OFFSET
+				apt_close_session 0, WAITLOOP_OFFSET
 
-			apt_open_session 0, WAITLOOP_OFFSET
-			apt_leave_homemenu 0, WAITLOOP_OFFSET
-			apt_close_session 0, WAITLOOP_OFFSET
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_leave_homemenu 0, WAITLOOP_OFFSET
+				apt_close_session 0, WAITLOOP_OFFSET
 
-			; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
-			; only copy whatever's before the memcpy so we dont overwrite the return address
-			waitLoop_memcpy:
-			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
+				; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
+				; only copy whatever's before the memcpy so we dont overwrite the return address
+				waitLoop_retmenu_memcpy:
+				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_retmenu_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
-			waitLoop_loop:
+			waitLoop_retmenuend:
+
+			apt_open_session 1, WAITLOOP_OFFSET
+			apt_is_registered 0x300, MENU_LOADEDROP_BUFADR + curAppRegistered, 1, WAITLOOP_OFFSET
+			apt_close_session 1, WAITLOOP_OFFSET
+
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_isregisteredend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + curAppRegistered, 0x1
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_isregisteredend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + oldAppRegistered, 0x0
+
+			; only get here if app was just registered
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_prepare_jump_application
+				apt_close_session 0, WAITLOOP_OFFSET
+
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_jump_application
+				apt_close_session 0, WAITLOOP_OFFSET
+
+				; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
+				; only copy whatever's before the memcpy so we dont overwrite the return address
+				waitLoop_isregistered_memcpy:
+				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_isregistered_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
+
+			waitLoop_isregisteredend:
+			load_store MENU_LOADEDROP_BUFADR + curAppRegistered, MENU_LOADEDROP_BUFADR + oldAppRegistered
+
 			.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 				.word WAITLOOP_DST + waitLoop_pivot_data - waitLoop_start + 4 ; r4
 			.word ROP_MENU_STACK_PIVOT
@@ -1097,6 +1165,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x00000000
 		.word 0x00000000
 		.word 0x00000000
+		.word 0x00000000
+	oldAppRegistered:
+		.word 0x00000001
+	curAppRegistered:
 		.word 0x00000000
 
 	.align 0x4
