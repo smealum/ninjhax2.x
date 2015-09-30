@@ -603,6 +603,19 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro apt_hardware_reboot_async
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5PC
+		.word 0x004E0000 ; command header
+	memcpy_r0_lr_prev (4 * 1), 1
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_APT_HANDLE ; r0 (apt handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro apt_get_appletinfo,appid
 	get_cmdbuf 0
 	.word ROP_MENU_POP_R4R5PC ; pop {r4, r5, r6, r7, r8, pc}
@@ -723,6 +736,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word nanosec_high ; r1
 	.word MENU_SLEEP
+.endmacro
+
+.macro store_r0,dst
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word dst ; r4
+	.word ROP_MENU_STR_R0R4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
 .macro store,a,dst
@@ -1000,101 +1020,112 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		waitLoop:
 			sleep 500*1000*1000, 0x00000000
 
-			apt_open_session 1, WAITLOOP_OFFSET
-			apt_glance_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 1, WAITLOOP_OFFSET
-			apt_close_session 1, WAITLOOP_OFFSET
+			apt_open_session 0, WAITLOOP_OFFSET
+			apt_inquire_notification 0x101, MENU_LOADEDROP_BUFADR + notificationType
+			store_r0 MENU_LOADEDROP_BUFADR + notificationError
+			apt_close_session 0, WAITLOOP_OFFSET
 
-			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_retmenuend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + argData, 0xB
-
-			; what follows only happens if we get a wakeup event, which means app is trying to return to menu
-				apt_open_session 0, WAITLOOP_OFFSET
-				apt_inquire_notification 0x101, DUMMY_PTR
-				apt_close_session 0, WAITLOOP_OFFSET
+			; first check for error
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notificationend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationError, 0x0
 
 				apt_open_session 0, WAITLOOP_OFFSET
-				apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + argData, DUMMY_PTR, 0, WAITLOOP_OFFSET
+				apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + paramType, DUMMY_PTR, 0, WAITLOOP_OFFSET
 				apt_close_session 0, WAITLOOP_OFFSET
 
-				gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
+				; power button pressed notification type
+				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_powerend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x8
 
-				; allocate buffer where we'll put all the stuff
-				control_memory MENU_LOADEDROP_BUFADR + linearMem, 0, 0, 0x47000, 0x10003, 0x3
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_hardware_reboot_async
+					apt_close_session 0, WAITLOOP_OFFSET
 
-				gsp_acquire_right
+				waitLoop_powerend:
 
-				; open file, seek EOF
-				fopen MENU_SCREENSHOTS_FILEOBJECT, MENU_LOADEDROP_BUFADR + screenshots_filename, 0x7
-				fseek MENU_SCREENSHOTS_FILEOBJECT, 0x0, 0x2
+				; ret-to-menu notification type
+				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_retmenuend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x1
 
-				; top screen left
-					load_store MENU_LOADEDROP_BUFADR + displayCapture, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
-					load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+					gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
 
-					send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+					; allocate buffer where we'll put all the stuff
+					control_memory MENU_LOADEDROP_BUFADR + linearMem, 0, 0, 0x47000, 0x10003, 0x3
 
-					sleep 100*1000*1000, 0x00000000
+					gsp_acquire_right
 
-					; write magic number
-					loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x30524353
+					; open file, seek EOF
+					fopen MENU_SCREENSHOTS_FILEOBJECT, MENU_LOADEDROP_BUFADR + screenshots_filename, 0x7
+					fseek MENU_SCREENSHOTS_FILEOBJECT, 0x0, 0x2
 
-					fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+					; top screen left
+						load_store MENU_LOADEDROP_BUFADR + displayCapture, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+						load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
 
-				; top screen right
-					load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x4, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
-					load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+						send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
 
-					send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+						sleep 100*1000*1000, 0x00000000
 
-					sleep 100*1000*1000, 0x00000000
+						; write magic number
+						loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x30524353
 
-					; write magic number
-					loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x31524353
+						fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
 
-					fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+					; top screen right
+						load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x4, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+						load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
 
-				; sub screen
-					load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x10, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
-					load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
+						send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
 
-					send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
+						sleep 100*1000*1000, 0x00000000
 
-					sleep 100*1000*1000, 0x00000000
+						; write magic number
+						loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x31524353
 
-					; write magic number
-					loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x32524353
+						fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
 
-					fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
+					; sub screen
+						load_store MENU_LOADEDROP_BUFADR + displayCapture + 0x10, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopSource
+						load_addlsl2_store MENU_LOADEDROP_BUFADR + linearMem, 0x80, MENU_LOADEDROP_BUFADR + gxCommandFramebufferTopDestination
 
-				; close file
-				fclose MENU_SCREENSHOTS_FILEOBJECT
+						send_gx_cmd MENU_LOADEDROP_BUFADR + gxCommandFramebufferTop
 
-				gsp_release_right
+						sleep 100*1000*1000, 0x00000000
 
-				; deallocate linear buffer
-				free_memory_deref MENU_LOADEDROP_BUFADR + linearMem, 0x47000
+						; write magic number
+						loadadr_store MENU_LOADEDROP_BUFADR + linearMem, 0x32524353
 
-				apt_clear_homebutton_state
+						fwrite_deref MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, MENU_LOADEDROP_BUFADR + linearMem, 0x47000, 0x1, WAITLOOP_OFFSET
 
-				apt_open_session 0, WAITLOOP_OFFSET
-				apt_reply_sleepquery 0x101, 0x0
-				apt_close_session 0, WAITLOOP_OFFSET
+					; close file
+					fclose MENU_SCREENSHOTS_FILEOBJECT
 
-				; reply to APT return-to-menu stuff
-				; (no need for skips because we just did a fresh memcpy)
-				apt_open_session 0, WAITLOOP_OFFSET
-				apt_prepare_leave_homemenu 0, WAITLOOP_OFFSET
-				apt_close_session 0, WAITLOOP_OFFSET
+					gsp_release_right
 
-				apt_open_session 0, WAITLOOP_OFFSET
-				apt_leave_homemenu 0, WAITLOOP_OFFSET
-				apt_close_session 0, WAITLOOP_OFFSET
+					; deallocate linear buffer
+					free_memory_deref MENU_LOADEDROP_BUFADR + linearMem, 0x47000
+
+					apt_clear_homebutton_state
+
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_reply_sleepquery 0x101, 0x0
+					apt_close_session 0, WAITLOOP_OFFSET
+
+					; reply to APT return-to-menu stuff
+					; (no need for skips because we just did a fresh memcpy)
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_prepare_leave_homemenu 0, WAITLOOP_OFFSET
+					apt_close_session 0, WAITLOOP_OFFSET
+
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_leave_homemenu 0, WAITLOOP_OFFSET
+					apt_close_session 0, WAITLOOP_OFFSET
+
+				waitLoop_retmenuend:
 
 				; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
 				; only copy whatever's before the memcpy so we dont overwrite the return address
-				waitLoop_retmenu_memcpy:
-				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_retmenu_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
+				waitLoop_param_memcpy:
+				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_param_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
-			waitLoop_retmenuend:
+			waitLoop_notificationend:
 
 			apt_open_session 1, WAITLOOP_OFFSET
 			apt_is_registered 0x300, MENU_LOADEDROP_BUFADR + curAppRegistered, 1, WAITLOOP_OFFSET
@@ -1132,9 +1163,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	waitLoop_end:
 
 	.align 0x4
-	argData:
+	notificationError:
 		.word 0x00000000
-	argDataEnd:
+	notificationType:
+		.word 0x00000000
+	paramType:
+		.word 0x00000000
 
 	.align 0x4
 	linearMem:
