@@ -322,12 +322,12 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 
 extern u32* _bootloaderAddress;
 
-void receive_handle(Handle* out)
+void receive_handle(Handle* out, char* name)
 {
-	u32 outbuf[2];
+	u32 outbuf[3] = {0,0,0};
 	Result ret = 1;
 	int cnt = 0;
-	while(ret)
+	while(ret || strcmp(name, (char*)outbuf))
 	{
 		svc_sleepThread(1*1000*1000);
 		_aptOpenSession();
@@ -362,10 +362,10 @@ void _main()
 	print_str("\ngot APT:A lock handle ?\n");
 	print_hex(ret); print_str(", "); print_hex(_aptuHandle); print_str(", "); print_hex(_aptLockHandle);
 
-	receive_handle(&fsuHandle);
-	receive_handle(&nssHandle);
-	receive_handle(&irrstHandle);
-	receive_handle(&amsysHandle);
+	receive_handle(&fsuHandle, "fs:USER");
+	receive_handle(&nssHandle, "ns:s");
+	receive_handle(&irrstHandle, "ir:rst");
+	receive_handle(&amsysHandle, "am:sys");
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");

