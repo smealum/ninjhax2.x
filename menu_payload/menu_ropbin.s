@@ -29,6 +29,8 @@ WAITLOOP_DST equ (MENU_LOADEDROP_BUFADR - (waitLoop_end - waitLoop_start))
 WAITLOOP_OFFSET equ (- waitLoop_start - (waitLoop_end - waitLoop_start))
 
 MENU_SCREENSHOTS_FILEOBJECT equ (MENU_LOADEDROP_BUFADR + screenshots_obj)
+MENU_SHAREDMEMBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemAddress) ; in BKP because we want it to persist
+MENU_SHAREDMEMBLOCK_HANDLE equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemHandle) ; in BKP because we want it to persist
 
 DUMMY_PTR equ (WAITLOOP_DST - 4)
 
@@ -674,6 +676,22 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_MOUNTSDMC
 .endmacro
 
+.macro create_memory_block,out_ptr,addr,size,myperm,otherperm
+	set_lr ROP_MENU_POP_R4PC
+	.word ROP_MENU_POP_R0PC
+		.word out_ptr
+	.word ROP_MENU_POP_R1PC
+		.word addr
+	.word ROP_MENU_POP_R2R3R4R5R6PC
+		.word size ; r2
+		.word myperm ; r3
+		.word 0xFFFFFFFF ; r4
+		.word 0xFFFFFFFF ; r5
+		.word 0xFFFFFFFF ; r6
+	.word ROP_MENU_CREATEMEMORYBLOCK
+		.word otherperm
+.endmacro
+
 .macro fopen,f,name,flags
 	set_lr MENU_NOP
 	.word ROP_MENU_POP_R0PC
@@ -909,7 +927,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			apt_applet_utility_cmd2 ; includes open/close session
 
+			; not related to title launch, just stuff we want to only do once
 			mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
+			; control_memory MENU_SHAREDMEMBLOCK_PTR, 0x0A000000, 0, 64*1024*1024, 0x3, 0x3
+			; create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, 0x0A000000, 64*1024*1024, 0x3, 0x3
 
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
@@ -1005,6 +1026,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xFFFFFFFF ; dim out
 		.word 0x00000008 ; flags
 		.word 0x00000000 ; unused
+
+	.align 0x4
+	sharedmemAddress:
+		.word 0x00000000
+	sharedmemHandle:
+		.word 0x00000000
 
 	nssString:
 		.ascii "ns:s"
