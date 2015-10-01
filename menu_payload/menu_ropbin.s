@@ -910,8 +910,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			; not related to title launch, just stuff we want to only do once
 			mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
-			; control_memory MENU_SHAREDMEMBLOCK_PTR, 0x0A000000, 0, 64*1024*1024, 0x3, 0x3
-			; create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, 0x0A000000, 64*1024*1024, 0x3, 0x3
+			control_memory MENU_SHAREDMEMBLOCK_PTR, HB_MEM0_ADDR, 0, HB_MEM0_SIZE, 0x3, 0x3
+			create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, HB_MEM0_ADDR, HB_MEM0_SIZE, 0x3, 0x3
 
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
@@ -949,6 +949,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + nssString, MENU_NSS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + irrstString, MENU_IRRST_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + amsysString, MENU_AMSYS_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + ptmsysmString, MENU_PTMSYSM_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbMem0String, MENU_SHAREDMEMBLOCK_HANDLE
 
 		; memcpy wait loop to destination
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
@@ -1010,6 +1012,11 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	amsysString:
 		.ascii "am:sys"
 		.byte 0x00
+		.byte 0x00
+	ptmsysmString:
+		.ascii "ptm:sysm"
+	hbMem0String:
+		.ascii "hb:mem0"
 		.byte 0x00
 
 	.align 0x4

@@ -11,6 +11,8 @@
 
 #include "../../build/constants.h"
 
+int _strcmp(char*, char*);
+
 char console_buffer[4096];
 
 Result _HBSPECIAL_GetHandle(Handle handle, u32 index, Handle* out)
@@ -327,7 +329,7 @@ void receive_handle(Handle* out, char* name)
 	u32 outbuf[3] = {0,0,0};
 	Result ret = 1;
 	int cnt = 0;
-	while(ret || strcmp(name, (char*)outbuf))
+	while(ret || _strcmp(name, (char*)outbuf))
 	{
 		svc_sleepThread(1*1000*1000);
 		_aptOpenSession();
@@ -336,7 +338,7 @@ void receive_handle(Handle* out, char* name)
 		cnt++;
 	}
 
-	append_str("\ngot handle ?\n");
+	append_str("\ngot handle : ");
 	append_str((char*)outbuf); append_str("\n");
 	print_hex(*out);
 }
@@ -345,6 +347,7 @@ void _main()
 {
 	Result ret;
 	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle, amsysHandle;
+	Handle ptmsysmHandle, hbmem0Handle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -366,6 +369,8 @@ void _main()
 	receive_handle(&nssHandle, "ns:s");
 	receive_handle(&irrstHandle, "ir:rst");
 	receive_handle(&amsysHandle, "am:sys");
+	receive_handle(&ptmsysmHandle, "ptm:sysm");
+	receive_handle(&hbmem0Handle, "hb:mem0");
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");

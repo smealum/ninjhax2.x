@@ -70,3 +70,23 @@ _start:
 
 _init:
 	bx lr
+
+.thumb
+@ dont care about order, just want to know if same or not
+@ ret 0 if identical, 1 if not
+.global _strcmp
+.thumb_func
+_strcmp:
+	ldrb r2, [r0]
+	ldrb r3, [r1]
+	add r0, #1
+	add r1, #1
+	cmp r2, r3
+	beq _strcmp_eq
+	mov r0, #1
+	bx lr
+	_strcmp_eq:
+	cmp r2, #0
+	bne _strcmp
+	mov r0, #0
+	bx lr
