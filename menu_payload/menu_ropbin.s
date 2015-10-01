@@ -898,7 +898,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_start_application DUMMY_PTR, 0, DUMMY_PTR, 0, 0
 			apt_close_session 0, 0
 
-			sleep 100*1000*1000, 0x00000000
+			; sleep 100*1000*1000, 0x00000000
 
 			nss_terminate_tid DLPLAY_TIDLOW, 0x00040010, 100*1000*1000
 			
@@ -909,9 +909,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			apt_applet_utility_cmd2 ; includes open/close session
 
 			; not related to title launch, just stuff we want to only do once
-			mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
-			control_memory MENU_SHAREDMEMBLOCK_PTR, HB_MEM0_ADDR, 0, HB_MEM0_SIZE, 0x3, 0x3
-			create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, HB_MEM0_ADDR, HB_MEM0_SIZE, 0x3, 0x3
+				mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
+				control_memory MENU_SHAREDMEMBLOCK_PTR, HB_MEM0_ADDR, 0, HB_MEM0_SIZE, 0x3, 0x3
+				create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, HB_MEM0_ADDR, HB_MEM0_SIZE, 0x3, 0x3
 
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
