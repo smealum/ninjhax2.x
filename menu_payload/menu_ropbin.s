@@ -65,7 +65,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
 	.if skip != 0
-		skip_0x84
+		skip_0x1C
 	.endif
 	.word MENU_MEMCPY
 .endmacro
@@ -86,7 +86,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
 	.if skip != 0
-		skip_0x84
+		skip_0x1C
 	.endif
 	@@function_call:
 	.word MENU_MEMCPY
@@ -95,6 +95,11 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 .macro skip_0x84
 	.word ROP_MENU_ADD_SPSPx64_POP_R4RR11PC
 		.fill 0x84, 0xDA
+.endmacro
+
+.macro skip_0x1C
+	.word ROP_MENU_POP_R4R5R6R7R8R9R10PC
+		.fill 0x1C, 0xDA
 .endmacro
 
 .macro apt_open_session,skip,offset
@@ -169,13 +174,20 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word DUMMY_PTR ; arg_8 (handle out ptr) (r6 (garbage))
 .endmacro
 
-.macro apt_inquire_notification,app_id,out_ptr
+.macro apt_inquire_notification,app_id,out_ptr,skip,offset
 	; first dereference handle_ptr
 	set_lr MENU_NOP
+	.if skip != 0
+		store ROP_MENU_APT_INQUIRENOTIFICATION, @@function_call + MENU_LOADEDROP_BUFADR + offset
+	.endif
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word app_id ; r0 (app_id out ptr)
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word out_ptr ; r1 (app_id)
+	.if skip != 0
+		skip_0x1C
+	.endif
+	@@function_call:
 	.word ROP_MENU_APT_INQUIRENOTIFICATION
 .endmacro
 
@@ -258,6 +270,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word a ; r1
 	.word ROP_MENU_APT_REPLYSLEEPQUERY
+.endmacro
+
+.macro apt_reply_sleepnotification_complete,appid
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word appid ; r0
+	.word ROP_MENU_APT_REPLYSLEEPNOTIFICATIONCOMPLETE
 .endmacro
 
 .macro apt_is_registered,appid,out,skip,offset
@@ -873,8 +892,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			gsp_release_right
 
 			apt_open_session 0, 0
-			; apt_prepare_start_application 0x20020D00, 0x00040010, 0, 1
-			apt_prepare_start_application 0x00020100, 0x00040010, 0, 1
+			apt_prepare_start_application DLPLAY_TIDLOW, 0x00040010, 0, 1
 			apt_close_session 0, 0
 
 			apt_open_session 0, 0
@@ -883,11 +901,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			sleep 100*1000*1000, 0x00000000
 
-			; apt_open_session 0, 0
-			; apt_order_close_application
-			; apt_close_session 0, 0
-			; nss_terminate_tid 0x00020D00, 0x00040010, 100*1000*1000
-			nss_terminate_tid 0x00020100, 0x00040010, 100*1000*1000
+			nss_terminate_tid DLPLAY_TIDLOW, 0x00040010, 100*1000*1000
 			
 			sleep 1000*1000*1000, 0x00000000
 
@@ -1020,17 +1034,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		waitLoop:
 			sleep 500*1000*1000, 0x00000000
 
-			apt_open_session 0, WAITLOOP_OFFSET
-			apt_inquire_notification 0x101, MENU_LOADEDROP_BUFADR + notificationType
+			apt_open_session 1, WAITLOOP_OFFSET
+			apt_inquire_notification 0x101, MENU_LOADEDROP_BUFADR + notificationType, 1, WAITLOOP_OFFSET
 			store_r0 MENU_LOADEDROP_BUFADR + notificationError
-			apt_close_session 0, WAITLOOP_OFFSET
+			apt_close_session 1, WAITLOOP_OFFSET
 
 			; first check for error
 			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notificationend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationError, 0x0
-
-				apt_open_session 0, WAITLOOP_OFFSET
-				apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + paramType, DUMMY_PTR, 0, WAITLOOP_OFFSET
-				apt_close_session 0, WAITLOOP_OFFSET
 
 				; power button pressed notification type
 				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_powerend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x8
@@ -1038,11 +1048,39 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 					apt_open_session 0, WAITLOOP_OFFSET
 					apt_hardware_reboot_async
 					apt_close_session 0, WAITLOOP_OFFSET
+					
+					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notif_memcpy + WAITLOOP_OFFSET
 
 				waitLoop_powerend:
 
+				; preparing for sleep mode notification type
+				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_preparesleepend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x3
+
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_reply_sleepquery 0x101, 0x1
+					apt_close_session 0, WAITLOOP_OFFSET
+
+					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notif_memcpy + WAITLOOP_OFFSET
+
+				waitLoop_preparesleepend:
+
+				; starting sleep mode notification type
+				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_startsleepend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x5
+
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_reply_sleepnotification_complete 0x101
+					apt_close_session 0, WAITLOOP_OFFSET
+
+					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notif_memcpy + WAITLOOP_OFFSET
+
+				waitLoop_startsleepend:
+
 				; ret-to-menu notification type
 				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_retmenuend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x1
+
+					apt_open_session 0, WAITLOOP_OFFSET
+					apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + paramType, DUMMY_PTR, 0, WAITLOOP_OFFSET
+					apt_close_session 0, WAITLOOP_OFFSET
 
 					gsp_import_display_captureinfo MENU_LOADEDROP_BUFADR + displayCapture
 
@@ -1118,12 +1156,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 					apt_leave_homemenu 0, WAITLOOP_OFFSET
 					apt_close_session 0, WAITLOOP_OFFSET
 
-				waitLoop_retmenuend:
+					; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
+					; only copy whatever's before the memcpy so we dont overwrite the return address
+					waitLoop_notif_memcpy:
+					memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_notif_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
-				; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
-				; only copy whatever's before the memcpy so we dont overwrite the return address
-				waitLoop_notif_memcpy:
-				memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_notif_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
+				waitLoop_retmenuend:
 
 			waitLoop_notificationend:
 
