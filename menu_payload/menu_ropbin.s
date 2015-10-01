@@ -289,7 +289,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word out ; r1
 	.if skip != 0
-		skip_0x84
+		skip_0x1C
 	.endif
 	@@function_call:
 	.word ROP_MENU_APT_ISREGISTERED
@@ -1049,7 +1049,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 					apt_hardware_reboot_async
 					apt_close_session 0, WAITLOOP_OFFSET
 					
-					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notif_memcpy + WAITLOOP_OFFSET
+					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_startsleep_memcpy + WAITLOOP_OFFSET
 
 				waitLoop_powerend:
 
@@ -1060,7 +1060,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 					apt_reply_sleepquery 0x101, 0x1
 					apt_close_session 0, WAITLOOP_OFFSET
 
-					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notif_memcpy + WAITLOOP_OFFSET
+					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_startsleep_memcpy + WAITLOOP_OFFSET
 
 				waitLoop_preparesleepend:
 
@@ -1071,12 +1071,25 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 					apt_reply_sleepnotification_complete 0x101
 					apt_close_session 0, WAITLOOP_OFFSET
 
-					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_notif_memcpy + WAITLOOP_OFFSET
+					; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
+					; only copy whatever's before the memcpy so we dont overwrite the return address
+					waitLoop_startsleep_memcpy:
+					memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_startsleep_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
 				waitLoop_startsleepend:
 
+			waitLoop_notificationend:
+
+			apt_open_session 1, WAITLOOP_OFFSET
+			apt_glance_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + paramType, DUMMY_PTR, 1, WAITLOOP_OFFSET
+			store_r0 MENU_LOADEDROP_BUFADR + paramError
+			apt_close_session 1, WAITLOOP_OFFSET
+
+			; first check for error
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_paramend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + paramError, 0x0
+
 				; ret-to-menu notification type
-				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_retmenuend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x1
+				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_retmenuend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + paramType, 0xB
 
 					apt_open_session 0, WAITLOOP_OFFSET
 					apt_receive_parameter 0x101, DUMMY_PTR, 0x0, MENU_LOADEDROP_BUFADR + paramType, DUMMY_PTR, 0, WAITLOOP_OFFSET
@@ -1158,12 +1171,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 					; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
 					; only copy whatever's before the memcpy so we dont overwrite the return address
-					waitLoop_notif_memcpy:
-					memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_notif_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
+					waitLoop_retmenu_memcpy:
+					memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_retmenu_memcpy-waitLoop_start), 1, WAITLOOP_OFFSET
 
 				waitLoop_retmenuend:
 
-			waitLoop_notificationend:
+			waitLoop_paramend:
 
 			apt_open_session 1, WAITLOOP_OFFSET
 			apt_is_registered 0x300, MENU_LOADEDROP_BUFADR + curAppRegistered, 1, WAITLOOP_OFFSET
@@ -1206,6 +1219,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	notificationType:
 		.word 0x00000000
 	paramType:
+		.word 0x00000000
+	paramError:
 		.word 0x00000000
 
 	.align 0x4
