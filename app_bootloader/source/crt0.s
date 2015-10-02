@@ -20,7 +20,7 @@ bx lr
 bx lr
 
 _serviceList:
-	.space 0x4+0xC*8, 0x00
+	.space 0x4+0xC*16, 0x00
 
 _run3dsx:
 	ldr r4, =run3dsx

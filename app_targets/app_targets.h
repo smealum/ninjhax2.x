@@ -191,36 +191,45 @@ static void patchPayload(u32* payload_dst, int targetProcessIndex, memorymap_t* 
 	int i;
 	for(i=0; i<0x10000/4; i++)
 	{
-		switch(payload_dst[i])
+		u32 val = payload_dst[i];
+		if(val >> 16 == 0xBABE)
 		{
-			// target process index
-			case 0xBABE0001:
-				payload_dst[i] = targetProcessIndex;
-				break;
-			// target process APP_START_LINEAR
-			case 0xBABE0002:
-				payload_dst[i] = 0x30000000 + FIRM_APPMEMALLOC - mmap->header.processLinearOffset;
-				break;
-			// target process hook virtual address
-			case 0xBABE0003:
-				payload_dst[i] = mmap->header.processHookAddress;
-				break;
-			// target process TID low
-			case 0xBABE0004:
-				payload_dst[i] = mmap->header.processHookTidLow;
-				break;
-			// target process TID high
-			case 0xBABE0005:
-				payload_dst[i] = mmap->header.processHookTidHigh;
-				break;
-			// cur process map
-			case 0xBABE0006:
-				memcpy(&payload_dst[i], mmap, sizeof(memorymap_header_t) + sizeof(memorymap_entry_t) * mmap->header.num);
-				break;
-			// app_code base address
-			case 0xBABE0007:
-				payload_dst[i] = mmap->header.processAppCodeAddress;
-				break;
+			val &= 0xFFFF;
+				// target process index
+				if(val == 0x0001)
+				{
+					payload_dst[i] = targetProcessIndex;
+				}
+				// target process APP_START_LINEAR
+				else if(val == 0x0002)
+				{
+					payload_dst[i] = 0x30000000 + FIRM_APPMEMALLOC - mmap->header.processLinearOffset;
+				}
+				// target process hook virtual address
+				else if(val == 0x0003)
+				{
+					payload_dst[i] = mmap->header.processHookAddress;
+				}
+				// target process TID low
+				else if(val == 0x0004)
+				{
+					payload_dst[i] = mmap->header.processHookTidLow;
+				}
+				// target process TID high
+				else if(val == 0x0005)
+				{
+					payload_dst[i] = mmap->header.processHookTidHigh;
+				}
+				// cur process map
+				else if(val == 0x0006)
+				{
+					memcpy(&payload_dst[i], mmap, sizeof(memorymap_header_t) + sizeof(memorymap_entry_t) * mmap->header.num);
+				}
+				// app_code base address
+				else if(val == 0x0007)
+				{
+					payload_dst[i] = mmap->header.processAppCodeAddress;
+				}
 		}
 	}
 }

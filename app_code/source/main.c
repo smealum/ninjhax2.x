@@ -187,7 +187,7 @@ typedef struct {
 	struct {
 		char name[8];
 		Handle handle;
-	} services[4];
+	} services[7];
 } nonflexible_service_list_t;
 
 Handle _aptLockHandle, _aptuHandle;
@@ -347,7 +347,7 @@ void _main()
 {
 	Result ret;
 	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle, amsysHandle;
-	Handle ptmsysmHandle, hbmem0Handle;
+	Handle ptmsysmHandle, gsplcdHandle, hbmem0Handle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -370,6 +370,7 @@ void _main()
 	receive_handle(&irrstHandle, "ir:rst");
 	receive_handle(&amsysHandle, "am:sys");
 	receive_handle(&ptmsysmHandle, "ptm:sysm");
+	receive_handle(&gsplcdHandle, "gsp::Lcd");
 	receive_handle(&hbmem0Handle, "hb:mem0");
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
@@ -392,7 +393,17 @@ void _main()
 	svc_sleepThread(100*1000*1000);
 
 	// setup service list structure
-	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) = (nonflexible_service_list_t){4, {{"ns:s", nssHandle}, {"fs:USER", fsuHandle}, {"ir:rst", irrstHandle}, {"am:sys", amsysHandle}}};
+	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) =
+		(nonflexible_service_list_t)
+		{7,
+			{{"ns:s", nssHandle},
+			{"fs:USER", fsuHandle},
+			{"ir:rst", irrstHandle},
+			{"am:sys", amsysHandle},
+			{"ptm:sysm", ptmsysmHandle},
+			{"gsp::Lcd", gsplcdHandle},
+			{"hb:mem0", hbmem0Handle}
+		}};
 
 	// flush and copy
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
