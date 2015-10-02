@@ -1376,9 +1376,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				.word 0xBABEBAD0 ; marker
 				.word ROP_MENU_POP_R4R5R6R7R8PC ; rop gadget to replace pivot with
 				waitLoop_tidlow:
-				.word 0xBABE0004 ; tid_low
+				.word 0xBABE0008 ; tid_low
 				waitLoop_tidhigh:
-				.word 0xBABE0005 ; tid_high
+				.word 0xBABE0009 ; tid_high
 				.word 0xDEADBABE
 			gsp_acquire_right
 			writehwreg 0x202A04, 0x01FF00FF

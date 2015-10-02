@@ -168,13 +168,9 @@ void getProcessMap(Handle fsuserHandle, u8 mediatype, u32 tid_low, u32 tid_high,
 	int i;
 
 	// first, fill out basic info
-	if(mediatype == 2)
-	{
-		out->header.processHookTidLow = out->header.processHookTidHigh = 0x00000000;
-	}else{
-		out->header.processHookTidLow = tid_low;
-		out->header.processHookTidHigh = tid_high;
-	}
+	out->header.processHookTidLow = tid_low;
+	out->header.processHookTidHigh = tid_high;
+	out->header.mediatype = mediatype;
 	out->header.num = 0;
 
 	// uber conservative estimates
