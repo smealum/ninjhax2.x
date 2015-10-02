@@ -2,8 +2,10 @@
 .arm
 .align 4
 .global _start
+.type _start, %function
 .global _serviceList
 .global _changeProcess
+.type _changeProcess, %function
 
 _run3dsxVector:
 	b _run3dsx
