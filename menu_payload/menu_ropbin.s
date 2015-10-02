@@ -32,6 +32,12 @@ MENU_SCREENSHOTS_FILEOBJECT equ (MENU_LOADEDROP_BUFADR + screenshots_obj)
 MENU_SHAREDMEMBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemAddress) ; in BKP because we want it to persist
 MENU_SHAREDMEMBLOCK_HANDLE equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemHandle) ; in BKP because we want it to persist
 
+MENU_DSP_BINARY equ (MENU_DSP_BINARY_AFTERSIG - 0x100)
+MENU_SHAREDDSPBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + shareddspAddress) ; in BKP because we want it to persist
+MENU_SHAREDDSPBLOCK_HANDLE equ (MENU_LOADEDROP_BKP_BUFADR + shareddspHandle) ; in BKP because we want it to persist
+HB_DSP_SIZE equ ((MENU_DSP_BINARY_SIZE + 0xfff) & 0xfffff000)
+HB_DSP_ADDR equ (HB_MEM0_ADDR - HB_DSP_SIZE)
+
 DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 .macro set_lr,_lr
@@ -979,8 +985,14 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			; not related to title launch, just stuff we want to only do once
 				mount_sdmc MENU_LOADEDROP_BUFADR + sdmc_str
+
 				control_memory MENU_SHAREDMEMBLOCK_PTR, HB_MEM0_ADDR, 0, HB_MEM0_SIZE, 0x3, 0x3
 				create_memory_block MENU_SHAREDMEMBLOCK_HANDLE, HB_MEM0_ADDR, HB_MEM0_SIZE, 0x3, 0x3
+
+				control_memory MENU_SHAREDDSPBLOCK_PTR, HB_DSP_ADDR, 0, HB_DSP_SIZE, 0x3, 0x3
+				memcpy HB_DSP_ADDR, MENU_DSP_BINARY, MENU_DSP_BINARY_SIZE, 0, 0
+				create_memory_block MENU_SHAREDDSPBLOCK_HANDLE, HB_DSP_ADDR, HB_DSP_SIZE, 0x3, 0x3
+
 				srv_get_handle MENU_LOADEDROP_BUFADR + gsplcdString, 8, MENU_GSPLCD_HANDLE
 
 			; overwrite jump_sp APT_TitleLaunch's destination
@@ -1026,6 +1038,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + ptmsysmString, MENU_PTMSYSM_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + gsplcdString, MENU_GSPLCD_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbMem0String, MENU_SHAREDMEMBLOCK_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbNdspString, MENU_SHAREDDSPBLOCK_HANDLE
 
 		; jump to wait loop
 			jump_sp WAITLOOP_DST
@@ -1066,6 +1079,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x00000000
 	sharedmemHandle:
 		.word 0x00000000
+	shareddspAddress:
+		.word 0x00000000
+	shareddspHandle:
+		.word 0x00000000
 
 	nssString:
 		.ascii "ns:s"
@@ -1093,6 +1110,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.byte 0x00
 	hbMem0String:
 		.ascii "hb:mem0"
+		.byte 0x00
+	hbNdspString:
+		.ascii "hb:ndsp"
 		.byte 0x00
 
 	.align 0x4
