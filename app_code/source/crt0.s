@@ -5,6 +5,10 @@
 .global _start
 .global _bootloaderAddress
 .global _heap_size
+.global _mini_got_start
+.global _mini_got_end
+.extern _main
+.type _main, %function
 
 b _start
 
@@ -66,10 +70,15 @@ _start:
 	mov r11, #0
 	mov r12, #0
 	mov sp, #0x10000000
-	blx _main
+	ldr	ip, _mini_got_start
+	blx ip
 
 _init:
 	bx lr
+
+_mini_got_start:
+	.word _main
+_mini_got_end:
 
 .thumb
 @ dont care about order, just want to know if same or not
