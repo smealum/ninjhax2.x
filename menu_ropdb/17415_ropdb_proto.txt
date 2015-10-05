@@ -34,6 +34,7 @@
 	("ROP_MENU_ADD_R0R0R1LSL2_POP_R4PC", 0x00204688, 0x2), # add r0, r0, r1, lsl #2; pop {r4, pc}
 	("ROP_MENU_ADD_R0R0R1_POP_R4R5R6PC", 0x00133810, 0x2), # add r0, r0, r1; pop {r4, r5, r6, pc}
 	("ROP_MENU_AND_R0R0x7_POP_R4PC", 0x2e7f98, 0x2), # and r0, r0, #7 ; pop {r4, pc}
+	("ROP_MENU_ADD_R1R1x1_STR_R1R5x10_POP_R4R5R6PC", 0x0010230c, 0x3), # add r1, r1, #1 ; str r1, [r5, #16] ; pop {r4, r5, r6, pc}
 
 	# comparison gadgets
 	("ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC", 0x0021e6cc, 0x4), # cmp r0, r1 ; mvnls r0, #0 ; movhi r0, #1 ; pop {r4, pc}
@@ -100,6 +101,7 @@
 	("MENU_APT_HANDLE", 0x002221BC, 0x10, 0x10),
 	("MENU_FS_HANDLE", 0x002F2FFC, 0x4, 0x8),
 	("MENU_SRV_HANDLE", 0x002158C4, 0xD, 0xD),
+	("MENU_NEWSS_HANDLE", 0x0017FA64, 0x14, 0x14),
 	("MENU_PTMSYSM_HANDLE", 0x0012CD1C, 0xf, 0xf),
 	("MENU_GSPLCD_HANDLE", 0x0012DF78, (0x6, 0x1, 0x4, 0x1, 0x4, 0x1, 0x5, 0x1), 0x17),
 	("MENU_DSP_HANDLE_STRUCT", 0x0012C330, 0x1, 0x1),
