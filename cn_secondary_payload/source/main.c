@@ -689,8 +689,8 @@ int main(u32 loaderparam, char** argv)
 	#endif
 
 	#ifdef RECOVERY
-	u32 PAD = HID_PAD;
-	if((PAD & KEY_L) && (PAD & KEY_R)) doRecovery();
+		u32 PAD = HID_PAD;
+		if((PAD & KEY_L) && (PAD & KEY_R)) doRecovery();
 	#endif
 
 	#ifndef OTHERAPP

@@ -7,6 +7,7 @@
 #include "text.h"
 
 #include "../../../../build/constants.h"
+#include "decomp.h"
 
 #define TOPFBADR1 ((u8*)CN_TOPFBADR1)
 #define TOPFBADR2 ((u8*)CN_TOPFBADR2)
@@ -315,8 +316,8 @@ int _main()
 
 	// drawHex(ret,0,line+=10);
 
-	u8* buffer0=(u8*)0x14300000;
-	u8* buffer1=(u8*)0x14100000;
+	u8* buffer0=(u8*)0x14100000;
+	u8* buffer1=(u8*)0x14300000;
 	u32 secondaryPayloadSize=0x0;
 	ret=HTTPC_ReceiveData(httpcHandle2, httpContextHandle, buffer0, 0x300000);
 	if(ret)*(u32*)NULL=0xC0DE0005;
@@ -337,10 +338,14 @@ int _main()
 	blowfishKeyScheduler((u32*)0x14200000);
 	blowfishDecrypt((u32*)0x14200000, (u32*)buffer0, (u32*)buffer1, secondaryPayloadSize);
 
-	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)buffer1, 0x300000);
+	while(!*(u32*)(&buffer1[secondaryPayloadSize-4]))secondaryPayloadSize-=4;
+
+	lzss_decompress(buffer1, secondaryPayloadSize, buffer0, lzss_get_decompressed_size(buffer1, secondaryPayloadSize));
+
+	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)buffer0, 0x300000);
 	// drawHex(ret,0,line+=10);
 
-	doGspwn((u32*)(buffer1), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
+	doGspwn((u32*)(buffer0), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
 
 	svc_sleepThread(0x3B9ACA00);
 

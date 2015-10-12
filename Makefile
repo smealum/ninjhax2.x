@@ -111,7 +111,9 @@ app_bootloader/app_bootloader.bin:
 
 
 build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
-	@python $(SCRIPTS)/blowfish.py cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
+	@cp cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin
+	@$(SCRIPTS)/blz.exe -en build/cn_secondary_payload.bin
+	@python $(SCRIPTS)/blowfish.py build/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
 cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin
 	@mkdir -p cn_secondary_payload/data
 	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data/

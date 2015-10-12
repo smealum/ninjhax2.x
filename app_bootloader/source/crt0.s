@@ -148,6 +148,27 @@ svc_duplicateHandle:
 	str r1, [r3]
 	bx  lr
 
+.global svc_getResourceLimit
+.type svc_getResourceLimit, %function
+svc_getResourceLimit:
+	str r0, [sp, #-4]!
+	svc 0x38
+	ldr r2, [sp], #4
+	str r1, [r2]
+	bx lr
+
+.global svc_getResourceLimitLimitValues
+.type svc_getResourceLimitLimitValues, %function
+svc_getResourceLimitLimitValues:
+	svc 0x39
+	bx lr
+
+.global svc_getResourceLimitCurrentValue
+.type svc_getResourceLimitCurrentValue, %function
+svc_getResourceLimitCurrentValue:
+	svc 0x3a
+	bx lr
+
 .global _invalidate_icache
 .type _invalidate_icache, %function
 _invalidate_icache:

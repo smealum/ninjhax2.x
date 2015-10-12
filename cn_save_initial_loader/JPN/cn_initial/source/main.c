@@ -8,6 +8,7 @@
 #include "text.h"
 
 #include "../../../../build/constants.h"
+#include "decomp.h"
 
 int _strlen(char* str)
 {
@@ -194,8 +195,6 @@ int _main()
 	// drawString((u8*)CN_TOPFBADR1,"ninjhaxx",0,0);
 	// drawString((u8*)CN_TOPFBADR2,"ninjhaxx",0,0);
 
-	Handle* srvHandle=(Handle*)CN_SRVHANDLE_ADR;
-
 	int line=10;
 	Result ret;
 
@@ -241,19 +240,15 @@ int _main()
 		Handle fileHandle;
 		ret=_FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, saveArchive, FS_makePath(PATH_CHAR, "/edit/payload.bin"), FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 		if(ret)*(u32*)NULL=0xC0DF0002;
-		ret=_FSFILE_Read(fileHandle, &secondaryPayloadSize, 0x0, (u32*)0x14100000, 0x00011000);
+		ret=_FSFILE_Read(fileHandle, &secondaryPayloadSize, 0x0, (u32*)0x14300000, 0x00011000);
 		if(ret)*(u32*)NULL=0xC0DF0003;
 		ret=_FSFILE_Close(fileHandle);
 		if(ret)*(u32*)NULL=0xC0DF0004;
 	}
 
-	//decrypt it
+	//decompress it
 	{
-		Result (*blowfishKeyScheduler)(u32* dst)=(void*)0x001A5900;
-		Result (*blowfishDecrypt)(u32* blowfishKeyData, u32* src, u32* dst, u32 size)=(void*)0x001A5F48;
-
-		blowfishKeyScheduler((u32*)0x14200000);
-		blowfishDecrypt((u32*)0x14200000, (u32*)0x14100000, (u32*)0x14100000, secondaryPayloadSize);
+		lzss_decompress((u8*)0x14300000, secondaryPayloadSize, (u8*)0x14100000, lzss_get_decompressed_size((u8*)0x14300000, secondaryPayloadSize));
 	}
 
 	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x300000);

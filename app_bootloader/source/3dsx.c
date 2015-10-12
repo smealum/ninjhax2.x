@@ -8,6 +8,7 @@
 #include "../../build/constants.h"
 
 #include "3dsx.h"
+#include "sys.h"
 
 // TODO : find a better place to put this
 #define RUNFLAG_APTWORKAROUND (1)
@@ -71,7 +72,18 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_
 	u32 i, j, k, m;
 	// u32 endAddr = 0x00100000+CN_NEWTOTALPAGES*0x1000;
 
-	u32 heap_size = 24*1024*1024;
+	Handle resourceLimit = 0;
+	Result ret = 0;
+	s64 limit_commit, current_commit;
+
+	ret = svc_getResourceLimit(&resourceLimit, 0xFFFF8001);
+	ret = svc_getResourceLimitLimitValues(&limit_commit, resourceLimit, (u32[]){1}, 1);
+	ret = svc_getResourceLimitCurrentValue(&current_commit, resourceLimit, (u32[]){1}, 1);
+	ret = svc_closeHandle(resourceLimit);
+
+	// u32 heap_size = 24*1024*1024;
+	u32 heap_size = limit_commit - (current_commit - _heap_size); // gsp heap not allocated at this point, otherwise would also have to do - _gsp_heap_size
+	heap_size -= 1*1024*1024; // reserve 1MB because ctrulib likes to allocate stuff
 
 	SEC_ASSERT(baseAddr >= (void*)0x00100000);
 	SEC_ASSERT((((u32) baseAddr) & 0xFFF) == 0); // page alignment
@@ -214,11 +226,9 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_
 		// prmStruct[5] <-- __system_arglist (default: NULL)
 
 		prmStruct[2] = 0x300;
-		// prmStruct[2] = 0x101;
-		prmStruct[3] = heap_size;
 		prmStruct[4] = 32*1024*1024;
+		prmStruct[3] = heap_size - prmStruct[4];
 		prmStruct[5] = argbuf;
-		// prmStruct[6] = RUNFLAG_APTWORKAROUND; //__system_runflags
 		prmStruct[6] = RUNFLAG_APTREINIT; //__system_runflags
 
 		// XXX: Notes on __system_arglist:

@@ -8,6 +8,7 @@
 #include "text.h"
 
 #include "../../../../build/constants.h"
+#include "decomp.h"
 
 int _strlen(char* str)
 {
@@ -110,6 +111,12 @@ void patchMem(Handle* gspHandle, u32 dst, u32 size, u32 start, u32 end)
 	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x200);
 	doGspwn((u32*)(0x14100000), (u32*)(dst), 0x200);
 	svc_sleepThread(0x100000);
+}
+
+void *memset(void *s, int c, size_t n)
+{
+	int i;
+	for(i=0; i<n; i++)((char*)s)[i]=c;
 }
 
 Result _FSUSER_OpenFileDirectly(Handle* handle, Handle* out, FS_archive archive, FS_path fileLowPath, u32 openflags, u32 attributes) //no need to have archive opened
@@ -230,19 +237,15 @@ int _main()
 		Handle fileHandle;
 		ret=_FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, saveArchive, FS_makePath(PATH_CHAR, "/edit/payload.bin"), FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 		if(ret)*(u32*)NULL=0xC0DF0002;
-		ret=_FSFILE_Read(fileHandle, &secondaryPayloadSize, 0x0, (u32*)0x14100000, 0x00011000);
+		ret=_FSFILE_Read(fileHandle, &secondaryPayloadSize, 0x0, (u32*)0x14300000, 0x00011000);
 		if(ret)*(u32*)NULL=0xC0DF0003;
 		ret=_FSFILE_Close(fileHandle);
 		if(ret)*(u32*)NULL=0xC0DF0004;
 	}
 
-	//decrypt it
+	//decompress it
 	{
-		Result (*blowfishKeyScheduler)(u32* dst)=(void*)0x001A44BC;
-		Result (*blowfishDecrypt)(u32* blowfishKeyData, u32* src, u32* dst, u32 size)=(void*)0x001A4B04;
-
-		blowfishKeyScheduler((u32*)0x14200000);
-		blowfishDecrypt((u32*)0x14200000, (u32*)0x14100000, (u32*)0x14100000, secondaryPayloadSize);
+		lzss_decompress((u8*)0x14300000, secondaryPayloadSize, (u8*)0x14100000, lzss_get_decompressed_size((u8*)0x14300000, secondaryPayloadSize));
 	}
 
 	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x300000);

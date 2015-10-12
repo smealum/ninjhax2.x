@@ -15,7 +15,7 @@ CC = arm-none-eabi-gcc
 LINK = arm-none-eabi-ld
 AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
-CFLAGS += -Wall -std=c99 -march=armv6 -Os -I"$(CTRULIB)/include" -I$(DEVKITPRO)/libnds/include
+CFLAGS += -Wall -std=c99 -march=armv6 -mthumb -mthumb-interwork -Os -I"$(CTRULIB)/include" -I$(DEVKITPRO)/libnds/include
 LDFLAGS += --script=ccd00.ld -L"$(DEVKITARM)/arm-none-eabi/lib" -L"$(CTRULIB)/lib" -Map=output.map
 
 CFILES = $(wildcard source/*.c)
@@ -52,7 +52,7 @@ $(PROJECTNAME).bin: $(PROJECTNAME).elf
 	$(OBJCOPY) -O binary $< $@
 
 $(PROJECTNAME).elf: $(OFILES) ctrulib
-	$(LINK) $(LDFLAGS) -o $(PROJECTNAME).elf $(filter-out build/crt0.o, $(OFILES)) -g -lctru -lm -lc -lg
+	$(LINK) $(LDFLAGS) -o $(PROJECTNAME).elf $(filter-out build/crt0.o, $(OFILES)) -g -lm
 
 clean:
 	@rm -f build/*.o build/*.d
