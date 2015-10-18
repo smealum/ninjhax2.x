@@ -671,14 +671,25 @@ void inject_payload(u32* linear_buffer, u32 target_address)
 	svc_sleepThread(10000000); //sleep long enough for memory to be written
 }
 
+Result _GSPGPU_SetBufferSwap(Handle handle, u32 screenid, GSP_FramebufferInfo framebufinfo)
+{
+	Result ret=0;
+	u32 *cmdbuf = getThreadCommandBuffer();
+
+	cmdbuf[0] = 0x00050200;
+	cmdbuf[1] = screenid;
+	memcpy(&cmdbuf[2], &framebufinfo, sizeof(GSP_FramebufferInfo));
+	
+	if((ret=svc_sendSyncRequest(handle)))return ret;
+
+	return cmdbuf[1];
+}
+
 int main(u32 loaderparam, char** argv)
 {
 	#ifdef OTHERAPP
 		u32 *paramblk = (u32*)loaderparam;
 	#endif
-
-	int line=10;
-	drawTitleScreen("");
 
 	#ifndef OTHERAPP
 		Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
@@ -687,6 +698,15 @@ int main(u32 loaderparam, char** argv)
 		Handle* gspHandle=(Handle*)paramblk[0x58>>2];
 		u32* linear_buffer = (u32*)((((u32)paramblk) + 0x1000) & ~0xfff);
 	#endif
+
+	// put framebuffers in linear mem so they're writable
+	u8* top_framebuffer = &linear_buffer[0x00100000/4];
+	u8* low_framebuffer = &top_framebuffer[0x00046500];
+	_GSPGPU_SetBufferSwap(*gspHandle, 0, (GSP_FramebufferInfo){0, (u32*)top_framebuffer, (u32*)top_framebuffer, 240 * 3, (1<<8)|(1<<6)|1, 0, 0});
+	_GSPGPU_SetBufferSwap(*gspHandle, 1, (GSP_FramebufferInfo){0, (u32*)low_framebuffer, (u32*)low_framebuffer, 240 * 3, 1, 0, 0});
+
+	int line=10;
+	drawTitleScreen("");
 
 	#ifdef RECOVERY
 		u32 PAD = HID_PAD;
