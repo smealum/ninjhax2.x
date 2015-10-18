@@ -60,6 +60,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0xDEADBABE ; r6 (garbage)
 	.word MENU_NSS_LAUNCHTITLE
 		.word 0x00000001 ; sp_0 (flag)
+		; .word 0x000000F5 ; sp_0 (flag) (sets notification when process dies but currently breaks stuff (might need to read the notification ?))
 .endmacro
 
 ; this memcpy's the size bytes that immediately preceed its call
@@ -631,6 +632,18 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.word ROP_MENU_POP_R4PC ; pop {r4, pc}
 		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
 	@@function_call:
+	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+		.word 0xDEADBABE ; r4 (garbage)
+.endmacro
+
+.macro nss_shutdown_async
+	get_cmdbuf 0
+	.word ROP_MENU_POP_R1PC
+		.word 0x000E0000 ; command header
+	.word ROP_MENU_STR_R1R0_POP_R4PC
+		.word DUMMY_PTR ; r4 (dummy but address needs to be valid/readable)
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word MENU_NSS_HANDLE ; r0
 	.word ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC ; ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
 		.word 0xDEADBABE ; r4 (garbage)
 .endmacro
@@ -1418,9 +1431,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				; power button pressed notification type
 				cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_powerend + WAITLOOP_OFFSET, MENU_LOADEDROP_BUFADR + notificationType, 0x8
 
-					apt_open_session 0, WAITLOOP_OFFSET
-					apt_hardware_reboot_async
-					apt_close_session 0, WAITLOOP_OFFSET
+					nss_shutdown_async
 					
 					jump_sp MENU_LOADEDROP_BUFADR + waitLoop_startsleep_memcpy + WAITLOOP_OFFSET
 

@@ -398,16 +398,18 @@ void _main()
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) =
 		(nonflexible_service_list_t)
 		{9,
-			{{"ns:s", nssHandle},
-			{"fs:USER", fsuHandle},
-			{"ir:rst", irrstHandle},
-			{"am:sys", amsysHandle},
-			{"ptm:sysm", ptmsysmHandle},
-			{"gsp::Lcd", gsplcdHandle},
-			{"news:s", newssHandle},
-			{"hb:mem0", hbmem0Handle},
-			{"hb:ndsp", hbndspHandle}
-		}};
+			{
+				{"ns:s", nssHandle},
+				{"fs:USER", fsuHandle},
+				{"ir:rst", irrstHandle},
+				{"am:sys", amsysHandle},
+				{"ptm:sysm", ptmsysmHandle},
+				{"gsp::Lcd", gsplcdHandle},
+				{"news:s", newssHandle},
+				{"hb:mem0", hbmem0Handle},
+				{"hb:ndsp", hbndspHandle}
+			}
+		};
 
 	// flush and copy
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);

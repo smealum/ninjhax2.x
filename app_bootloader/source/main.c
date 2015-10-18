@@ -421,8 +421,32 @@ void run3dsx(Handle executable, u32* argbuf)
 	}
 
 	vu32* targetProcessIndex = &_targetProcessIndex;
-	if(*targetProcessIndex == -2) setup3dsx(executable, (memorymap_t*)customProcessMap, serviceList, argbuf);
-	else setup3dsx(executable, (memorymap_t*)app_maps[*targetProcessIndex], serviceList, argbuf);
+	if(*targetProcessIndex == -2)
+	{
+		// create local copy of process map
+		u32 _customProcessBuffer[0x40];
+		memorymap_t* const _customProcessMap = (memorymap_t*)_customProcessBuffer;
+		memcpy(_customProcessBuffer, customProcessBuffer, sizeof(_customProcessBuffer));
+
+		// adjust it given the information we now have such as text size, data location and size...
+		MemInfo minfo;
+		PageInfo pinfo;
+
+		// get .text info
+		Result ret = svc_queryMemory(&minfo, &pinfo, 0x00100000);
+		_customProcessMap->header.text_end = minfo.size + 0x00100000;
+		
+		// get rodata info
+		ret = svc_queryMemory(&minfo, &pinfo, _customProcessMap->header.text_end);
+		_customProcessMap->header.data_address = minfo.size + _customProcessMap->header.text_end;
+
+		// get data info
+		ret = svc_queryMemory(&minfo, &pinfo, _customProcessMap->header.data_address);
+		_customProcessMap->header.data_size = minfo.size;
+
+		// setup 3dsx with custom local map
+		setup3dsx(executable, (memorymap_t*)_customProcessMap, serviceList, argbuf);
+	}else setup3dsx(executable, (memorymap_t*)app_maps[*targetProcessIndex], serviceList, argbuf);
 	FSFILE_Close(executable);
 
 	gspGpuExit();
