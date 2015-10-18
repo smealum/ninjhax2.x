@@ -48,13 +48,13 @@ _stackless_memcpy:
 	@ needs to preserve r0, r1, r2, r3, r4 and r8; fuck the rest
 	@ param block should be 4-byte aligned
 	@ sp : dst, r1 : src, r2 : size
-	mov r6, #0
+	sub r6, r2, #4
 	_loop:
 		ldr r5, [r1, r6]
 		str r5, [sp, r6]
-		add r6, #4
-		cmp r6, r2
-		blt _loop
+		sub r6, #4
+		cmp r6, #0
+		bge _loop
 	bx lr
 
 _start:

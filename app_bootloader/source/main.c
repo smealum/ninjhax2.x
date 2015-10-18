@@ -389,9 +389,9 @@ void run3dsx(Handle executable, u32* argbuf)
 
 	// reset menu ropbin (in case of a crash)
 	{
-		u32 argbuf = 0;
+		u32 _argbuf = 0;
 		svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
-		patchMenuRop(1, &argbuf, 4);
+		patchMenuRop(1, &_argbuf, 4);
 		svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
 	}
 
