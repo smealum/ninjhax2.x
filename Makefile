@@ -73,8 +73,10 @@ q/$(OUTNAME).png: build/cn_qr_initial_loader.bin.png
 p/$(OUTNAME).bin: $(PAYLOAD_SRCPATH)
 	@cp $(PAYLOAD_SRCPATH) p/$(OUTNAME).bin
 
-r/$(OUTNAME).bin: menu_ropbin_patcher/menu_ropbin.exe menu_payload/menu_ropbin.bin
-	@cd menu_ropbin_patcher && ./menu_ropbin.exe ../menu_payload/menu_ropbin.bin ../$@
+r/$(OUTNAME).bin: menu_ropbin_patcher/menu_ropbin.exe menu_payload/menu_ropbin.bin build/menu_payload_loadropbin.bin
+	@cd menu_ropbin_patcher && ./menu_ropbin.exe ../menu_payload/menu_ropbin.bin ../$@_
+	@cat $@_ build/menu_payload_loadropbin.bin > $@
+	@rm $@_
 
 firm_constants/constants.txt:
 	@cd firm_constants && make
