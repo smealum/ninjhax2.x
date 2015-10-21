@@ -156,4 +156,5 @@ clean:
 	@cd menu_payload && make clean
 	@cd app_bootloader && make clean
 	@cd app_code && make clean
+	@cd menu_ropbin_patcher && make clean
 	@echo "all cleaned up !"
