@@ -187,7 +187,7 @@ typedef struct {
 	struct {
 		char name[8];
 		Handle handle;
-	} services[9];
+	} services[10];
 } nonflexible_service_list_t;
 
 Handle _aptLockHandle, _aptuHandle;
@@ -347,7 +347,7 @@ void _main()
 {
 	Result ret;
 	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle, amsysHandle;
-	Handle ptmsysmHandle, gsplcdHandle, newssHandle, hbmem0Handle, hbndspHandle;
+	Handle ptmsysmHandle, gsplcdHandle, nwmextHandle, newssHandle, hbmem0Handle, hbndspHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -371,6 +371,7 @@ void _main()
 	receive_handle(&amsysHandle, "am:sys");
 	receive_handle(&ptmsysmHandle, "ptm:sysm");
 	receive_handle(&gsplcdHandle, "gsp::Lcd");
+	receive_handle(&nwmextHandle, "nwm::EXT");
 	receive_handle(&newssHandle, "news:s");
 	receive_handle(&hbmem0Handle, "hb:mem0");
 	receive_handle(&hbndspHandle, "hb:ndsp");
@@ -397,7 +398,7 @@ void _main()
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) =
 		(nonflexible_service_list_t)
-		{9,
+		{10,
 			{
 				{"ns:s", nssHandle},
 				{"fs:USER", fsuHandle},
@@ -405,6 +406,7 @@ void _main()
 				{"am:sys", amsysHandle},
 				{"ptm:sysm", ptmsysmHandle},
 				{"gsp::Lcd", gsplcdHandle},
+				{"nwm::EXT", nwmextHandle},
 				{"news:s", newssHandle},
 				{"hb:mem0", hbmem0Handle},
 				{"hb:ndsp", hbndspHandle}
