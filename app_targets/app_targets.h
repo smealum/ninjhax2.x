@@ -189,7 +189,7 @@ static const int numTargetProcesses = 4 + IS_N3DS;
 
 static void patchPayload(u32* payload_dst, int targetProcessIndex, memorymap_t* mmap)
 {
-	if(!mmap) mmap = app_maps[targetProcessIndex];
+	if(!mmap) mmap = (memorymap_t*)app_maps[targetProcessIndex];
 	// payload has a bunch of aliases to handle multiple target processes "gracefully"
 	int i;
 	for(i=0; i<0x10000/4; i++)
