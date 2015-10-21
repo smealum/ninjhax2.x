@@ -9,7 +9,7 @@ typedef struct
 	u32 processAppCodeAddress;
 	u32 processHookTidLow, processHookTidHigh;
 	u32 mediatype;
-	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, nfcAccess, reserved...}
+	bool capabilities[0x10]; // {socuAccess, csndAccess, qtmAccess, nfcAccess, httpcAccess, reserved...}
 } memorymap_header_t;
 
 typedef struct
@@ -24,6 +24,8 @@ typedef struct {
 
 #define size_memmap(m) (sizeof(memorymap_header_t) + sizeof(memorymap_entry_t) * (m).header.num)
 
+#define NUM_CAPABILITIES 5
+
 static const memorymap_t camapp_map =
 	{
 		{
@@ -35,8 +37,8 @@ static const memorymap_t camapp_map =
 			0x00104be0, // processHookAddress
 			0x00105000, // processAppCodeAddress
 			CAMAPP_TIDLOW, 0x00040010, 0x0,
-			{false, true, false, false,
-				false, false, false, false, false, false, false, false, false, false, false, false},
+			{false, true, false, false, false,
+				false, false, false, false, false, false, false, false, false, false, false},
 			},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
@@ -57,8 +59,8 @@ static const memorymap_t dlplay_map =
 			0x00100D00, // processHookAddress
 			0x00105000, // processAppCodeAddress
 			DLPLAY_TIDLOW, 0x00040010, 0x0,
-			{true, true, false, false,
-				false, false, false, false, false, false, false, false, false, false, false, false},
+			{true, true, false, false, true,
+				false, false, false, false, false, false, false, false, false, false, false},
 			},
 		{
 			{0x100000, 0x8000, 0xb0000 - 0x8000},
@@ -80,8 +82,8 @@ static const memorymap_t actapp_map =
 			0x00100160, // processHookAddress
 			0x00105000, // processAppCodeAddress
 			ACTAPP_TIDLOW, 0x00040010, 0x0,
-			{true, false, false, false,
-				false, false, false, false, false, false, false, false, false, false, false, false},
+			{true, false, false, false, false,
+				false, false, false, false, false, false, false, false, false, false, false},
 			},
 		{
 			{0x00100000, 0x00008000, 0x00300000 - 0x00008000},
@@ -105,8 +107,8 @@ static const memorymap_t msetapp_map =
 				0x00101530, // processHookAddress
 				0x00105000, // processAppCodeAddress
 				MSET_TIDLOW, 0x00040010, 0x0,
-				{true, false, true, false,
-					false, false, false, false, false, false, false, false, false, false, false, false},
+				{true, false, true, false, true,
+					false, false, false, false, false, false, false, false, false, false, false},
 			},
 			{
 				{0x100000,  0x8000, 0x100000 - 0x8000},
@@ -131,8 +133,8 @@ static const memorymap_t msetapp_map =
 				0x00101480, // processHookAddress
 				0x00105000, // processAppCodeAddress
 				MSET_TIDLOW, 0x00040010, 0x0,
-				{true, false, true, false,
-					false, false, false, false, false, false, false, false, false, false, false, false},
+				{true, false, true, false, true,
+					false, false, false, false, false, false, false, false, false, false, false},
 			},
 			{
 				{0x100000, 0x8000, 0x100000 - 0x8000},
@@ -159,8 +161,8 @@ static const memorymap_t nfaceapp_map =
 			0x001001A0, // processHookAddress
 			0x00105000, // processAppCodeAddress
 			NFACE_TIDLOW, 0x00040010, 0x0,
-			{true, false, false, true,
-				false, false, false, false, false, false, false, false, false, false, false, false},
+			{true, false, false, true, false,
+				false, false, false, false, false, false, false, false, false, false, false},
 		},
 		{
 			{0x100000, 0x8000, 0x300000 - 0x8000},

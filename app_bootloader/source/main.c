@@ -627,8 +627,8 @@ int compareProcessEntries(processEntry_s* a, processEntry_s* b, bool* requiremen
 {
 	if(!a || !b)return 0;
 
-	int cnt_a = countBools(a->capabilities, requirements, 4);
-	int cnt_b = countBools(b->capabilities, requirements, 4);
+	int cnt_a = countBools(a->capabilities, requirements, NUM_CAPABILITIES);
+	int cnt_b = countBools(b->capabilities, requirements, NUM_CAPABILITIES);
 
 	if(cnt_a > cnt_b)return 1;
 	else if(cnt_a < cnt_b)return -1;
@@ -653,10 +653,8 @@ void getBestProcess(u32 sectionSizes[3], bool* requirements, int num_requirement
 		{
 			processEntry_s new_entry = {processIndex, {false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false}};
 
-			if(num_requirements > 0) new_entry.capabilities[0] = mm->header.capabilities[0];
-			if(num_requirements > 1) new_entry.capabilities[1] = mm->header.capabilities[1];
-			if(num_requirements > 2) new_entry.capabilities[2] = mm->header.capabilities[2];
-			if(num_requirements > 3) new_entry.capabilities[3] = mm->header.capabilities[3];
+			int j;
+			for(j=0; j<NUM_CAPABILITIES; j++) if(num_requirements > j) new_entry.capabilities[j] = mm->header.capabilities[j];
 
 			// light ordering : we only really care that the best one be first; the rest can be unsorted
 			if(*out_len > 0 && compareProcessEntries(&new_entry, &out[0], requirements) > 0)
