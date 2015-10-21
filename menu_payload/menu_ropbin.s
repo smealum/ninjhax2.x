@@ -339,7 +339,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			sleep 500*1000*1000, 0x00000000
 
 			; check keycombo
-			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_keycomboend + WAITLOOP_OFFSET, 0x1000001C, 0x300 ; L+R (TEMP)
+			cond_jump_sp MENU_LOADEDROP_BUFADR + waitLoop_keycomboend + WAITLOOP_OFFSET, 0x1000001C, 0x382 ; L+R+B+DOWN
 
 				nss_terminate_tid_deref MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidlow, MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidhigh, 1000*1000*1000, WAITLOOP_OFFSET
 
