@@ -197,12 +197,31 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_
 					u32 num_patches = relocTbl[k].patch;
 					for (m = 0; m < num_patches && pos < endPos; m ++)
 					{
-						void* addr = TranslateAddr(*(u32*)getActualAddress(pos), &d, offsets);
+						u32 origData = *(u32*)getActualAddress(pos);
+						u32 subType = origData >> (32-4);
+						u32 addr = TranslateAddr(origData &~ 0xF0000000, &d, offsets);
+
 						// SEC_ASSERT(((u32) pos) < endAddr); // within user memory
 						switch (j)
 						{
-							case 0: *(u32*)getActualAddress(pos) = (u32)addr; break;
-							case 1: *(u32*)getActualAddress(pos) = (int)addr - (int)pos; break;
+							case 0:
+							{
+								if (subType != 0)
+									return 7;
+								*(u32*)getActualAddress(pos) = addr;
+								break;
+							}
+							case 1:
+							{
+								u32 data = addr - (int)pos;
+								switch (subType)
+								{
+									case 0: *(u32*)getActualAddress(pos) = (data);            break; // 32-bit signed offset
+									case 1: *(u32*)getActualAddress(pos) = (data &~ (1 << 31)); break; // 31-bit signed offset
+									default: return 8;
+								}
+								break;
+							}
 						}
 						pos++;
 					}

@@ -9,6 +9,8 @@ def isVersionPossible(v):
 		return False
 	if v[4]=="21504_usa" and v[1]!="U":
 		return False
+	if v[4]=="22528_usa" and v[1]!="U":
+		return False
 	if (v[2]==8203 and (v[4]=="20480_usa" or v[4]=="21504_usa"  or v[4]=="22528_usa" or v[4]>=16404)) or (v[2]==9221 and v[4]!="20480_usa" and v[4]!="21504_usa" and v[4]!="22528_usa" and v[4]<16404):
 		return False
 	return True
