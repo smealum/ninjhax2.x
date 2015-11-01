@@ -121,6 +121,7 @@ _start:
 .type start_execution, %function
 start_execution:
 	ldr lr, =_runHbmenuVector
+	bic sp, #7
 	ldr pc, =0x00100000+0x000008000
 
 .global svc_queryMemory
