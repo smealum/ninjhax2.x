@@ -191,8 +191,8 @@ void getProcessMap(Handle fsuserHandle, u8 mediatype, u32 tid_low, u32 tid_high,
 	// figure out the physical memory map
 	u32 current_size = size;
 	u32 current_offset = 0x00000000;
-	// for(i=0; i<3; i++)
-	for(i=0; i<2; i++)
+	for(i=0; i<3; i++)
+	// for(i=0; i<2; i++)
 	{
 		const u32 mask = 0x000fffff >> (4*i);
 		u32 section_size = current_size & ~mask;

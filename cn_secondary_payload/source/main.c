@@ -258,7 +258,7 @@ void errorScreen(char* str, u32* dv, u8 n)
 void drawTitleScreen(char* str)
 {
 	clearScreen(0x00);
-	centerString("*hax 2.5 beta",0);
+	centerString(HAX_NAME_VERSION,0);
 	centerString(BUILDTIME,10);
 	centerString("smealum.github.io/ninjhax2/",20);
 	renderString(str, 0, 40);
