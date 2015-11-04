@@ -10,6 +10,7 @@ SECTIONS
 	.text : ALIGN(0x1000) {
 		build/crt0.o(.init)
 		*(.text)
+		*(.rodata)
 	}
 }
 
