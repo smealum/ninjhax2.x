@@ -1,5 +1,9 @@
-CC = C:/devkitPro/devkitARM/bin/arm-none-eabi-gcc
-AR = C:/devkitPro/devkitARM/bin/arm-none-eabi-ar
+ifeq ($(strip $(DEVKITARM)),)
+$(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>devkitARM")
+endif
+
+include $(DEVKITARM)/base_rules
+
 CFLAGS += -Wall -std=c99 -march=armv6 -Os -fpic -I"$(CURDIR)/include/"
 
 CFILES = $(wildcard source/*.c)
