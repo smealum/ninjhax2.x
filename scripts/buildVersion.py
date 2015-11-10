@@ -50,6 +50,11 @@ def getMenuVersion(v):
 				return "22528_usa"
 			else:
 				return "21504"
+		elif v[1]==3:
+			if v[4]=="U":
+				return "23552_usa"
+			else:
+				return "22528"
 	return "unsupported"
 
 def getMsetVersion(v):
