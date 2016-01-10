@@ -1,4 +1,21 @@
 import sys
+from datetime import datetime
+import ast
+
+def outputConstantsH(d):
+	out=""
+	out+=("#ifndef CONSTANTS_H")+"\n"
+	out+=("#define CONSTANTS_H")+"\n"
+	for k in d:
+		out+=("	#define "+k[0]+" "+str(k[1]))+"\n"
+	out+=("#endif")+"\n"
+	return out
+
+def outputConstantsS(d):
+	out=""
+	for k in d:
+		out+=(k[0]+" equ ("+str(k[1])+")")+"\n"
+	return out
 
 data_fn = sys.argv[1]
 

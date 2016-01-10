@@ -500,9 +500,9 @@
 
 .macro free_memory_deref,ptr,size
 	set_lr ROP_MENU_POP_R4R5PC
-	.word ROP_MENU_POP_R4PC ; pop {r1, pc}
-		.word ptr - 4 ; r1
-	.word ROP_MENU_LDR_R1R4x4_ADD_R0R0R1_POP_R3R4R5PC
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word ptr - 4 ; r0
+	.word ROP_MENU_LDR_R1R0x4_ADD_R0R0R1_POP_R3R4R5PC
 		.word 0xDEADBABE ; r3 (garbage)
 		.word 0xDEADBABE ; r4 (garbage)
 		.word 0xDEADBABE ; r5 (garbage)

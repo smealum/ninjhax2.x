@@ -20,7 +20,7 @@
 	# load gadgets
 	("ROP_MENU_STACK_PIVOT", 0x00100fb8, 0x1), # ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
 	("ROP_MENU_LDR_R0R0_POP_R4PC", 0x0011f5d0, 0x2), # ldr r0, [r0] ; pop {r4, pc}
-	("ROP_MENU_LDR_R1R4x4_ADD_R0R0R1_POP_R3R4R5PC", 0x002e43ac, 0x3), # ldr r1, [r0, #4] ; add r0, r0, r1 ; pop {r3, r4, r5, pc}
+	("ROP_MENU_LDR_R1R0x4_ADD_R0R0R1_POP_R3R4R5PC", 0x002e43ac, 0x3), # ldr r1, [r0, #4] ; add r0, r0, r1 ; pop {r3, r4, r5, pc}
 
 	# store gadgets
 	("ROP_MENU_STREQ_R5R2x30_POP_R4R5R6PC", 0x001550fc, 0x2), # streq r5, [r2, #0x30] ; pop {r4, r5, r6, pc}

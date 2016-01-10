@@ -19,7 +19,7 @@ firmVersions=["POST5", "N3DS"]
 regionVersions=["E", "U", "J"]
 msetVersions=[8203, 9221]
 roVersions=[4096]
-menuVersions=[11272, 12288, 13330, 14336, 15360, 16404, 17415, 19456, 20480, 21504, "20480_usa", "21504_usa", "22528_usa", "23552_usa"]
+menuVersions=[11272, 12288, 13330, 14336, 15360, 16404, 17415, 19456, 20480, 21504, 22528, "20480_usa", "21504_usa", "22528_usa", "23552_usa"]
 
 a=[firmVersions, regionVersions, msetVersions, roVersions, menuVersions]
 
