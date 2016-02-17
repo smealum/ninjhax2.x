@@ -72,6 +72,40 @@
 	.word MENU_MEMCPY
 .endmacro
 
+.macro create_event,handle_outptr,resettype
+	set_lr MENU_NOP
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word handle_outptr ; r0 (out ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word resettype ; r1 (src)
+	.word ROP_MENU_SVC_CREATEEVENT
+.endmacro
+
+.macro exit_process
+	.word ROP_MENU_SVC_EXITPROCESS
+.endmacro
+
+.macro wait_synchronizationn,out,handles,handlecount,waitall,nanosecs_low,nanosecs_high,skip,offset
+	set_lr ROP_MENU_POP_R4R5PC
+	.if skip != 0
+		store ROP_MENU_SVC_WAITSYNCHRONIZATIONN, @@function_call + MENU_LOADEDROP_BUFADR + offset
+	.endif
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word out ; r0 (out ptr)
+	.word ROP_MENU_POP_R1PC ; pop {r1, pc}
+		.word handles ; r1 (src)
+	.word ROP_MENU_POP_R2R3R4R5R6PC ; pop {r2, r3, r4, r5, r6, pc}
+		.word handlecount ; r2 (size)
+		.word waitall ; r3 (flag)
+		.word 0xDEAD1000 ; r4 (garbage)
+		.word 0xDEAD2000 ; r5 (garbage)
+		.word 0xDEAD3000 ; r6 (garbage)
+	@@function_call:
+	.word ROP_MENU_SVC_WAITSYNCHRONIZATIONN
+		.word nanosecs_low
+		.word nanosecs_high
+.endmacro
+
 .macro skip_0x84
 	.word ROP_MENU_ADD_SPSPx64_POP_R4RR11PC
 		.fill 0x84, 0xDA

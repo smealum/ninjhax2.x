@@ -47,6 +47,9 @@
 
 	# svc gadgets
 	("ROP_MENU_LDR_R0R0_SVC_x32_AND_R1R0x80000000_CMP_R1x0_LDRGE_R0R4x4_POP_R4PC", 0x00102bac, 0x6), # ldr r0, [r0] ; svc 0x00000032 ; and r1, r0, #-2147483648 ; cmp r1, #0 ; ldrge r0, [r4, #4] ; pop {r4, pc}
+	("ROP_MENU_SVC_CREATEEVENT", 0x0022F40C, 0x6), # str r0, [sp, #-0x4]!, svc 0x17, ldr r2, [sp], str r1, [r2], add sp, sp, #4, bx lr
+	("ROP_MENU_SVC_WAITSYNCHRONIZATIONN", 0x00118710, 0x9), # stmfd sp!, {r0,r4}; ldr r0, [sp,#8+0x0]; ldr r4, [sp,#8+0x4]; svc 0x25; ldr r2, [sp]; str r1, [r2]; add sp, sp, #4; ldr r4, [sp],#4; bx lr
+	("ROP_MENU_SVC_EXITPROCESS", 0x00101A30, 0x2), # svc 0x03; bx lr
 
 	# functions
 	("ROP_MENU_SLEEPTHREAD", 0x0012b044, 0x2), # svc 0xa, bx lr

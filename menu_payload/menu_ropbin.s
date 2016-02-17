@@ -32,6 +32,7 @@ WAITLOOP_OFFSET equ (- waitLoop_start - (waitLoop_end - waitLoop_start))
 MENU_SCREENSHOTS_FILEOBJECT equ (MENU_LOADEDROP_BUFADR + screenshots_obj)
 MENU_SHAREDMEMBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemAddress) ; in BKP because we want it to persist
 MENU_SHAREDMEMBLOCK_HANDLE equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemHandle) ; in BKP because we want it to persist
+MENU_EVENTHANDLE_PTR equ (MENU_LOADEDROP_BKP_BUFADR + eventHandle) ; in BKP because we want it to persist
 
 MENU_DSP_BINARY equ (MENU_DSP_BINARY_AFTERSIG - 0x100)
 MENU_SHAREDDSPBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + shareddspAddress) ; in BKP because we want it to persist
@@ -111,6 +112,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				srv_get_handle MENU_LOADEDROP_BUFADR + gsplcdString, 8, MENU_GSPLCD_HANDLE
 				srv_get_handle MENU_LOADEDROP_BUFADR + nwmextString, 8, MENU_NWMEXT_HANDLE
 
+				create_event MENU_EVENTHANDLE_PTR, 0
+
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
 
@@ -182,6 +185,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + newssString, MENU_NEWSS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbMem0String, MENU_SHAREDMEMBLOCK_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbNdspString, MENU_SHAREDDSPBLOCK_HANDLE
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbKillString, MENU_EVENTHANDLE_PTR
 
 		; jump to wait loop
 			jump_sp WAITLOOP_DST
@@ -218,6 +222,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x00000000 ; unused
 
 	.align 0x4
+	eventHandle:
+		.word 0x00000000
 	sharedmemAddress:
 		.word 0x00000000
 	sharedmemHandle:
@@ -265,6 +271,9 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.byte 0x00
 	hbNdspString:
 		.ascii "hb:ndsp"
+		.byte 0x00
+	hbKillString:
+		.ascii "hb:kill"
 		.byte 0x00
 
 	.align 0x4
@@ -352,6 +361,15 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				load_store MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_marker + 4, MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_marker - 4
 
 			waitLoop_keycomboend:
+
+			; check event
+			wait_synchronizationn DUMMY_PTR, MENU_EVENTHANDLE_PTR, 1, 1, 1000*1000, 0, 1, WAITLOOP_OFFSET
+
+			cond_jump_sp_r0 MENU_LOADEDROP_BUFADR + waitLoop_eventend + WAITLOOP_OFFSET, 0x0
+
+				exit_process
+
+			waitLoop_eventend:
 
 			apt_open_session 1, WAITLOOP_OFFSET
 			apt_inquire_notification 0x101, MENU_LOADEDROP_BUFADR + notificationType, 1, WAITLOOP_OFFSET

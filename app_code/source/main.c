@@ -188,7 +188,7 @@ typedef struct {
 	struct {
 		char name[8];
 		Handle handle;
-	} services[10];
+	} services[11];
 } nonflexible_service_list_t;
 
 Handle _aptLockHandle, _aptuHandle;
@@ -348,7 +348,7 @@ void _main()
 {
 	Result ret;
 	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle, amsysHandle;
-	Handle ptmsysmHandle, gsplcdHandle, nwmextHandle, newssHandle, hbmem0Handle, hbndspHandle;
+	Handle ptmsysmHandle, gsplcdHandle, nwmextHandle, newssHandle, hbmem0Handle, hbndspHandle, hbkillHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -376,6 +376,7 @@ void _main()
 	receive_handle(&newssHandle, "news:s");
 	receive_handle(&hbmem0Handle, "hb:mem0");
 	receive_handle(&hbndspHandle, "hb:ndsp");
+	receive_handle(&hbkillHandle, "hb:kill");
 
 	// print_str("\nconnecting to hb:SPECIAL...\n");
 	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
@@ -399,7 +400,7 @@ void _main()
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) =
 		(nonflexible_service_list_t)
-		{10,
+		{11,
 			{
 				{"ns:s", nssHandle},
 				{"fs:USER", fsuHandle},
@@ -410,7 +411,8 @@ void _main()
 				{"nwm::EXT", nwmextHandle},
 				{"news:s", newssHandle},
 				{"hb:mem0", hbmem0Handle},
-				{"hb:ndsp", hbndspHandle}
+				{"hb:ndsp", hbndspHandle},
+				{"hb:kill", hbkillHandle}
 			}
 		};
 
