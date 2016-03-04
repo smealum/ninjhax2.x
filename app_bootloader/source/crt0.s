@@ -63,8 +63,9 @@ _stackless_memcpy:
 	bx lr
 
 _start:
-	@ load stack argument in r8 so we can preserve it
+	@ load stack arguments in r8, r9 so we can preserve them
 	ldr r8, [sp]
+	ldr r9, [sp, #4]
 
 	@ reset stack and copy argv buffer over
 	@ need to copy argv to the stack because else it might be overwritten by the time the app gets to it
@@ -118,6 +119,7 @@ _start:
 	ldmfd sp!, {r0, r1, r2, r3, r4}
 
 	@ store r8 to pass preserved stack argument
+	str r9, [sp, #-4]!
 	str r8, [sp, #-4]!
 
 	bx r4
