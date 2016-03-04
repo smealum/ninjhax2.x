@@ -16,21 +16,6 @@ int _strcmp(char*, char*);
 char console_buffer[4096];
 u16 path_buffer[256];
 
-Result _HBSPECIAL_GetHandle(Handle handle, u32 index, Handle* out)
-{
-	u32* cmdbuf=getThreadCommandBuffer();
-	cmdbuf[0]=0x00040040; //request header code
-	cmdbuf[1]=index;
-	
-	Result ret=0;
-	if((ret=svc_sendSyncRequest(handle)))return ret;
-
-	if(out && !cmdbuf[1])*out=cmdbuf[5];
-
-	return cmdbuf[1];
-}
-
-
 u8* gspHeap;
 u32* gxCmdBuf;
 
@@ -503,18 +488,6 @@ void _main()
 	receive_handle(&hbndspHandle, "hb:ndsp");
 	receive_handle(&hbkillHandle, "hb:kill");
 
-	// print_str("\nconnecting to hb:SPECIAL...\n");
-	// ret = svc_connectToPort(&hbSpecialHandle, "hb:SPECIAL");
-	// print_hex(ret); print_str(", "); print_hex(hbSpecialHandle);
-
-	// print_str("\ngrabbing fs:USER handle from menu through hb:SPECIAL\n");
-	// ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 2, &fsuHandle);
-	// print_hex(ret); print_str(", "); print_hex(fsuHandle);
-
-	// print_str("\ngrabbing ns:s handle from menu through hb:SPECIAL\n");
-	// ret = _HBSPECIAL_GetHandle(hbSpecialHandle, 3, &nssHandle);
-	// print_hex(ret); print_str(", "); print_hex(nssHandle);
-
 	// copy bootloader code
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
 	doGspwn(_bootloaderAddress, (u32*)&gspHeap[0x00100000], 0x00005000);
@@ -580,9 +553,9 @@ void _main()
 		char* arg0 = (char*)&argbuffer[1];
 		char* filename = NULL;
 		int restore = 0;
-		if (strncmp(arg0, "sdmc:/", 6)==0)
+		if (_strcmp(arg0, "sdmc:/")>=6)
 			filename = arg0 + 5; // skip "sdmc:"
-		else if (strncmp(arg0, "3dslink:/", 9)==0)
+		else if (_strcmp(arg0, "3dslink:/")>=9)
 		{
 			// convert the 3dslink path
 			restore = 1;

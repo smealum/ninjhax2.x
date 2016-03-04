@@ -17,7 +17,8 @@ _getBestProcessVector:
 	b getBestProcess
 _runTitleVector:
 	b _runTitle
-bx lr
+_runTitleCustomVector:
+	b _runTitleCustom
 bx lr
 bx lr
 
@@ -40,6 +41,10 @@ _changeProcess:
 
 _runTitle:
 	ldr r4, =runTitle
+	b _start
+
+_runTitleCustom:
+	ldr r4, =runTitleCustom
 	b _start
 
 _stackless_memcpy:
