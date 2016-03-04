@@ -14,6 +14,7 @@
 int _strcmp(char*, char*);
 
 char console_buffer[4096];
+u16 path_buffer[256];
 
 Result _HBSPECIAL_GetHandle(Handle handle, u32 index, Handle* out)
 {
@@ -344,6 +345,130 @@ void receive_handle(Handle* out, char* name)
 	print_hex(*out);
 }
 
+static int decode_utf8(u32 *out, const char *in)
+{
+	u8 code1, code2, code3, code4;
+
+	code1 = *in++;
+	if(code1 < 0x80)
+	{
+		/* 1-byte sequence */
+		*out = code1;
+		return 1;
+	}
+	else if(code1 < 0xC2)
+		return -1;
+	else if(code1 < 0xE0)
+	{
+		/* 2-byte sequence */
+		code2 = *in++;
+		if((code2 & 0xC0) != 0x80)
+			return -1;
+
+		*out = (code1 << 6) + code2 - 0x3080;
+		return 2;
+	}
+	else if(code1 < 0xF0)
+	{
+		/* 3-byte sequence */
+		code2 = *in++;
+		if((code2 & 0xC0) != 0x80)
+			return -1;
+		if(code1 == 0xE0 && code2 < 0xA0)
+			return -1;
+
+		code3 = *in++;
+		if((code3 & 0xC0) != 0x80)
+			return -1;
+
+		*out = (code1 << 12) + (code2 << 6) + code3 - 0xE2080;
+		return 3;
+	}
+	else if(code1 < 0xF5)
+	{
+		/* 4-byte sequence */
+		code2 = *in++;
+		if((code2 & 0xC0) != 0x80)
+			return -1;
+		if(code1 == 0xF0 && code2 < 0x90)
+			return -1;
+		if(code1 == 0xF4 && code2 >= 0x90)
+			return -1;
+
+		code3 = *in++;
+		if((code3 & 0xC0) != 0x80)
+			return -1;
+
+		code4 = *in++;
+		if((code4 & 0xC0) != 0x80)
+			return -1;
+
+		*out = (code1 << 18) + (code2 << 12) + (code3 << 6) + code4 - 0x3C82080;
+		return 4;
+	}
+
+	return -1;
+}
+
+static int encode_utf16(u16 *out, u32 in)
+{
+	if(in < 0x10000)
+	{
+		if(out != NULL)
+			*out++ = in;
+		return 1;
+	}
+	else if(in < 0x110000)
+	{
+		if(out != NULL)
+		{
+			*out++ = (in >> 10) + 0xD7C0;
+			*out++ = (in & 0x3FF) + 0xDC00;
+		}
+		return 2;
+	}
+
+	return -1;
+}
+
+int utf8_to_utf16(u16 *out, const char *in, u32 len)
+{
+	int rc = 0;
+	int units;
+	u32 code;
+	u16 encoded[2];
+
+	do
+	{
+		units = decode_utf8(&code, in);
+		if(units == -1)
+			return -1;
+
+		if(code > 0)
+		{
+			in += units;
+
+			units = encode_utf16(encoded, code);
+			if(units == -1)
+				return -1;
+
+			if(out != NULL)
+			{
+				if(rc + units <= len)
+				{
+					*out++ = encoded[0];
+					if(units > 1)
+						*out++ = encoded[1];
+				}
+			}
+
+			rc += units;
+		}
+	} while(code > 0);
+
+	return rc;
+}
+
 void _main()
 {
 	Result ret;
@@ -447,23 +572,48 @@ void _main()
 
 	svc_closeHandle(_aptLockHandle);
 
+	// TODO : add error display for when can't find 3DSX
+
+	Handle fileHandle;
+	if(argbuffer[0] != 0)
+	{
+		char* arg0 = (char*)&argbuffer[1];
+		char* filename = NULL;
+		int restore = 0;
+		if (strncmp(arg0, "sdmc:/", 6)==0)
+			filename = arg0 + 5; // skip "sdmc:"
+		else if (strncmp(arg0, "3dslink:/", 9)==0)
+		{
+			// convert the 3dslink path
+			restore = 1;
+			filename = arg0 + 4;
+			memcpy(filename, "/3ds", 4);
+		}
+		if(!filename)*(u32*)0xC0DE0000=ret;
+
+		// convert the path to UTF-16
+		int path_len = utf8_to_utf16(path_buffer, filename, sizeof(path_buffer)/2);
+		path_buffer[path_len] = 0;
+
+		// restore 3dslink path
+		if(restore)
+			memcpy(filename, "ink:", 4);
+
+		// open the 3dsx
+		FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
+		FS_path filePath = (FS_path){PATH_WCHAR, 2*(path_len+1), (u8*)path_buffer};
+		ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
+		if(ret)*(u32*)0xC0DE0000=ret;
+	}
+
 	// free heap (has to be the very last thing before jumping to app as contains bss)
 	u32 out; svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
-
-	// TODO : add error display for when can't find 3DSX
 
 	if(argbuffer[0] == 0)
 	{
 		void (*app_runmenu)() = (void*)(0x00100000 + 4);
 		app_runmenu();
 	}else{
-		Handle fileHandle;
-		FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
-		char* filename = ((char*)&argbuffer[1]) + 5; // skip "sdmc:"
-		FS_path filePath = (FS_path){PATH_CHAR, strlen(filename)+1, (u8*)filename};
-		ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
-		if(ret)*(u32*)0xC0DE0000=ret;
-
 		void (*app_run3dsx)(Handle executable, u32* argbuf, u32 size) = (void*)(0x00100000);
 		app_run3dsx(fileHandle, argbuffer, 0x200*4);
 	}

@@ -4,7 +4,7 @@ endif
 
 include $(DEVKITARM)/base_rules
 
-CFLAGS += -Wall -std=c99 -march=armv6 -Os -I"$(CURDIR)/include/"
+CFLAGS += -Wall -std=c99 -march=armv6 -Os -ffunction-sections -I"$(CURDIR)/include/"
 
 CFILES = $(wildcard source/*.c)
 OFILES = $(CFILES:source/%.c=build/%.o)
