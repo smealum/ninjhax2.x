@@ -1,3 +1,10 @@
+# this takes a single argument : the path to the decrypted and decompressed code.bin file for a game
+# it outputs the xml file to stdout
+# you should place the XML output in a file on your sdcard at the following path : sdmc:/mmap/<TID>.xml
+# example use :
+# 	python 96crypto_dbgen.py triforce_heroes_demo_code.bin > 0004000000182200.xml
+# 	cp 0004000000182200.xml E:/mmap/0004000000182200.xml
+
 import sys
 import struct
 
