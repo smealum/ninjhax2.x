@@ -456,6 +456,7 @@ void run3dsx(Handle executable, u32* argbuf)
 		setup3dsx(executable, (memorymap_t*)_customProcessMap, serviceList, argbuf);
 	}else setup3dsx(executable, (memorymap_t*)app_maps[*targetProcessIndex], serviceList, argbuf);
 	FSFILE_Close(executable);
+	svc_closeHandle(executable);
 
 	gspGpuExit();
 	exitSrv();

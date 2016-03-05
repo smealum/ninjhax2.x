@@ -205,7 +205,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.word 0x01000004 ; command header (SetTextureCopy)
 		.word MENU_OBJECT_LOC + appHook - object ; source address
 		.word 0xDEADBABE ; destination address (standin, will be filled in)
-		.word 0x00000200 ; size
+		.word 0x00000100 ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
 		.word 0x00000008 ; flags
