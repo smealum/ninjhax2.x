@@ -39,10 +39,10 @@ def findPattern(p, t, addr, size):
 	return None
 
 def outputConstantsTxt(d):
-	out="{\n"
+	out="[\n"
 	for k in d:
-		out+="\""+k[0]+"\" : \""+str(k[1])+"\",\n"
-	out+="}\n"
+		out+="(\""+k[0]+"\", \""+str(k[1])+"\"),\n"
+	out+="]\n"
 	return out
 
 if len(sys.argv)<4:
