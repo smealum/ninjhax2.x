@@ -26,8 +26,12 @@ def getMenuVersion(v):
 			return "14336"
 		elif v[1]==5:
 			return "15360"
+		elif v[1]==6 and v[4]=="K":
+			return "6616_kor"
 		elif v[1]==6:
 			return "16404"
+		elif v[1]>=7 and v[4]=="K":
+			return "7175_kor"
 		elif v[1]==7:
 			return "17415"
 		elif v[1]==9 and v[4]=="U":
@@ -36,31 +40,43 @@ def getMenuVersion(v):
 			return "19456"
 	elif v[0]==10:
 		if v[1]==0:
+			if v[4]=="K":
+				return "7175_kor"
 			if v[4]=="U":
 				return "20480_usa"
 			else:
 				return "19456"
 		elif v[1]==1:
+			if v[4]=="K":
+				return "8192_kor"
 			if v[4]=="U":
 				return "21504_usa"
 			else:
 				return "20480"
 		elif v[1]==2:
+			if v[4]=="K":
+				return "9216_kor"
 			if v[4]=="U":
 				return "22528_usa"
 			else:
 				return "21504"
 		elif v[1]==3:
+			if v[4]=="K":
+				return "10240_kor"
 			if v[4]=="U":
 				return "23552_usa"
 			else:
 				return "22528"
 		elif v[1]==4 or v[1]==5:
+			if v[4]=="K":
+				return "11266_kor"
 			if v[4]=="U":
 				return "24578_usa"
 			else:
 				return "23554"
 		elif v[1]>=6:
+			if v[4]=="K":
+				return "12288_kor"
 			if v[4]=="U":
 				return "25600_usa"
 			else:
@@ -85,7 +101,7 @@ def getFirmVersion(v):
 
 #format : "X.X.X-XR"
 version=sys.argv[1]
-p=re.compile("^([N]?)([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)([EUJ])")
+p=re.compile("^([N]?)([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)([EUJK])")
 r=p.match(version)
 
 if r:
