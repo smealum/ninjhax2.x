@@ -1,0 +1,7 @@
+[
+	("CAMAPP_TIDLOW", "0x00027400"),
+	("DLPLAY_TIDLOW", "0x00027100"),
+	("ACTAPP_TIDLOW", "0x0002C300"), # Korea console not have ACTAPP
+	("MSET_TIDLOW", "0x00027000"),
+	("NFACE_TIDLOW", "0x20027D00"),
+]

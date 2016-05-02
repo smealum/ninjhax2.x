@@ -5,6 +5,7 @@ clean:
 	@cd E && make clean
 	@cd U && make clean
 	@cd J && make clean
+	@cd K && make clean
 	@echo "all cleaned up !"
 
 constants.txt:
