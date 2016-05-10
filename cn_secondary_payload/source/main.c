@@ -472,7 +472,7 @@ void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
 	}
 
 	// Region suffix
-	char* regions[7] = {"JPN", "USA", "EUR", "EUR", "CHN", "KOR", "TWN"};
+	char* regions[6] = {"JPN", "USA", "EUR", "CHN", "KOR", "TWN"};
 	u8 region = firmwareVersion[5];
 
 	out[pos++] = '-';
@@ -513,7 +513,9 @@ void doRecovery()
 	_strcpy(str, template);
 	drawTitleScreen(str);
 
-	u8 firmwareVersion[6] = {IS_N3DS, 9, 0, 0, 20, REGION_ID}; //[old/new][NUP0][NUP1][NUP2]-[NUP][region]
+	u8 region = REGION_ID;
+	if(region > 2) region--; // compensate for "AUS" and onwards
+	u8 firmwareVersion[6] = {IS_N3DS, 9, 0, 0, 20, region}; //[old/new][NUP0][NUP1][NUP2]-[NUP][region]
 	int firmwareIndex = 0;
 	bool firmwareChanged = false;
 
@@ -536,7 +538,7 @@ void doRecovery()
 
 		int firmwareMaxValue = 256;
 		if(firmwareIndex == 0) firmwareMaxValue = 1;
-		if(firmwareIndex == 5) firmwareMaxValue = 2;
+		if(firmwareIndex == 5) firmwareMaxValue = 5;
 
 		if(firmwareVersion[firmwareIndex] < 0) firmwareVersion[firmwareIndex] = 0;
 		if(firmwareVersion[firmwareIndex] > firmwareMaxValue) firmwareVersion[firmwareIndex] = firmwareMaxValue;
