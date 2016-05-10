@@ -517,7 +517,7 @@ void doRecovery()
 	if(region > 2) region--; // compensate for "AUS" and onwards
 	u8 firmwareVersion[6] = {IS_N3DS, 9, 0, 0, 20, region}; //[old/new][NUP0][NUP1][NUP2]-[NUP][region]
 	int firmwareIndex = 0;
-	bool firmwareChanged = false;
+	bool firmwareChanged = true;
 
 	while(true)
 	{
