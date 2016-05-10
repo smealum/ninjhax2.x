@@ -113,11 +113,9 @@ Result HTTPC_BeginRequest(Handle handle, Handle contextHandle)
 	return cmdbuf[1];
 }
 
-Result HTTPC_GetResponseHeader(Handle handle, Handle contextHandle, char* name, char* value, u32 valuebuf_maxsize)
+Result HTTPC_GetResponseHeader(Handle handle, Handle contextHandle, char* name, int name_len, char* value, u32 valuebuf_maxsize)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
-
-	int name_len=strlen(name)+1;
 
 	cmdbuf[0]=0x001e00c4; //request header code
 	cmdbuf[1]=contextHandle;

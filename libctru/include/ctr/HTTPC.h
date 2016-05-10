@@ -11,6 +11,6 @@ Result HTTPC_BeginRequest(Handle handle, Handle contextHandle);
 Result HTTPC_ReceiveData(Handle handle, Handle contextHandle, u8* buffer, u32 size);
 Result HTTPC_GetResponseStatusCode(Handle handle, Handle contextHandle, u32* out);
 Result HTTPC_GetDownloadSizeState(Handle handle, Handle contextHandle, u32* downloadedsize, u32* contentsize);
-Result HTTPC_GetResponseHeader(Handle handle, Handle contextHandle, char* name, char* value, u32 valuebuf_maxsize);
+Result HTTPC_GetResponseHeader(Handle handle, Handle contextHandle, char* name, int name_len, char* value, u32 valuebuf_maxsize);
 
 #endif

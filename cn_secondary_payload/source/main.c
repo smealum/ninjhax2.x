@@ -422,6 +422,8 @@ void installerScreen(u32 size)
 #endif
 
 #ifdef RECOVERY
+#define VER_MIN_INDEX 1
+#define VER_MAX_INDEX 4
 void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
 {
 	// System prefix
@@ -431,15 +433,13 @@ void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
 		_strcpy(out, mode ? "Old3DS " : "OLD-");
 
 	int pos = _strlen(out);
-	int verMinIndex = 1;
-	int verMaxIndex = 4;
 
-	for(int i = verMinIndex; i <= verMaxIndex; i++)
+	for(int i = VER_MIN_INDEX; i <= VER_MAX_INDEX; i++)
 	{
 		// Count 100s and 10s (avoid emitting calls to div)
-		int verPart = firmwareVersion[i];
+		u8 verPart = firmwareVersion[i];
 
-		int verPart100s = 0;
+		u8 verPart100s = 0;
 		while(verPart >= 100)
 		{
 			verPart -= 100;
@@ -450,7 +450,7 @@ void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
 		if(verPart100s != 0)
 			out[pos++] = '0' + verPart100s;
 
-		int verPart10s = 0;
+		u8 verPart10s = 0;
 		while(verPart >= 10)
 		{
 			verPart -= 10;
@@ -458,13 +458,13 @@ void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
 		}
 
 		// 10s for each version part (if non-zero)
-		if(verPart10s != 0)
+		if(verPart100s != 0 || verPart10s != 0)
 			out[pos++] = '0' + verPart10s;
 
 		// 1s
 		out[pos++] = '0' + verPart;
 
-		if(i != verMaxIndex)
+		if(i != VER_MAX_INDEX)
 		{
 			// Separator between each version part
 			out[pos++] = mode ? '.' : '-';
@@ -477,7 +477,10 @@ void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
 
 	out[pos++] = '-';
 	if(mode)
+	{
 		out[pos++] = regions[region][0];
+		out[pos++] = 0;
+	}
 	else
 	{
 		_strcpy(&out[pos], regions[region]);
@@ -598,7 +601,7 @@ void doRecovery()
 		ret = HTTPC_BeginRequest(httpContextSession, httpContext);
 		if(ret) { fail = -5; goto downloadFail; }
 
-		ret = HTTPC_GetResponseHeader(httpContextSession, httpContext, "Location", firmwareOutUrl, sizeof(firmwareOutUrl));
+		ret = HTTPC_GetResponseHeader(httpContextSession, httpContext, "Location", _strlen("Location")+1, firmwareOutUrl, sizeof(firmwareOutUrl));
 		if(ret) { fail = -6; goto downloadFail; }
 
 		HTTPC_CloseContext(httpContextSession, httpContext);
@@ -666,9 +669,9 @@ isFail:
 		_strappend(str, "\n\nSuccessfully updated payload!");
 	else
 	{
-		hex2str(str + strlen(str), ret);
+		hex2str(str + _strlen(str), ret);
 		_strappend(str, "\n\n");
-		hex2str(str + strlen(str), fail);
+		hex2str(str + _strlen(str), fail);
 	}
 
 	drawTitleScreen(str);
