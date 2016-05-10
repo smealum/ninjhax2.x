@@ -520,23 +520,23 @@ void doRecovery()
 		if(PAD & PAD_A) break;
 
 		if(PAD & PAD_LEFT) firmwareIndex--;
-        if(PAD & PAD_RIGHT) firmwareIndex++;
+		if(PAD & PAD_RIGHT) firmwareIndex++;
 
-        if(firmwareIndex < 0) firmwareIndex = 0;
-        if(firmwareIndex > 5) firmwareIndex = 5;
+		if(firmwareIndex < 0) firmwareIndex = 0;
+		if(firmwareIndex > 5) firmwareIndex = 5;
 
-        if(PAD & PAD_UP) firmwareVersion[firmwareIndex]++;
-        if(PAD & PAD_DOWN) firmwareVersion[firmwareIndex]--;
+		if(PAD & PAD_UP) firmwareVersion[firmwareIndex]++;
+		if(PAD & PAD_DOWN) firmwareVersion[firmwareIndex]--;
 
 		if((PAD & PAD_UP) || (PAD & PAD_DOWN)) firmwareChanged = true;
 		if((PAD & PAD_LEFT) || (PAD & PAD_RIGHT)) firmwareChanged = true;
 
-        int firmwareMaxValue = 256;
-        if(firmwareIndex == 0) firmwareMaxValue = 1;
-        if(firmwareIndex == 5) firmwareMaxValue = 2;
+		int firmwareMaxValue = 256;
+		if(firmwareIndex == 0) firmwareMaxValue = 1;
+		if(firmwareIndex == 5) firmwareMaxValue = 2;
 
-        if(firmwareVersion[firmwareIndex] < 0) firmwareVersion[firmwareIndex] = 0;
-        if(firmwareVersion[firmwareIndex] > firmwareMaxValue) firmwareVersion[firmwareIndex] = firmwareMaxValue;
+		if(firmwareVersion[firmwareIndex] < 0) firmwareVersion[firmwareIndex] = 0;
+		if(firmwareVersion[firmwareIndex] > firmwareMaxValue) firmwareVersion[firmwareIndex] = firmwareMaxValue;
 
 		if(firmwareChanged)
 		{
@@ -593,7 +593,7 @@ void doRecovery()
 		if(ret) { fail = -4; goto downloadFail; };
 
 		HTTPC_SetProxyDefault(httpContextSession, httpContext);
-		HTTPC_AddRequestHeaderField(httpContextSession, httpContext, "User-Agent", "humblehax_menu");
+		HTTPC_AddRequestHeaderField(httpContextSession, httpContext, "User-Agent", "*hax_recovery");
 
 		ret = HTTPC_BeginRequest(httpContextSession, httpContext);
 		if(ret) { fail = -5; goto downloadFail; }
