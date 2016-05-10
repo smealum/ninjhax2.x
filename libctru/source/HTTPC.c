@@ -113,6 +113,58 @@ Result HTTPC_BeginRequest(Handle handle, Handle contextHandle)
 	return cmdbuf[1];
 }
 
+Result HTTPC_GetResponseHeader(Handle handle, Handle contextHandle, char* name, char* value, u32 valuebuf_maxsize)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+
+	int name_len=strlen(name)+1;
+
+	cmdbuf[0]=0x001e00c4; //request header code
+	cmdbuf[1]=contextHandle;
+	cmdbuf[2]=name_len;
+	cmdbuf[3]=valuebuf_maxsize;
+	cmdbuf[4]=(name_len<<14)|0xC02;
+	cmdbuf[5]=(u32)name;
+	cmdbuf[6]=(valuebuf_maxsize<<4)|0xC;
+	cmdbuf[7]=(u32)value;
+
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+Result HTTPC_GetResponseStatusCode(Handle handle, Handle contextHandle, u32* out)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+
+	cmdbuf[0]=0x220040; //request header code
+	cmdbuf[1]=contextHandle;
+
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(handle)))return ret;
+
+	*out = cmdbuf[2];
+
+	return cmdbuf[1];
+}
+
+Result HTTPC_GetDownloadSizeState(Handle handle, Handle contextHandle, u32* downloadedsize, u32* contentsize)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+
+	cmdbuf[0]=0x60040; //request header code
+	cmdbuf[1]=contextHandle;
+
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(handle)))return ret;
+
+	if(downloadedsize)*downloadedsize = cmdbuf[2];
+	if(contentsize)*contentsize = cmdbuf[3];
+
+	return cmdbuf[1];
+}
+
 Result HTTPC_ReceiveData(Handle handle, Handle contextHandle, u8* buffer, u32 size)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
@@ -122,7 +174,7 @@ Result HTTPC_ReceiveData(Handle handle, Handle contextHandle, u8* buffer, u32 si
 	cmdbuf[2]=size;
 	cmdbuf[3]=(size<<4)|12;
 	cmdbuf[4]=(u32)buffer;
-	
+
 	Result ret=0;
 	if((ret=svc_sendSyncRequest(handle)))return ret;
 
