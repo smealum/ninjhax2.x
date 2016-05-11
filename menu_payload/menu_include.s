@@ -85,6 +85,19 @@
 	.word ROP_MENU_SVC_EXITPROCESS
 .endmacro
 
+.macro close_handle,ptr
+	load_r0 ptr
+	.word ROP_MENU_SVC_CLOSEHANDLE_LDR_R0PCx8_POP_R4R5R6PC
+		.word 0xDEAD1000 ; r4 (garbage)
+		.word 0xDEAD2000 ; r5 (garbage)
+		.word 0xDEAD3000 ; r6 (garbage)
+.endmacro
+
+.macro irrst_shutdown
+	set_lr ROP_MENU_POP_PC
+	.word ROP_MENU_IRRST_SHUTDOWN
+.endmacro
+
 .macro wait_synchronizationn,out,handles,handlecount,waitall,nanosecs_low,nanosecs_high,skip,offset
 	set_lr ROP_MENU_POP_R4R5PC
 	.if skip != 0
@@ -244,6 +257,11 @@
 		.word mediatype ; r4
 		.word 0 ; r5
 		.word 0xDEADBABE ; r6 (garbage)
+.endmacro
+
+.macro load_r0_imm,a
+	.word ROP_MENU_POP_R0PC ; pop {r0, pc}
+		.word a ; r0
 .endmacro
 
 .macro apt_start_application,buf0,buf0_size,buf1,buf1_size,flag

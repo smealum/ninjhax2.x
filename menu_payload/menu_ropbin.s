@@ -141,9 +141,15 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			send_gx_cmd MENU_OBJECT_LOC + gxCommandAppHook - object
 
 		; launch app that we want to takeover
-			nss_launch_title 0xBABE0004, 0xBABE0005
-			; nss_launch_title_raw 0xBABE0004, 0xBABE0005
-			; nss_launch_title_update 0xBABE0004, 0xBABE0005, 0xBABE000A
+			load_r0_imm 0xBABE000B
+			cond_jump_sp_r0 MENU_LOADEDROP_BUFADR + launch_app_update, 0x0
+				nss_launch_title 0xBABE0004, 0xBABE0005
+				; nss_launch_title_raw 0xBABE0004, 0xBABE0005
+				jump_sp MENU_LOADEDROP_BUFADR + launch_app_end
+			launch_app_update:
+				nss_launch_title_update 0xBABE0004, 0xBABE0005, 0xBABE000A
+				busyloop 5*1000*1000
+			launch_app_end:
 
 			; busyloop 5*1000*1000
 
@@ -175,9 +181,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; do it before sending handles because bootloader overwrites the ropbin, so let's avoid a race condition !
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
 
+			; irrst_shutdown
+			; close_handle MENU_IRRST_HANDLE
+
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + fsUserString, MENU_FS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + nssString, MENU_NSS_HANDLE
-			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + irrstString, MENU_IRRST_HANDLE
+			; wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + irrstString, MENU_IRRST_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + amsysString, MENU_AMSYS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + ptmsysmString, MENU_PTMSYSM_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + gsplcdString, MENU_GSPLCD_HANDLE
@@ -352,6 +361,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 				nss_terminate_tid_deref MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidlow, MENU_LOADEDROP_BUFADR + WAITLOOP_OFFSET + waitLoop_tidhigh, 1000*1000*1000, WAITLOOP_OFFSET
 
+				; exit process if we're running a game with an update
+				load_r0_imm 0xBABE000B
+				cond_jump_sp_r0 MENU_LOADEDROP_BUFADR + kill_home_menu, 0x0
+
 				sleep 2000*1000*1000, 0x00000000
 
 				apt_open_session 0, WAITLOOP_OFFSET
@@ -366,6 +379,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			wait_synchronizationn DUMMY_PTR, MENU_EVENTHANDLE_PTR, 1, 1, 1000*1000, 0, 1, WAITLOOP_OFFSET
 
 			cond_jump_sp_r0 MENU_LOADEDROP_BUFADR + waitLoop_eventend + WAITLOOP_OFFSET, 0x0
+			kill_home_menu:
 
 				exit_process
 

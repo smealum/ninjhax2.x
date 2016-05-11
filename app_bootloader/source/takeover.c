@@ -119,14 +119,31 @@ int lzss_decompress(u8* compressed, u32 compressedsize, u8* decompressed, u32 de
 	return -1;
 }
 
-Result loadTitleCode(Handle fsuserHandle, u8 mediatype, u32 tid_low, u32 tid_high, u8* out, u32* out_size, u32* tmp)
+Result loadTitleCode(Handle fsuserHandle, u8 mediatype, u32* tid_low, u32* tid_high, u8* out, u32* out_size, u32* tmp)
 {
-	Handle fileHandle;
-	u32 archivePath[] = {tid_low, tid_high, mediatype, 0x00000000};
+	Handle fileHandle = 0;
 	static const u32 filePath[] = {0x00000000, 0x00000000, 0x00000002, 0x646F632E, 0x00000065};	
+	Result ret;
 
-	Result ret = FSUSER_OpenFileDirectly(fsuserHandle, &fileHandle, (FS_archive){0x2345678a, (FS_path){PATH_BINARY, 0x10, (u8*)archivePath}}, (FS_path){PATH_BINARY, 0x14, (u8*)filePath}, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
-	if(ret)return ret;
+	if(!tid_low || !tid_high) return -1;
+
+	if(((*tid_high) & 0xF) == 0xE)
+	{
+		u32 archivePath[] = {*tid_low, *tid_high, 0x1, 0x00000000};
+		ret = FSUSER_OpenFileDirectly(fsuserHandle, &fileHandle, (FS_archive){0x2345678a, (FS_path){PATH_BINARY, 0x10, (u8*)archivePath}}, (FS_path){PATH_BINARY, 0x14, (u8*)filePath}, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
+		if(ret)
+		{
+			fileHandle = 0;
+			*tid_high &= ~0xF;
+		}
+	}
+
+	if(!fileHandle)
+	{
+		u32 archivePath[] = {*tid_low, *tid_high, mediatype, 0x00000000};
+		ret = FSUSER_OpenFileDirectly(fsuserHandle, &fileHandle, (FS_archive){0x2345678a, (FS_path){PATH_BINARY, 0x10, (u8*)archivePath}}, (FS_path){PATH_BINARY, 0x14, (u8*)filePath}, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
+		if(ret)return ret;
+	}
 
 	u64 size64;
 	ret = FSFILE_GetSize(fileHandle, &size64);
@@ -139,10 +156,7 @@ Result loadTitleCode(Handle fsuserHandle, u8 mediatype, u32 tid_low, u32 tid_hig
 
 	u32 bytesRead;
 	ret = FSFILE_Read(fileHandle, &bytesRead, 0x0, compressed, size);
-	if(ret)
-	{
-		return ret;
-	}
+	if(ret) return ret;
 
 	u32 decompressed_size = lzss_get_decompressed_size((u8*)compressed, size);
 
@@ -162,15 +176,16 @@ void getProcessMap(Handle fsuserHandle, u8 mediatype, u32 tid_low, u32 tid_high,
 
 	u32 size = 0;
 	const u32 comp_offset = 0x01000000;
-	Result ret = loadTitleCode(fsuserHandle, mediatype, tid_low, tid_high, (u8*)tmp, &size, &tmp[comp_offset / 4]);
+	Result ret = loadTitleCode(fsuserHandle, mediatype, &tid_low, &tid_high, (u8*)tmp, &size, &tmp[comp_offset / 4]);
 	if(ret)*(u32*)ret = 0xdeadf00d;
 
 	int i;
 
 	// first, fill out basic info
 	out->header.processHookTidLow = tid_low;
-	out->header.processHookTidHigh = tid_high;
+	out->header.processHookTidHigh = tid_high & ~0xF;
 	out->header.mediatype = mediatype;
+	out->header.update = ((tid_high & 0xF) == 0xE);
 	out->header.num = 0;
 
 	// uber conservative estimates
