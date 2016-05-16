@@ -27,7 +27,7 @@ def getMenuVersion(v):
 		elif v[1]==5:
 			return "15360"
 		elif v[1]==6 and v[4]=="K":
-			return "6616_kor"
+			return "6166_kor"
 		elif v[1]==6:
 			return "16404"
 		elif v[1]>=7 and v[4]=="K":
