@@ -64,29 +64,30 @@ def getFirmVersion(v):
 		return "POST5"
 
 
-#format : "X.X.X-XR"
-version=sys.argv[1]
-p=re.compile("^([N]?)([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)([EUJK])")
-r=p.match(version)
+if __name__ == '__main__':
+    #format : "X.X.X-XR"
+    version=sys.argv[1]
+    p=re.compile("^([N]?)([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)([EUJK])")
+    r=p.match(version)
 
-if r:
-	new3DS=(1 if (r.group(1)=="N") else 0)
-	cverMajor=int(r.group(2))
-	cverMinor=int(r.group(3))
-	cverMicro=int(r.group(4))
-	nupVersion=int(r.group(5))
-	nupRegion=r.group(6)
-	extraparams=""
-	extraparams+=" LOADROPBIN=1"
-	for arg in sys.argv:
-		# if(arg=="--enableloadropbin"):
-		# 	extraparams+=" LOADROPBIN=1"
-		if(arg=="--enableotherapp"):
-			extraparams+=" OTHERAPP=1"
-		if(arg=="--enablerecovery"):
-			extraparams+=" RECOVERY=1"
-	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
-	os.system("make clean")	
-	os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
-else:
-	print("invalid version format; learn2read.")
+    if r:
+            new3DS=(1 if (r.group(1)=="N") else 0)
+            cverMajor=int(r.group(2))
+            cverMinor=int(r.group(3))
+            cverMicro=int(r.group(4))
+            nupVersion=int(r.group(5))
+            nupRegion=r.group(6)
+            extraparams=""
+            extraparams+=" LOADROPBIN=1"
+            for arg in sys.argv:
+                    # if(arg=="--enableloadropbin"):
+                    # 	extraparams+=" LOADROPBIN=1"
+                    if(arg=="--enableotherapp"):
+                            extraparams+=" OTHERAPP=1"
+                    if(arg=="--enablerecovery"):
+                            extraparams+=" RECOVERY=1"
+            v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
+            os.system("make clean")
+            os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
+    else:
+            print("invalid version format; learn2read.")
