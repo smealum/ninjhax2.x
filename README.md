@@ -5,3 +5,4 @@ ninjhax 2.x
 
 - All original ROP and code on this repo written by smea
 - yellows8, plutoo
+- mtheall for the compression code.
