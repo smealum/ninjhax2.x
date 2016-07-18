@@ -14,74 +14,39 @@ def getRoVersion(v):
 	else:
 		return "4096"
 
+MENU_VERSION_MAP = {
+	9: {
+		0: {"E": "11272", "U": "11272", "J": "11272", "K": None},
+		1: {"E": "11272", "U": "11272", "J": "11272", "K": None},
+		2: {"E": "12288", "U": "12288", "J": "12288", "K": None},
+		3: {"E": "13330", "U": "13330", "J": "13330", "K": None},
+		4: {"E": "14336", "U": "14336", "J": "14336", "K": None},
+		5: {"E": "15360", "U": "15360", "J": "15360", "K": None},
+		6: {"E": "16404", "U": "16404", "J": "16404", "K": "6166_kor"},
+		7: {"E": "17415", "U": "17415", "J": "17415", "K": "7175_kor"},
+		8: {"E": "19456", "U": "19456", "J": "19456", "K": "7175_kor"},
+		9: {"E": "19456", "U": "20480_usa", "J": "19456", "K": "7175_kor"},
+	},
+	10: {
+		0: {"E": "19456", "U": "20480_usa", "J": "19456", "K": "7175_kor"},
+		1: {"E": "20480", "U": "21504_usa", "J": "20480", "K": "8192_kor"},
+		2: {"E": "21504", "U": "22528_usa", "J": "21504", "K": "9216_kor"},
+		3: {"E": "22528", "U": "23552_usa", "J": "22528", "K": "10240_kor"},
+		4: {"E": "23554", "U": "24578_usa", "J": "23554", "K": "11266_kor"},
+		5: {"E": "23554", "U": "24578_usa", "J": "23554", "K": "11266_kor"},
+		6: {"E": "24576", "U": "25600_usa", "J": "24576", "K": "12288_kor"},
+		7: {"E": "24576", "U": "25600_usa", "J": "24576", "K": "12288_kor"},
+	},
+	11: {
+		0: {"E": "24576", "U": "25600_usa", "J": "24576", "K": "12288_kor"},
+	},
+}
+
 def getMenuVersion(v):
-	if v[0]==9:
-		if (v[1]==0 or v[1]==1):
-			return "11272"
-		elif v[1]==2:
-			return "12288"
-		elif v[1]==3:
-			return "13330"
-		elif v[1]==4:
-			return "14336"
-		elif v[1]==5:
-			return "15360"
-		elif v[1]==6 and v[4]=="K":
-			return "6616_kor"
-		elif v[1]==6:
-			return "16404"
-		elif v[1]>=7 and v[4]=="K":
-			return "7175_kor"
-		elif v[1]==7:
-			return "17415"
-		elif v[1]==9 and v[4]=="U":
-			return "20480_usa"
-		elif v[1]>=8:
-			return "19456"
-	elif v[0]==10:
-		if v[1]==0:
-			if v[4]=="K":
-				return "7175_kor"
-			if v[4]=="U":
-				return "20480_usa"
-			else:
-				return "19456"
-		elif v[1]==1:
-			if v[4]=="K":
-				return "8192_kor"
-			if v[4]=="U":
-				return "21504_usa"
-			else:
-				return "20480"
-		elif v[1]==2:
-			if v[4]=="K":
-				return "9216_kor"
-			if v[4]=="U":
-				return "22528_usa"
-			else:
-				return "21504"
-		elif v[1]==3:
-			if v[4]=="K":
-				return "10240_kor"
-			if v[4]=="U":
-				return "23552_usa"
-			else:
-				return "22528"
-		elif v[1]==4 or v[1]==5:
-			if v[4]=="K":
-				return "11266_kor"
-			if v[4]=="U":
-				return "24578_usa"
-			else:
-				return "23554"
-		elif v[1]>=6:
-			if v[4]=="K":
-				return "12288_kor"
-			if v[4]=="U":
-				return "25600_usa"
-			else:
-				return "24576"
-	return "unsupported"
+	try:
+		return MENU_VERSION_MAP[v[0]][v[1]][v[4]] or "unsupported"
+	except KeyError:
+		return "unsupported"
 
 def getMsetVersion(v):
 	if v[0] == 9 and v[1] < 6:
@@ -99,29 +64,30 @@ def getFirmVersion(v):
 		return "POST5"
 
 
-#format : "X.X.X-XR"
-version=sys.argv[1]
-p=re.compile("^([N]?)([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)([EUJK])")
-r=p.match(version)
+if __name__ == '__main__':
+	#format : "X.X.X-XR"
+	version=sys.argv[1]
+	p=re.compile("^([N]?)([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]+)([EUJK])")
+	r=p.match(version)
 
-if r:
-	new3DS=(1 if (r.group(1)=="N") else 0)
-	cverMajor=int(r.group(2))
-	cverMinor=int(r.group(3))
-	cverMicro=int(r.group(4))
-	nupVersion=int(r.group(5))
-	nupRegion=r.group(6)
-	extraparams=""
-	extraparams+=" LOADROPBIN=1"
-	for arg in sys.argv:
-		# if(arg=="--enableloadropbin"):
-		# 	extraparams+=" LOADROPBIN=1"
-		if(arg=="--enableotherapp"):
-			extraparams+=" OTHERAPP=1"
-		if(arg=="--enablerecovery"):
-			extraparams+=" RECOVERY=1"
-	v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
-	os.system("make clean")	
-	os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
-else:
-	print("invalid version format; learn2read.")
+	if r:
+		new3DS=(1 if (r.group(1)=="N") else 0)
+		cverMajor=int(r.group(2))
+		cverMinor=int(r.group(3))
+		cverMicro=int(r.group(4))
+		nupVersion=int(r.group(5))
+		nupRegion=r.group(6)
+		extraparams=""
+		extraparams+=" LOADROPBIN=1"
+		for arg in sys.argv:
+			# if(arg=="--enableloadropbin"):
+			# 	extraparams+=" LOADROPBIN=1"
+			if(arg=="--enableotherapp"):
+				extraparams+=" OTHERAPP=1"
+			if(arg=="--enablerecovery"):
+				extraparams+=" RECOVERY=1"
+		v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
+		os.system("make clean")
+		os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
+	else:
+		print("invalid version format; learn2read.")
