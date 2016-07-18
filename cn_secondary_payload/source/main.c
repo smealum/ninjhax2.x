@@ -22,6 +22,8 @@
 #include "../../build/constants.h"
 #include "../../app_targets/app_targets.h"
 
+#include "decompress.h"
+
 #define HID_PAD (*(vu32*)0x1000001C)
 
 typedef enum
@@ -731,8 +733,10 @@ int main(u32 loaderparam, char** argv)
 	#ifdef LOADROPBIN
 		// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
 		u32 binsize = 0x8000; // fuck modularity
+		u32 *ptr32 = (u32*)menu_ropbin_bin;
 
-		memcpy(linear_buffer, (u32*)menu_ropbin_bin, menu_ropbin_bin_size); // Copy menu_ropbin_bin into homemenu linearmem.
+		// Decompress menu_ropbin_bin into homemenu linearmem.
+		lz11Decompress(&menu_ropbin_bin[4], (u8*)linear_buffer, ptr32[0] >> 8);
 
 		// copy un-processed ropbin to backup location
 		GSP_FlushDCache(linear_buffer, binsize);

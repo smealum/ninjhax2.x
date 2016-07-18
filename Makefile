@@ -30,7 +30,7 @@ PAYLOAD_SRCPATH	:=	build/cn_secondary_payload.bin
 ROPBIN_CMD0	:=	
 ROPBIN_CMD1	:=	
 ifneq ($(strip $(LOADROPBIN)),)
-	ROPBIN_CMD0	:=	@cp build/menu_ropbin.bin cn_secondary_payload/data/
+	ROPBIN_CMD0	:=	@compress/compress.exe build/menu_ropbin.bin cn_secondary_payload/data/menu_ropbin.bin
 	ROPBIN_CMD1	:=	@cp menu_payload/menu_ropbin.bin build/
 endif
 
@@ -93,6 +93,9 @@ build/constants: firm_constants/constants.txt cn_constants/constants.txt region_
 menu_ropbin_patcher/menu_ropbin.exe:
 	@cd menu_ropbin_patcher && make
 
+compress/compress.exe:
+	@cd compress && make
+
 
 build/cn_qr_initial_loader.bin.png: cn_qr_initial_loader/cn_qr_initial_loader.bin.png
 	@cp cn_qr_initial_loader/cn_qr_initial_loader.bin.png build
@@ -124,7 +127,7 @@ build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
 	@cp cn_secondary_payload/cn_secondary_payload.bin build/cn_secondary_payload.bin
 	@$(SCRIPTS)/blz.exe -en build/cn_secondary_payload.bin
 	@python $(SCRIPTS)/blowfish.py build/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
-cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin
+cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin compress/compress.exe
 	@mkdir -p cn_secondary_payload/data
 	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data/
 	@cp build/menu_payload_regionfree.bin cn_secondary_payload/data/
