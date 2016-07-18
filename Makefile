@@ -3,7 +3,7 @@ $(error "Please set DEVKITARM in your environment. export DEVKITARM=<path to>dev
 endif
 export CTRULIB=$(shell pwd)/libctru
 ifeq ($(strip $(CTRULIB)),)
-$(error "Please set CTRULIB in your environment. export DEVKITARM=<path to>ctrulib/libctru")
+$(error "Please set CTRULIB in your environment. export CTRULIB=<path to>ctrulib/libctru")
 endif
 
 ifeq ($(filter $(DEVKITARM)/bin,$(PATH)),)
