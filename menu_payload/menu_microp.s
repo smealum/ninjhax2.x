@@ -52,6 +52,8 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 				.word 0xDEADBABE ; arg_4 (handle passed to dst) (will be overwritten by dereferenced handle_ptr) (r5 (garbage))
 			apt_close_session 0, 0
 
+			.word 0xbabecafe
+
 			sleep 0x0FFFFFFF, 0x0FFFFFFF
 
 	fsUserString:
