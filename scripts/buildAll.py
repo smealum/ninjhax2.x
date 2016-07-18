@@ -18,11 +18,11 @@ for arg in sys.argv:
 		extraparams+=" RECOVERY=1"
 
 supportVersions = []
-for v_1, _ in buildVersion.MENU_VERSION_MAP.iteritems():
-	for v_2, __ in _.iteritems():
+for v_1, _ in buildVersion.MENU_VERSION_MAP.items():
+	for v_2, __ in _.items():
 		mset = buildVersion.getMsetVersion((v_1, v_2))
 		ro = buildVersion.getRoVersion((v_1, v_2))
-		for region, menu in __.iteritems():
+		for region, menu in __.items():
 			if buildVersion.getMenuVersion((v_1, v_2, None, None, region)) == 'unsupported':
 				continue
 			for firm in firmVersions:
