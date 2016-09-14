@@ -7,6 +7,7 @@
 #include <ctr/APT.h>
 #include <ctr/FS.h>
 #include <ctr/GSP.h>
+#include <ctr/HTTPC.h>
 #include "text.h"
 #include "menu_payload_regionfree_bin.h"
 #include "menu_payload_loadropbin_bin.h"
@@ -277,7 +278,6 @@ void drawTitleScreen(char* str)
 // 	return cmdbuf[1];
 // }
 
-#ifndef OTHERAPP
 //no idea what this does; apparently used to switch up save partitions
 Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
 {
@@ -302,6 +302,7 @@ Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
 	return cmdbuf[1];
 }
 
+#ifndef OTHERAPP
 Result FSUSER_FormatThisUserSaveData(Handle handle, u32 sizeblock, u32 countDirectoryEntry, u32 countFileEntry, u32 countDirectoryEntryBucket, u32 countFileEntryBucket, bool isDuplicateAll)
 {
 	u32* cmdbuf=getThreadCommandBuffer();
@@ -423,15 +424,270 @@ void installerScreen(u32 size)
 #endif
 
 #ifdef RECOVERY
+#define VER_MIN_INDEX 1
+#define VER_MAX_INDEX 4
+void firmwareVersionFormat(char* out, u8* firmwareVersion, bool mode)
+{
+	// System prefix
+	if(firmwareVersion[0])
+		_strcpy(out, mode ? "New3DS " : "NEW-");
+	else
+		_strcpy(out, mode ? "Old3DS " : "OLD-");
+
+	int pos = _strlen(out);
+
+	for(int i = VER_MIN_INDEX; i <= VER_MAX_INDEX; i++)
+	{
+		// Count 100s and 10s (avoid emitting calls to div)
+		u8 verPart = firmwareVersion[i];
+
+		u8 verPart100s = 0;
+		while(verPart >= 100)
+		{
+			verPart -= 100;
+			verPart100s++;
+		}
+
+		// 100s for each version part (if non-zero)
+		if(verPart100s != 0)
+			out[pos++] = '0' + verPart100s;
+
+		u8 verPart10s = 0;
+		while(verPart >= 10)
+		{
+			verPart -= 10;
+			verPart10s++;
+		}
+
+		// 10s for each version part (if non-zero)
+		if(verPart100s != 0 || verPart10s != 0)
+			out[pos++] = '0' + verPart10s;
+
+		// 1s
+		out[pos++] = '0' + verPart;
+
+		if(i != VER_MAX_INDEX)
+		{
+			// Separator between each version part
+			out[pos++] = mode ? '.' : '-';
+		}
+	}
+
+	// Region suffix
+	char* regions[6] = {"JPN", "USA", "EUR", "CHN", "KOR", "TWN"};
+	u8 region = firmwareVersion[5];
+
+	out[pos++] = '-';
+	if(mode)
+	{
+		out[pos++] = regions[region][0];
+		out[pos++] = 0;
+	}
+	else
+	{
+		_strcpy(&out[pos], regions[region]);
+		pos += _strlen(regions[region]);
+	}
+}
+
 void doRecovery()
 {
-	char str[512] =
+	Result ret;
+	int fail = 0;
+
+	#ifdef OTHERAPP
+		u32* paramblk = (u32*)*((u32*)0xFFFFFFC);
+		u32* linear_buffer = (u32*)((((u32)paramblk) + 0x1000) & ~0xfff);
+
+		Handle fsHandle = paramblk[0x70>>2];
+		Handle archHandleLow = paramblk[0x74>>2];
+		Handle archHandleHigh = paramblk[0x78>>2];
+		FS_archive arch = {.handleLow = archHandleLow, .handleHigh = archHandleHigh};
+		Handle fileHandle = paramblk[0x7C>>2];
+		u32 updateFlags = paramblk[0x80>>2];
+	#endif
+
+	char template[] =
 		"Recovery mode\n\n"
-		"please select your current firmware version\n";
+		"please select your current firmware version\n\n";
+	char str[512] = {0};
+
+	_strcpy(str, template);
 	drawTitleScreen(str);
 
-	u8 firmwareVersion[6] = {IS_N3DS, 9, 0, 0, 20, }; //[old/new][NUP0][NUP1][NUP2]-[NUP][region]
+	u8 region = REGION_ID;
+	if(region > 2) region--; // compensate for "AUS" and onwards
+	u8 firmwareVersion[6] = {IS_N3DS, 9, 0, 0, 20, region}; //[old/new][NUP0][NUP1][NUP2]-[NUP][region]
+	int firmwareIndex = 0;
+	bool firmwareChanged = true;
 
+	while(true)
+	{
+		u32 PAD = HID_PAD;
+		if(PAD & PAD_A) break;
+
+		if(PAD & PAD_LEFT) firmwareIndex--;
+		if(PAD & PAD_RIGHT) firmwareIndex++;
+
+		if(firmwareIndex < 0) firmwareIndex = 0;
+		if(firmwareIndex > 5) firmwareIndex = 5;
+
+		if(PAD & PAD_UP) firmwareVersion[firmwareIndex]++;
+		if(PAD & PAD_DOWN) firmwareVersion[firmwareIndex]--;
+
+		if((PAD & PAD_UP) || (PAD & PAD_DOWN)) firmwareChanged = true;
+		if((PAD & PAD_LEFT) || (PAD & PAD_RIGHT)) firmwareChanged = true;
+
+		int firmwareMaxValue = 256;
+		if(firmwareIndex == 0) firmwareMaxValue = 1;
+		if(firmwareIndex == 5) firmwareMaxValue = 5;
+
+		if(firmwareVersion[firmwareIndex] < 0) firmwareVersion[firmwareIndex] = 0;
+		if(firmwareVersion[firmwareIndex] > firmwareMaxValue) firmwareVersion[firmwareIndex] = firmwareMaxValue;
+
+		if(firmwareChanged)
+		{
+			char firmwareVersionUser[32] = {0};
+			firmwareVersionFormat(firmwareVersionUser, firmwareVersion, true);
+
+			_strcpy(str, template);
+			_strappend(str, firmwareVersionUser);
+			drawTitleScreen(str);
+
+			firmwareChanged = false;
+
+			// Wait for button release before next iteration
+			while(HID_PAD & (PAD_LEFT | PAD_RIGHT | PAD_UP | PAD_DOWN));
+		}
+	}
+
+	Handle _srvHandle;
+	Handle* srvHandle = &_srvHandle;
+
+	_initSrv(srvHandle);
+
+	Handle httpMain = 0;
+	ret = _srv_getServiceHandle(srvHandle, &httpMain, "http:C");
+	if(ret) { fail = -1; goto downloadFail; };
+	ret = HTTPC_Initialize(httpMain);
+	if(ret) { fail = -2; goto downloadFail; };
+
+	Handle httpContext = 0;
+	Handle httpContextSession = 0;
+
+	// resolve redirect
+	char firmwareOutUrl[256] = {0};
+	{
+		char firmwareVersionServer[32] = {0};
+		firmwareVersionFormat(firmwareVersionServer, firmwareVersion, false);
+
+		_strappend(str, "\n\n");
+		_strappend(str, firmwareVersionServer);
+		drawTitleScreen(str);
+
+		char firmwareInUrl[128] = "http://smea.mtheall.com/get_payload.php?version=";
+		_strappend(firmwareInUrl, firmwareVersionServer);
+
+		_strappend(str, "\n\n");
+		_strappend(str, firmwareInUrl);
+		drawTitleScreen(str);
+
+		ret = HTTPC_CreateContext(httpMain, firmwareInUrl, &httpContext);
+		if(ret) { fail = -3; goto downloadFail; };
+
+		_srv_getServiceHandle(srvHandle, &httpContextSession, "http:C");
+		ret = HTTPC_InitializeConnectionSession(httpContextSession, httpContext);
+		if(ret) { fail = -4; goto downloadFail; };
+
+		HTTPC_SetProxyDefault(httpContextSession, httpContext);
+		HTTPC_AddRequestHeaderField(httpContextSession, httpContext, "User-Agent", "*hax_recovery");
+
+		ret = HTTPC_BeginRequest(httpContextSession, httpContext);
+		if(ret) { fail = -5; goto downloadFail; }
+
+		ret = HTTPC_GetResponseHeader(httpContextSession, httpContext, "Location", _strlen("Location")+1, firmwareOutUrl, sizeof(firmwareOutUrl));
+		if(ret) { fail = -6; goto downloadFail; }
+
+		HTTPC_CloseContext(httpContextSession, httpContext);
+	}
+
+	_strappend(str, "\n\n");
+	_strappend(str, firmwareOutUrl);
+	drawTitleScreen(str);
+
+	// download payload
+	u32* payload_buffer = &linear_buffer[0x00200000>>2];
+	u32* payload_size = &linear_buffer[0x001FFFFC>>2];
+	{
+		Handle httpContext = 0;
+		ret = HTTPC_CreateContext(httpMain, firmwareOutUrl, &httpContext);
+		if(ret) { fail = -7; goto downloadFail; }
+
+		Handle httpContextSession = 0;
+		_srv_getServiceHandle(srvHandle, &httpContextSession, "http:C");
+		ret = HTTPC_InitializeConnectionSession(httpContextSession, httpContext);
+		if(ret) { fail = -8; goto downloadFail; }
+
+		HTTPC_SetProxyDefault(httpContextSession, httpContext);
+
+		ret = HTTPC_BeginRequest(httpContextSession, httpContext);
+		if(ret) { fail = -9; goto downloadFail; }
+
+		u32 status_code = 0;
+		ret = HTTPC_GetResponseStatusCode(httpContextSession, httpContext, &status_code);
+		if(ret) { fail = -10; goto downloadFail; }
+
+		if(status_code != 200) { fail = -11; goto downloadFail; }
+
+		ret = HTTPC_GetDownloadSizeState(httpContextSession, httpContext, NULL, payload_size);
+		if(ret) { fail = -12; goto downloadFail; }
+
+		ret = HTTPC_ReceiveData(httpContextSession, httpContext, (u8*)payload_buffer, *payload_size);
+		if(ret) { fail = -13; goto downloadFail; }
+
+		HTTPC_CloseContext(httpContextSession, httpContext);
+	}
+
+	u32 bytes_written = 0;
+	// in some cases it can be helpful to prefix the payload with a size
+	if(updateFlags & 0x2)
+		ret = FSFILE_Write(fileHandle, &bytes_written, 0, payload_size, *payload_size + 4, 0x10001);
+	else
+		ret = FSFILE_Write(fileHandle, &bytes_written, 0, payload_buffer, *payload_size, 0x10001);
+
+	FSFILE_Close(fileHandle);
+	if(ret) { fail = -1; goto installFail; }
+
+	// save archives need commit, others don't
+	if(!(updateFlags & 0x1))
+	{
+		ret = FSUSER_ControlArchive(fsHandle, arch);
+		if(ret) { fail = -2; goto installFail; }
+	}
+
+	FSUSER_CloseArchive(fsHandle, &arch);
+
+isFail:
+	svc_closeHandle(*srvHandle);
+	if(!ret && !fail)
+		_strappend(str, "\n\nSuccessfully updated payload!");
+	else
+	{
+		hex2str(str + _strlen(str), ret);
+		_strappend(str, "\n\n");
+		hex2str(str + _strlen(str), fail);
+	}
+
+	drawTitleScreen(str);
+
+	while(true);
+
+installFail:
+	_strappend(str, "\n\nFailed to install payload\n\n");
+	goto isFail;
+downloadFail:
+	_strappend(str, "\n\nFailed to download payload\n\n");
+	goto isFail;
 }
 #endif
 
@@ -712,7 +968,7 @@ int main(u32 loaderparam, char** argv)
 
 	#ifdef RECOVERY
 		u32 PAD = HID_PAD;
-		if((PAD & KEY_L) && (PAD & KEY_R)) doRecovery();
+		if((PAD & PAD_L) && (PAD & PAD_R)) doRecovery();
 	#endif
 
 	#ifndef OTHERAPP

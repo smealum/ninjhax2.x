@@ -22,6 +22,10 @@ ifneq ($(strip $(OTHERAPP)),)
 	LDPATH	:=	otherapp.ld
 endif
 
+ifneq ($(strip $(RECOVERY)),)
+	DEFINES	:=	$(DEFINES) -DRECOVERY=1
+endif
+
 CC = arm-none-eabi-gcc
 # LINK = arm-none-eabi-gcc
 LINK = arm-none-eabi-ld
