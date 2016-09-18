@@ -183,8 +183,11 @@ def compress(input, out):
         length += sum(2 if f else 1 for f in flags)
 
     # padding
-    padding = 8 - ((length+7+4) % 8)
-    if padding:
+    # padding = 8 - ((length+7+4) % 8)
+    padding = 8 - ((out.tell()+7) % 8)
+    if padding == 8:
+        padding = 0
+    if padding > 0:
         out.write(b'\x00' * padding)
     # # padding
     # padding = 4 - (length % 4 or 4)

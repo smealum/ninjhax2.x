@@ -22,7 +22,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R3PC ; pop {r3, pc}
 		.word ROP_CN_POP_PC ; r3
 	.word ROP_CN_POP_R4LR_BX_R3 ; pop {r4, lr} | bx r3
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 		.word _lr ; lr
 .endmacro
 
@@ -37,14 +37,14 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R0PC
 		.word addr
 	.word ROP_CN_LDR_R0R0_POP_R4PC
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 .endmacro
 
 .macro str_r0,addr
 	.word ROP_CN_POP_R4PC
 		.word addr
 	.word ROP_CN_STR_R0R4_POP_R4PC
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 .endmacro
 
 .macro str_val,addr,val
@@ -59,15 +59,15 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_LDR_R0R0_POP_R4PC
 		.word addval ; r4
 	.word ROP_CN_ADD_R0R4_POP_R4PC
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 .endmacro
 
 .macro cmp_derefptr_constaddr,addr,const
 	ldr_add_r0 addr, 0x100000000 - const
 	.word ROP_CN_CMP_R0x0_MVNNE_R0x0_MOVEQ_R0R4_POP_R4R5R6PC
-		.word 0xDEADBABE ; r4 (garbage)
-		.word 0xDEADBABE ; r5 (garbage)
-		.word 0xDEADBABE ; r6 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
+		.word 0xDEADC0DE ; r5 (garbage)
+		.word 0xDEADC0DE ; r6 (garbage)
 .endmacro
 
 .macro cmp_derefptr_r0addr,const,condr0
@@ -76,9 +76,9 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_ADD_R0R4_POP_R4PC
 		.word condr0 ; r4 (new value for r0 if [r0] == const)
 	.word ROP_CN_CMP_R0x0_MVNNE_R0x0_MOVEQ_R0R4_POP_R4R5R6PC
-		.word 0xDEADBABE ; r4 (garbage)
-		.word 0xDEADBABE ; r5 (garbage)
-		.word 0xDEADBABE ; r6 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
+		.word 0xDEADC0DE ; r5 (garbage)
+		.word 0xDEADC0DE ; r6 (garbage)
 .endmacro
 
 .macro gspwn,dst,src,size
@@ -111,7 +111,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 		@@gxCommandPayload:
 		.word 0x00000004 ; command header (SetTextureCopy)
 		.word src ; source address
-		.word 0xDEADBABE ; destination address (standin, will be filled in)
+		.word 0xDEADC0DE ; destination address (standin, will be filled in)
 		.word size ; size
 		.word 0xFFFFFFFF ; dim in
 		.word 0xFFFFFFFF ; dim out
@@ -128,7 +128,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		.word addr ; r2 (addr)
 		.word size ; r3 (src)
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_GSPGPU_FlushDataCache_ADR
 .endmacro
 
@@ -140,8 +140,8 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 		.word src ; r1
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		.word size ; r2 (addr)
-		.word 0xDEADBABE ; r3 (garbage)
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r3 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_MEMCPY
 .endmacro
 
@@ -163,7 +163,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		.word 0x00000000 ; R2 : transaction
 		.word archive_id ; R3 : archive id
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_FSOPENFILEDIRECTLY
 		.word archive_path_type ; archive path type
 		.word archive_path_data ; Archive Path Data Pointer
@@ -172,7 +172,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 		.word file_path_data ; File Path Data Pointer
 		.word file_path_size ; File Path Size
 		.word open_flags ; Open Flags
-		.word 0xDEADBABE ; r11 (garbage)
+		.word 0xDEADC0DE ; r11 (garbage)
 .endmacro
 
 .macro mov_u32,dst,src
@@ -181,7 +181,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_LDR_R0R0_POP_R4PC
 		.word dst ; r4
 	.word ROP_CN_STR_R0R4_POP_R4PC
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 .endmacro
 
 .macro mov_u64,dst,src
@@ -198,18 +198,18 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 		.word outhandle ; R1 : &outhandle
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		.word 0x00000000 ; R2 : transaction
-		.word 0xDEADBABE ; R3 : garbage
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; R3 : garbage
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_FSOPENFILE
 	@@archive_param:
-		.word 0xDEADBABE
-		.word 0xDEADBABE
+		.word 0xDEADC0DE
+		.word 0xDEADC0DE
 		.word file_path_type ; File Path Type
 		.word file_path_data ; File Path Data Pointer
 		.word file_path_size ; File Path Size
 		.word open_flags ; Open Flags
 		.word attributes ; Attributes
-		.word 0xDEADBABE ; r11 (garbage)
+		.word 0xDEADC0DE ; r11 (garbage)
 .endmacro
 
 .macro fsuWriteFile,filehandle,byteswritten,offset_low,offset_high,dataptr,size
@@ -221,7 +221,7 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		.word offset_low ; R2 : offset low
 		.word offset_high ; R3 : offset high
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_FSFILEWRITE
 		.word dataptr ; data ptr
 		.word size ; size
@@ -244,11 +244,11 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		.word archive_id ; R2 : archive id
 		.word archive_path_type ; R3 : path type
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_FSOPENARCHIVE
 		.word archive_path_data ; Path Data Pointer
 		.word archive_path_size ; Path Size
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; r4 (garbage)
 .endmacro
 
 .macro fsuControlArchive,fsuHandle,archive_handle_ptr,action,input_ptr,input_size,output_ptr,output_size
@@ -257,21 +257,21 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 	.word ROP_CN_POP_R0PC ; pop {r0, pc}
 		.word fsuHandle ; R0 : fsu handle
 	.word ROP_CN_POP_R1PC ; pop {r1, pc}
-		.word 0xDEADBABE ; R1 : garbage
+		.word 0xDEADC0DE ; R1 : garbage
 	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
 		@@archive_param:
-		.word 0xDEADBABE ; R2
-		.word 0xDEADBABE ; R3
-		.word 0xDEADBABE ; r4 (garbage)
+		.word 0xDEADC0DE ; R2
+		.word 0xDEADC0DE ; R3
+		.word 0xDEADC0DE ; r4 (garbage)
 	.word CN_FSCONROLARCHIVE
 		.word action ; action
 		.word input_ptr ; input
 		.word input_size ; input size
 		.word output_ptr ; output
 		.word output_size ; output size
-		.word 0xDEADBABE ; r9 (garbage)
-		.word 0xDEADBABE ; r10 (garbage)
-		.word 0xDEADBABE ; r11 (garbage)
+		.word 0xDEADC0DE ; r9 (garbage)
+		.word 0xDEADC0DE ; r10 (garbage)
+		.word 0xDEADC0DE ; r11 (garbage)
 .endmacro
 
 ;length
@@ -305,8 +305,8 @@ ROP:
 			.word 0xDEADC0DE ; r1 (garbage because gets overwritten by previous rop stff)
 		.word ROP_CN_POP_R2R3R4PC
 			.word secondaryROP_end ; r2 (size)
-			.word 0xDEADBABE ; r3 (garbage)
-			.word 0xDEADBABE ; r4 (garbage)
+			.word 0xDEADC0DE ; r3 (garbage)
+			.word 0xDEADC0DE ; r4 (garbage)
 		.word CN_MEMCPY
 
 		; jump to new rop buffer

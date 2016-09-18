@@ -25,7 +25,8 @@ def obfuscate(d,l):
 	for k in range(0,len(d)&~0x3,4):
 		v=getWord(d,k)
 		if v==magicWord:
-			v=random.choice(l)
+			# v=random.choice(l)
+			v = 0 # disabled obfuscation
 			putWord(d,k,v)
 
 data=bytearray(open(sys.argv[1],"rb").read())
