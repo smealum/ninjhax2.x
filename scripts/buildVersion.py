@@ -83,6 +83,8 @@ if __name__ == '__main__':
 		for arg in sys.argv:
 			# if(arg=="--enableloadropbin"):
 			# 	extraparams+=" LOADROPBIN=1"
+			if(arg=="--enableqrinstaller"):
+				extraparams+=" QRINSTALLER=1"
 			if(arg=="--enableotherapp"):
 				extraparams+=" OTHERAPP=1"
 			if(arg=="--enablerecovery"):

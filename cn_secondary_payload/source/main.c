@@ -278,6 +278,7 @@ void drawTitleScreen(char* str)
 // }
 
 #ifndef OTHERAPP
+#ifndef QRINSTALLER
 //no idea what this does; apparently used to switch up save partitions
 Result FSUSER_ControlArchive(Handle handle, FS_archive archive)
 {
@@ -420,6 +421,7 @@ void installerScreen(u32 size)
 		}else if(PAD&PAD_B)break;
 	}
 }
+#endif
 #endif
 
 #ifdef RECOVERY
@@ -716,7 +718,9 @@ int main(u32 loaderparam, char** argv)
 	#endif
 
 	#ifndef OTHERAPP
+	#ifndef QRINSTALLER
 		if(loaderparam)installerScreen(loaderparam);
+	#endif
 	#endif
 
 	// regionfour stuff

@@ -22,6 +22,10 @@ ifneq ($(strip $(OTHERAPP)),)
 	LDPATH	:=	otherapp.ld
 endif
 
+ifneq ($(strip $(QRINSTALLER)),)
+	DEFINES	:=	$(DEFINES) -DQRINSTALLER=1
+endif
+
 CC = arm-none-eabi-gcc
 # LINK = arm-none-eabi-gcc
 LINK = arm-none-eabi-ld

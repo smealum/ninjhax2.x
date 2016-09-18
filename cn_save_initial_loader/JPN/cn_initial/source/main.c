@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+// #include <string.h>
 #include <ctr/types.h>
 #include <ctr/srv.h>
 #include <ctr/svc.h>
@@ -21,6 +21,18 @@ void _strcpy(char* dst, char* src)
 {
 	while(*src)*(dst++)=*(src++);
 	*dst=0x00;
+}
+
+void memset(u8* d, u8 v, u32 size)
+{
+	int i;
+	for(i = 0; i < size; i++) d[i] = v;
+}
+
+void memcpy(u8* dst, u8* src, int size)
+{
+	int i;
+	for(i=0;i<size;i++) dst[i] = src[i];
 }
 
 Result _srv_getServiceHandle(Handle* handleptr, Handle* out, char* server)

@@ -24,6 +24,7 @@ export MSETVERSION
 export MENUVERSION
 export LOADROPBIN
 export OTHERAPP
+export QRINSTALLER
 
 PAYLOAD_SRCPATH	:=	build/cn_secondary_payload.bin
 

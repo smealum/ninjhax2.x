@@ -6,13 +6,11 @@
 
 .arm
 
-CN_GXCOMMAND_ADR equ (CN_GSPHEAP+0x000F0000)
-CN_TMPVAR_ADR equ (CN_GSPHEAP+0x000E0000)
-
 ;length
 .orga 0x60
 	.word endROP-ROP+0xA8-0x64
 	; .word secondaryROP-ROP+0xA8-0x64
+
 
 ;ROP
 .orga 0xA8
