@@ -1,14 +1,14 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <ctr/types.h>
-#include "text.h"
-#include "font_bin.h"
+// #include <stdlib.h>
+// #include <stdio.h>
+// #include <string.h>
+// #include <ctr/types.h>
+// #include "text.h"
+// #include "font_bin.h"
 
-#define CHAR_SIZE_X (8)
-#define CHAR_SIZE_Y (8)
+// #define CHAR_SIZE_X (8)
+// #define CHAR_SIZE_Y (8)
 
-int _strlen(char* str);
+// int _strlen(char* str);
 
 // void drawCharacter(u8* fb, char c, u16 x, u16 y)
 // {
@@ -23,6 +23,7 @@ int _strlen(char* str);
 // 		for(j=0;j<CHAR_SIZE_Y;j++)
 // 		{
 // 			if(v&1)fb[0]=fb[1]=fb[2]=0x00;
+// 			else fb[0]=fb[1]=fb[2]=0xFF;
 // 			fb+=3;
 // 			v>>=1;
 // 		}

