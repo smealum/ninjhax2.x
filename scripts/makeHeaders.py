@@ -40,6 +40,7 @@ l+=[("FIRM_VERSION", "\""+sys.argv[1]+"\""),
 	# ("CN_NINJHAX_URL", "\"http://192.168.109.1/\""),
 	("CN_NINJHAX_URL", "\"http://smealum.github.io/ninjhax2/JL1Xf2KFVm/p/\""),
 	("OUTNAME", "\""+sys.argv[7]+"\"")]
+l+=[("CN_%s" % sys.argv[2], "1")]
 l+=[("BUILDTIME", "\""+datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"\"")]
 l+=[("HAX_NAME_VERSION", "\"*hax 2.7 gamma\"")]
 l+=[("HB_NUM_HANDLES", "16")]
