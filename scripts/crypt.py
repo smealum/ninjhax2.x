@@ -130,6 +130,6 @@ dataOut[l-1]=v
 # 	dataQr[k-1]=(((dataOut[k-1]&0xF)<<4)|((dataOut[k]>>4)&0xF))
 # open(sys.argv[1]+".out","wb").write(dataQr)
 
-# open("debug","wb").write(data)
+open("debug","wb").write(data)
 open("tmp","wb").write(dataOut)
 # os.system(path+"/qrcode.exe -8 -o "+sys.argv[1]+".png < tmp")

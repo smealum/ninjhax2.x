@@ -8,8 +8,6 @@
 #define CHAR_SIZE_X (8)
 #define CHAR_SIZE_Y (8)
 
-int _strlen(char* str);
-
 void drawCharacter(u8* fb, char c, u16 x, u16 y)
 {
 	if(c<32)return;
@@ -37,7 +35,7 @@ void drawString(u8* fb, char* str, u16 x, u16 y)
 	y=232-y;
 	int k;
 	int dx=0, dy=0;
-	for(k=0;k<_strlen(str);k++)
+	for(k=0;k<strlen(str);k++)
 	{
 		if(str[k]>=32 && str[k]<128)drawCharacter(fb,str[k],x+dx,y+dy);
 		dx+=8;

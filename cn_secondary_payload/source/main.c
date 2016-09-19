@@ -8,11 +8,16 @@
 #include <ctr/FS.h>
 #include <ctr/GSP.h>
 #include "text.h"
+#ifndef LOADROPBIN
 #include "menu_payload_regionfree_bin.h"
+#else
 #include "menu_payload_loadropbin_bin.h"
+#endif
 
 #ifndef OTHERAPP
+#ifndef QRINSTALLER
 #include "cn_save_initial_loader_bin.h"
+#endif
 #endif
 
 #ifdef LOADROPBIN

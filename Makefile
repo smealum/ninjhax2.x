@@ -131,8 +131,11 @@ build/cn_secondary_payload.bin: cn_secondary_payload/cn_secondary_payload.bin
 	@python $(SCRIPTS)/blowfish.py build/cn_secondary_payload.bin build/cn_secondary_payload.bin scripts
 cn_secondary_payload/cn_secondary_payload.bin: build/cn_save_initial_loader.bin build/menu_payload_regionfree.bin build/menu_payload_loadropbin.bin build/menu_ropbin.bin compress/compress.exe
 	@mkdir -p cn_secondary_payload/data
+	@rm -rf cn_secondary_payload/data/*
+ifeq ($(strip $(QRINSTALLER)),)
 	@cp build/cn_save_initial_loader.bin cn_secondary_payload/data/
 	@cp build/menu_payload_regionfree.bin cn_secondary_payload/data/
+endif
 	@cp build/menu_payload_loadropbin.bin cn_secondary_payload/data/
 	$(ROPBIN_CMD0)
 	@cd cn_secondary_payload && make
