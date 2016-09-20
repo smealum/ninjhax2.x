@@ -18,6 +18,10 @@ OBJCOPY = arm-none-eabi-objcopy
 CFLAGS += -Wall -std=c99 -march=armv6 -mthumb -Os -I"$(CTRULIB)/include" -I$(DEVKITPRO)/libnds/include
 LDFLAGS += --script=ccd00.ld -L"$(DEVKITARM)/arm-none-eabi/lib" -L"$(CTRULIB)/lib" -Map=output.map
 
+ifneq ($(strip $(QRINSTALLER)),)
+	CFLAGS	+=	-DQRINSTALLER=1
+endif
+
 CFILES = $(wildcard source/*.c)
 BINFILES = $(wildcard data/*.bin)
 OFILES = $(BINFILES:data/%.bin=build/%.bin.o)
