@@ -80,10 +80,12 @@ if __name__ == '__main__':
 		nupRegion=r.group(6)
 		extraparams=""
 		extraparams+=" LOADROPBIN=1"
+		qrinstaller = False
 		for arg in sys.argv:
 			# if(arg=="--enableloadropbin"):
 			# 	extraparams+=" LOADROPBIN=1"
 			if(arg=="--enableqrinstaller"):
+				qrinstaller = True
 				extraparams+=" QRINSTALLER=1"
 			if(arg=="--enableotherapp"):
 				extraparams+=" OTHERAPP=1"
@@ -92,5 +94,7 @@ if __name__ == '__main__':
 		v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
 		os.system("make clean")
 		os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
+		if qrinstaller:
+			os.system("python scripts/buildQrInstaller.py %s_%s_%s_%s" % (getFirmVersion(v), getRegion(v), getMenuVersion(v), getMsetVersion(v)))
 	else:
 		print("invalid version format; learn2read.")
