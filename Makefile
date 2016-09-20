@@ -60,6 +60,7 @@ directories:
 	@mkdir -p build && mkdir -p build/cro
 	@mkdir -p p
 	@mkdir -p q
+	@mkdir -p qri
 	@mkdir -p r
 
 menu_ropdb: $(ROPDB_TARGETS)
