@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <ctr/types.h>
 #include <ctr/srv.h>
 #include <ctr/svc.h>
@@ -78,19 +77,19 @@ Result _GSPGPU_InvalidateDataCache(Handle* handle, Handle kprocess, u32* addr, u
 	return cmdbuf[1];
 }
 
-void patchMem(Handle* gspHandle, u32 dst, u32 size, u32 start, u32 end)
-{
-	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u32* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
+// void patchMem(Handle* gspHandle, u32 dst, u32 size, u32 start, u32 end)
+// {
+// 	Result (*_GSPGPU_FlushDataCache)(Handle* handle, Handle kprocess, u32* addr, u32 size)=(void*)CN_GSPGPU_FlushDataCache_ADR;
 
-	int i;
-	_GSPGPU_InvalidateDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x200);
-	doGspwn((u32*)(dst), (u32*)(0x14100000), 0x200);
-	svc_sleepThread(0x100000);
-	for(i=start;i<end;i++)((u32*)0x14100000)[i]=0xEF000009;
-	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x200);
-	doGspwn((u32*)(0x14100000), (u32*)(dst), 0x200);
-	svc_sleepThread(0x100000);
-}
+// 	int i;
+// 	_GSPGPU_InvalidateDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x200);
+// 	doGspwn((u32*)(dst), (u32*)(0x14100000), 0x200);
+// 	svc_sleepThread(0x100000);
+// 	for(i=start;i<end;i++)((u32*)0x14100000)[i]=0xEF000009;
+// 	_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x200);
+// 	doGspwn((u32*)(0x14100000), (u32*)(dst), 0x200);
+// 	svc_sleepThread(0x100000);
+// }
 
 void *memset(void *s, int c, size_t n)
 {
@@ -103,6 +102,13 @@ int memcmp(const void *s1, const void *s2, size_t n)
 	int i;
 	for(i=0; i<n; i++) if(((char*)s1)[i] != ((char*)s2)[i]) return -1;
 	return 0;
+}
+
+void *memcpy(const void *dst, const void *src, size_t n)
+{
+	int i;
+	for(i=0; i<n; i++) ((char*)dst)[i] = ((char*)src)[i];
+	return dst;
 }
 
 Result _FSUSER_OpenFileDirectly(Handle* handle, Handle* out, FS_archive archive, FS_path fileLowPath, u32 openflags, u32 attributes) //no need to have archive opened
@@ -263,10 +269,14 @@ int _main()
 		if(ret)*(u32*)NULL=0xC0DF0004;
 	}
 
+	#ifndef QRINSTALLER
 	//decompress it
 	{
 		lzss_decompress((u8*)0x14300000, secondaryPayloadSize, (u8*)0x14100000, lzss_get_decompressed_size((u8*)0x14300000, secondaryPayloadSize));
 	}
+	#else
+		memcpy((u8*)0x14100000, (u8*)0x14300000, secondaryPayloadSize);
+	#endif
 
 	ret=_GSPGPU_FlushDataCache(gspHandle, 0xFFFF8001, (u32*)0x14100000, 0x300000);
 
@@ -284,7 +294,7 @@ int _main()
 				svc_sleepThread(10 * 1000 * 1000);
 				k++;
 				break;
-			} 
+			}
 		}
 	}
 
