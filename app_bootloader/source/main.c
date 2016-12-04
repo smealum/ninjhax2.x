@@ -614,7 +614,7 @@ void runTitleCustom(u8 mediatype, u32* argbuf, u32 argbuflength, u32 tid_low, u3
 	freeDataPages(0x14000000);
 	freeDataPages(0x30000000);
 
-	superto(((u64)tid_low) | (((u64)tid_high) << 32), argbuf, argbuflength);
+	superto(((u64)tid_low) | (((u64)tid_high) << 32), mediatype, argbuf, argbuflength);
 
 	// allocate gsp heap
 	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x02000000, 0x10003, 0x3);

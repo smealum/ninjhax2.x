@@ -218,6 +218,7 @@ typedef struct
 	Result launchret;
 	u32 procid;
 	u64 tid;
+	u32 mediatype;
 	void* payload;
 	u32 payload_size;
 }superto_param_s;
@@ -253,7 +254,9 @@ void supertothread(superto_param_s* p)
 	svc_getSystemInfo(&used_size, 0, 1);
 	// printf("used_size %08x\n", (unsigned int)used_size);
 
-	p->launchret = NS_LaunchTitle(p->tid, 1, &p->procid);
+	if(p->mediatype == 2) p->launchret = NS_LaunchTitle(0LL, 1, &p->procid);
+	else p->launchret = NS_LaunchTitle(p->tid, 1, &p->procid);
+	if(p->launchret) *(u32*)0xbac00006 = p->launchret;
 
 	s64 new_used_size = 0;
 	svc_getSystemInfo(&new_used_size, 0, 1);
@@ -396,7 +399,7 @@ void wait_for_parameter_and_send(Handle handle, char* name)
 	}
 }
 
-void superto(u64 tid, u32* argbuf, u32 argbuflength)
+void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 {
 	__apt_initservicehandle();
 
@@ -422,6 +425,7 @@ void superto(u64 tid, u32* argbuf, u32 argbuflength)
 
 		param.syncval = 0;
 		param.tid = tid;
+		param.mediatype = mediatype;
 		param.payload = (void*)app_payload_bin;
 		param.payload_size = app_payload_bin_size;
 
