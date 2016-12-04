@@ -53,6 +53,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; debug
 			writehwreg 0x202A04, 0x01FFFFFF
 
+		; do some permanent relocs to app_code and app_bootloader
+			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_LOADEDROP_BKP_BUFADR + appCode + 0x4
+			store MENU_LOADEDROP_BUFADR + appCode - object, MENU_LOADEDROP_BKP_BUFADR + appBootloader + 0x4 * 7
+			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_LOADEDROP_BUFADR + appCode + 0x4
+			store MENU_LOADEDROP_BUFADR + appCode - object, MENU_LOADEDROP_BUFADR + appBootloader + 0x4 * 7
+
 		; looks like this is actually not needed
 		; plug dsp handle leak
 			dsp_register_interrupt_events
@@ -125,7 +131,6 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; adjust gsp commands (can't preprocess aliases)
 			add_and_store_3 APP_START_LINEAR, 0xBABE0003, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppHook - object + 0x8
 			add_and_store_3 APP_START_LINEAR, 0xBABE0007, 0 - 0x00100000, MENU_OBJECT_LOC + gxCommandAppCode - object + 0x8
-			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_OBJECT_LOC + appCode + 0x4
 
 		; relocate app_code
 			relocate

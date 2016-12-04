@@ -120,7 +120,12 @@ void drawHex(u32 val, int x, int y)
 
 void clearScreen(u8 shade)
 {
-	memset(top_framebuffer, shade, 240*400*3);
+	// memset(top_framebuffer, shade, 240*400*3);
+	int i;
+	u64 val = (shade << 8) | shade;
+	val = (val << 16) | val;
+	val = (val << 32) | val;
+	for(i = 0; i < 240*400*3; i += 8) *(u64*)top_framebuffer = val;
 	GSPGPU_FlushDataCache(NULL, top_framebuffer, 240*400*3);
 }
 
@@ -454,6 +459,20 @@ int utf8_to_utf16(u16 *out, const char *in, u32 len)
 	return rc;
 }
 
+void *memcpy(void *dest, const void *src, size_t n)
+{
+	int i;
+	for(i = 0; i < n; i++) ((u8*)dest)[i] = ((u8*)src)[i];
+	return dest;
+}
+
+void *memset(void *s, int c, size_t n)
+{
+	int i;
+	for(i = 0; i < n; i++) ((u8*)s)[i] = c;
+	return s;
+}
+
 void _main()
 {
 	Result ret;
@@ -470,11 +489,12 @@ void _main()
 	print_hex(_bootloaderAddress);
 
 	__apt_initservicehandle();
+	print_str(", "); print_hex(_aptuHandle);
 	ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
 	svc_closeHandle(_aptuHandle);
 
 	print_str("\ngot APT:A lock handle ?\n");
-	print_hex(ret); print_str(", "); print_hex(_aptuHandle); print_str(", "); print_hex(_aptLockHandle);
+	print_hex(ret); print_str(", "); print_hex(_aptLockHandle);
 
 	receive_handle(&fsuHandle, "fs:USER");
 	receive_handle(&nssHandle, "ns:s");
@@ -500,8 +520,8 @@ void _main()
 		(nonflexible_service_list_t)
 		{11,
 			{
-				{"ns:s", nssHandle},
 				{"fs:USER", fsuHandle},
+				{"ns:s", nssHandle},
 				{"ir:rst", irrstHandle},
 				{"am:sys", amsysHandle},
 				{"ptm:sysm", ptmsysmHandle},

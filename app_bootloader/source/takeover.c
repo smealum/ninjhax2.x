@@ -14,6 +14,8 @@
 #include "../../build/constants.h"
 #include "../../app_targets/app_targets.h"
 
+#include "app_payload_bin.h"
+
 // decompression code stolen from ctrtool
 
 u32 getle32(const u8* p)
@@ -208,4 +210,243 @@ void getProcessMap(Handle fsuserHandle, u8 mediatype, u32 tid_low, u32 tid_high,
 	out->map[0].src += 0x00008000;
 	out->map[0].dst += 0x00008000;
 	out->map[0].size -= 0x00008000;
+}
+
+typedef struct
+{
+	vu32 syncval;
+	Result launchret;
+	u32 procid;
+	u64 tid;
+	void* payload;
+	u32 payload_size;
+}superto_param_s;
+
+Result NS_LaunchTitle(u64 titleid, u32 launch_flags, u32 *procid)
+{
+	Result ret = 0;
+	u32 *cmdbuf = getThreadCommandBuffer();
+
+	cmdbuf[0] = 0x000200C0;
+	cmdbuf[1] = titleid & 0xffffffff;
+	cmdbuf[2] = (titleid >> 32) & 0xffffffff;
+	cmdbuf[3] = launch_flags;
+
+	if((ret = svc_sendSyncRequest(getStolenHandle("ns:s")))!=0)return ret;
+
+	if(procid != NULL)
+		*procid = cmdbuf[2];
+	
+	return (Result)cmdbuf[1];
+}
+
+u32 linear_heap = 0;
+const u32 linear_size = 0x02000000;
+extern u32* gxCmdBuf;
+extern u32 _appCodeAddress;
+
+void supertothread(superto_param_s* p)
+{
+	while(p->syncval == 0);
+
+	s64 used_size = 0;
+	svc_getSystemInfo(&used_size, 0, 1);
+	// printf("used_size %08x\n", (unsigned int)used_size);
+
+	p->launchret = NS_LaunchTitle(p->tid, 1, &p->procid);
+
+	s64 new_used_size = 0;
+	svc_getSystemInfo(&new_used_size, 0, 1);
+
+	u32 size_difference = new_used_size - used_size;
+	
+	used_size -= linear_size;
+	// printf("used_size %08x\n", (unsigned int)used_size);
+
+	if(!p->launchret)
+	{
+		const u32 buffer_size = (size_difference + 0x000fffff) & (~0x000fffff);
+		// u32* linear_buffer = linearMemAlign(0x1000, buffer_size);
+		u32* linear_buffer = (u32*)linear_heap;
+		// printf("linear_buffer %08X\n", (unsigned int)linear_buffer);
+
+		u32 base_addr = 0x14000000 + 0x07c00000 - used_size;
+		base_addr -= buffer_size;
+		
+		GX_SetTextureCopy(gxCmdBuf, (void*)base_addr, 0, (void*)linear_buffer, 0, buffer_size, 0x8);
+
+		svc_sleepThread(100 * 1000 * 1000);
+		Result ret = GSPGPU_InvalidateDataCache(NULL, (u8*)linear_buffer, buffer_size);
+		if(ret) *(u32*)0xbac00002 = ret;
+
+		int i;
+		for(i = 0; i < buffer_size; i += 0x1000)
+		{
+			u32 addr = base_addr + i + 0x30000000 - 0x14000000;
+			if(linear_buffer[i / 4] == 0xeb000007)
+			{
+				// printf("found it %08X\n", (unsigned int)addr);
+				void* dst_buffer = &linear_buffer[i / 4];
+				memcpy(dst_buffer, p->payload, p->payload_size);
+				*(u32*)(dst_buffer + 4) = _appCodeAddress;
+			}
+			linear_buffer[(i + 0x1000) / 4 - 1] = addr;
+		}
+
+		// memset(linear_buffer, 0xff, 0x200);
+		ret = GSPGPU_FlushDataCache(NULL, (u8*)linear_buffer, buffer_size);
+		if(ret) *(u32*)0xbac00003 = ret;
+		// printf("ret %08X %08X %08X\n", (unsigned int)ret, (unsigned int)i, (unsigned int)buffer_size);
+		GX_SetTextureCopy(gxCmdBuf, (void*)linear_buffer, 0, (void*)base_addr, 0, buffer_size, 0x8);
+		
+		svc_sleepThread(100 * 1000 * 1000);
+	}
+	
+	// release appcore
+	p->syncval = 0;
+
+	svc_exitThread();
+}
+
+extern Handle _aptuHandle;
+Result __apt_initservicehandle();
+void _aptOpenSession();
+void _aptCloseSession();
+
+u32 progress = 0;
+
+Result APT_SetAppCpuTimeLimit(Handle* handle, u32 percent)
+{
+	if(!handle) handle = &_aptuHandle;
+
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x4F0080;
+	cmdbuf[1]=1;
+	cmdbuf[2]=percent;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	return cmdbuf[1];
+}
+
+u8 superto_thread_stack[0x10000];
+
+void gspGpuExit();
+extern service_list_t _serviceList;
+
+Result _APT_SendParameter(Handle* handle, u32 src_appID, u32 dst_appID, u32 bufferSize, u32* buffer, Handle paramhandle, u8 signalType)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+
+	if(!handle)handle=&_aptuHandle;
+
+	cmdbuf[0] = 0x000C0104; //request header code
+	cmdbuf[1] = src_appID;
+	cmdbuf[2] = dst_appID;
+	cmdbuf[3] = signalType;
+	cmdbuf[4] = bufferSize;
+
+	cmdbuf[5] = 0x0;
+	cmdbuf[6] = paramhandle;
+	
+	cmdbuf[7] = (bufferSize<<14) | 2;
+	cmdbuf[8] = (u32)buffer;
+	
+	Result ret=0;
+	if((ret = svc_sendSyncRequest(*handle))) return ret;
+
+	return cmdbuf[1];
+}
+
+Result _APT_GlanceParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buffer, u32* actualSize, u8* signalType, Handle* outhandle)
+{
+	if(!handle)handle=&_aptuHandle;
+	
+	u32* cmdbuf=getThreadCommandBuffer();
+
+	cmdbuf[0]=0x000E0080; //request header code
+	cmdbuf[1]=appID;
+	cmdbuf[2]=bufferSize;
+	
+	cmdbuf[0+0x100/4]=(bufferSize<<14)|2;
+	cmdbuf[1+0x100/4]=(u32)buffer;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(signalType)*signalType=cmdbuf[3];
+	if(actualSize)*actualSize=cmdbuf[4];
+	if(outhandle)*outhandle=cmdbuf[6];
+
+	return cmdbuf[1];
+}
+
+void wait_for_parameter_and_send(Handle handle, char* name)
+{
+	u64 garbage = 0;
+	Result ret = 1;
+	
+	while(ret)
+	{
+		_aptOpenSession();
+		ret = _APT_SendParameter(NULL, 0x101, 0x101, strlen(name) + 1, (void*)name, handle, 1);
+		_aptCloseSession();
+		svc_sleepThread(1 * 1000 * 1000);
+	}
+}
+
+void superto(u64 tid, u32* argbuf, u32 argbuflength)
+{
+	__apt_initservicehandle();
+
+	_aptOpenSession();
+	APT_SetAppCpuTimeLimit(NULL, 5);
+	_aptCloseSession();
+	
+	svc_controlMemory(&linear_heap, 0x0, 0x0, linear_size, 0x10003, 0x3);
+
+	// copy parameter block
+	{
+		if(argbuf) memcpy(linear_heap, argbuf, argbuflength);
+		else memset(linear_heap, 0x00, MENU_PARAMETER_SIZE);
+
+		GSPGPU_FlushDataCache(NULL, (u8*)linear_heap, MENU_PARAMETER_SIZE);
+		doGspwn((u32*)(linear_heap), (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
+		svc_sleepThread(20*1000*1000);
+	}
+
+	{
+		superto_param_s param;
+		memset(&param, 0x00, sizeof(param));
+
+		param.syncval = 0;
+		param.tid = tid;
+		param.payload = (void*)app_payload_bin;
+		param.payload_size = app_payload_bin_size;
+
+		Handle threadHandle = 0;
+		Result ret = svc_createThread(&threadHandle, (ThreadFunc)supertothread, (u32)&param, (u32*)(superto_thread_stack + sizeof(superto_thread_stack)), 0x20, 1);
+		if(ret) *(u32*)0xbac00001 = ret;
+		// printf("thread %X %X %X %X %X\n", (unsigned int)ret, (unsigned int)threadHandle, (unsigned int)thread_stack, (unsigned int)nsret, (unsigned int)launchret);
+
+		param.syncval = 1;
+
+		while(param.syncval != 0);
+
+		// printf("thread done\n");
+	}
+
+	_aptOpenSession();
+	APT_SetAppCpuTimeLimit(NULL, 0);
+	_aptCloseSession();
+
+	gspGpuExit();
+
+	int i;
+	for(i = 0; i < _serviceList.num; i++) wait_for_parameter_and_send(_serviceList.services[i].handle, _serviceList.services[i].name);
+
+	svc_sleepThread(0xffffffff);
+
+	svc_exitProcess();
 }

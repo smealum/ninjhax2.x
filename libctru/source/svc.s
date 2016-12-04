@@ -2,6 +2,7 @@
 
 .align 4
 
+.section .text.getThreadCommandBuffer, "ax", %progbits
 .global getThreadCommandBuffer
 .type getThreadCommandBuffer, %function
 getThreadCommandBuffer:
@@ -10,6 +11,7 @@ getThreadCommandBuffer:
 	bx lr
 
 
+.section .text.svc_controlMemory, "ax", %progbits
 .global svc_controlMemory
 .type svc_controlMemory, %function
 svc_controlMemory:
@@ -22,12 +24,14 @@ svc_controlMemory:
 	ldr r4, [sp], #4
 	bx lr
 
+.section .text.svc_exitProcess, "ax", %progbits
 .global svc_exitProcess
 .type svc_exitProcess, %function
 svc_exitProcess:
 	svc 0x03
 	bx lr
 
+.section .text.svc_createThread, "ax", %progbits
 .global svc_createThread
 .type svc_createThread, %function
 svc_createThread:
@@ -40,18 +44,21 @@ svc_createThread:
 	ldr r4, [sp], #4
 	bx lr
 
+.section .text.svc_exitThread, "ax", %progbits
 .global svc_exitThread
 .type svc_exitThread, %function
 svc_exitThread:
 	svc 0x09
 	bx lr
 
+.section .text.svc_sleepThread, "ax", %progbits
 .global svc_sleepThread
 .type svc_sleepThread, %function
 svc_sleepThread:
 	svc 0x0A
 	bx lr
 
+.section .text.svc_createMutex, "ax", %progbits
 .global svc_createMutex
 .type svc_createMutex, %function
 svc_createMutex:
@@ -61,12 +68,14 @@ svc_createMutex:
 	str r1, [r3]
 	bx lr
 
+.section .text.svc_releaseMutex, "ax", %progbits
 .global svc_releaseMutex
 .type svc_releaseMutex, %function
 svc_releaseMutex:
 	svc 0x14
 	bx lr
 
+.section .text.svc_releaseSemaphore, "ax", %progbits
 .global svc_releaseSemaphore
 .type svc_releaseSemaphore, %function
 svc_releaseSemaphore:
@@ -76,6 +85,7 @@ svc_releaseSemaphore:
         str r1, [r2]
         bx lr
 
+.section .text.svc_createEvent, "ax", %progbits
 .global svc_createEvent
 .type svc_createEvent, %function
 svc_createEvent:
@@ -85,18 +95,21 @@ svc_createEvent:
 	str r1, [r2]
 	bx lr
 
+.section .text.svc_signalEvent, "ax", %progbits
 .global svc_signalEvent
 .type svc_signalEvent, %function
 svc_signalEvent:
 	svc 0x18
 	bx lr
 
+.section .text.svc_clearEvent, "ax", %progbits
 .global svc_clearEvent
 .type svc_clearEvent, %function
 svc_clearEvent:
 	svc 0x19
 	bx lr
 
+.section .text.svc_createMemoryBlock, "ax", %progbits
 .global svc_createMemoryBlock
 .type svc_createMemoryBlock, %function
 svc_createMemoryBlock:
@@ -107,36 +120,42 @@ svc_createMemoryBlock:
 	str r1, [r2]
 	bx lr
 
+.section .text.svc_mapMemoryBlock, "ax", %progbits
 .global svc_mapMemoryBlock
 .type svc_mapMemoryBlock, %function
 svc_mapMemoryBlock:
 	svc 0x1F
 	bx lr
 
+.section .text.svc_unmapMemoryBlock, "ax", %progbits
 .global svc_unmapMemoryBlock
 .type svc_unmapMemoryBlock, %function
 svc_unmapMemoryBlock:
 	svc 0x20
 	bx lr
 
+.section .text.svc_arbitrateAddress, "ax", %progbits
 .global svc_arbitrateAddress
 .type svc_arbitrateAddress, %function
 svc_arbitrateAddress:
         svc 0x22
         bx lr
 
+.section .text.svc_closeHandle, "ax", %progbits
 .global svc_closeHandle
 .type svc_closeHandle, %function
 svc_closeHandle:
 	svc 0x23
 	bx lr
 
+.section .text.svc_waitSynchronization1, "ax", %progbits
 .global svc_waitSynchronization1
 .type svc_waitSynchronization1, %function
 svc_waitSynchronization1:
 	svc 0x24
 	bx lr
 
+.section .text.svc_waitSynchronizationN, "ax", %progbits
 .global svc_waitSynchronizationN
 .type svc_waitSynchronizationN, %function
 svc_waitSynchronizationN:
@@ -149,12 +168,14 @@ svc_waitSynchronizationN:
 	ldr r5, [sp], #4
 	bx lr
 
+.section .text.svc_getSystemTick, "ax", %progbits
 .global svc_getSystemTick
 .type svc_getSystemTick, %function
 svc_getSystemTick:
 	svc 0x28
 	bx lr
 
+.section .text.svc_getSystemInfo, "ax", %progbits
 .global svc_getSystemInfo
 .type svc_getSystemInfo, %function
 svc_getSystemInfo:
@@ -167,6 +188,7 @@ svc_getSystemInfo:
 	ldr r4, [sp], #4
 	bx lr
 
+.section .text.svc_getProcessInfo, "ax", %progbits
 .global svc_getProcessInfo
 .type svc_getProcessInfo, %function
 svc_getProcessInfo:
@@ -178,6 +200,7 @@ svc_getProcessInfo:
 	ldr r4, [sp], #4
 	bx lr
 
+.section .text.svc_connectToPort, "ax", %progbits
 .global svc_connectToPort
 .type svc_connectToPort, %function
 svc_connectToPort:
@@ -187,12 +210,14 @@ svc_connectToPort:
 	str r1, [r3]
 	bx lr
 
+.section .text.svc_sendSyncRequest, "ax", %progbits
 .global svc_sendSyncRequest
 .type svc_sendSyncRequest, %function
 svc_sendSyncRequest:
 	svc 0x32
 	bx lr
 
+.section .text.svc_getProcessId, "ax", %progbits
 .global svc_getProcessId
 .type svc_getProcessId, %function
 svc_getProcessId:

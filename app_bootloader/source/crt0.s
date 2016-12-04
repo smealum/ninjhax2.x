@@ -5,6 +5,7 @@
 .type _start, %function
 .global _serviceList
 .global _changeProcess
+.global _appCodeAddress
 .type _changeProcess, %function
 
 _run3dsxVector:
@@ -20,7 +21,9 @@ _runTitleVector:
 _runTitleCustomVector:
 	b _runTitleCustom
 bx lr
-bx lr
+
+_appCodeAddress:
+	.word 0x0
 
 _serviceList:
 	.space 0x4+0xC*16, 0x00

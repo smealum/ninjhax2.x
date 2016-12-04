@@ -32,8 +32,12 @@ clean:
 -include $(DFILES)
 
 build/%.o: source/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -mthumb -mthumb-interwork -c $< -o $@
 	@$(CC) -MM $< > build/$*.d
+
+build/GSP.o: source/GSP.c
+	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) -MM $< > build/GSP.d
 
 build/%.o: source/%.s
 	$(CC) $(CFLAGS) -c $< -o $@

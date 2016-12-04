@@ -119,9 +119,16 @@ app_code/app_code.bin app_code/app_code_reloc.s:
 	@cd app_code && make
 
 
+app_bootloader/app_payload.bin: app_payload/app_payload.bin
+	@mkdir -p app_bootloader/data/
+	@cp app_payload/app_payload.bin app_bootloader/data/
+app_payload/app_payload.bin:
+	@cd app_payload && make
+
+
 build/app_bootloader.bin: app_bootloader/app_bootloader.bin
 	@cp app_bootloader/app_bootloader.bin build
-app_bootloader/app_bootloader.bin:
+app_bootloader/app_bootloader.bin: app_bootloader/app_payload.bin
 	@cd app_bootloader && make
 
 
@@ -162,6 +169,7 @@ clean:
 	@cd cn_save_initial_loader && make clean
 	@cd cn_secondary_payload && make clean
 	@cd menu_payload && make clean
+	@cd app_payload && make clean
 	@cd app_bootloader && make clean
 	@cd app_code && make clean
 	@cd menu_ropbin_patcher && make clean

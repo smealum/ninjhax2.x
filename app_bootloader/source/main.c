@@ -130,25 +130,42 @@ void start_execution(void);
 
 const u32 _targetProcessIndex = 0xBABE0001;
 const u32 _APP_START_LINEAR = 0xBABE0002;
-const u32 _processTidlow = 0xBABE0004;
 
 void apply_map(memorymap_t* m)
 {
 	if(!m)return;
 	int i;
 	vu32* APP_START_LINEAR = &_APP_START_LINEAR;
-	for(i=0; i<m->header.num; i++)
+	for(i = 0; i < m->header.num; i++)
 	{
 		int remaining_size = m->map[i].size;
 		u32 offset = 0;
+
+		if(m->map[i].src < 0x00108000)
+		{
+			const u32 target_dif = 0x00108000 - m->map[i].src;
+			u32 cut_size = remaining_size;
+
+			if(cut_size >= target_dif)
+			{
+				cut_size = target_dif;
+			}
+
+			remaining_size -= cut_size;
+			offset += cut_size;
+		}
+
 		while(remaining_size > 0)
 		{
 			int size = remaining_size;
-			if(size > 0x00080000)size = 0x00080000;
+			if(size > 0x00080000) size = 0x00080000;
 
-			GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[m->map[i].src + offset], size);
+			void* src = &gspHeap[m->map[i].src + offset - 0x8000];
+			void *dst = (void*)(*APP_START_LINEAR + m->map[i].dst + offset);
+
+			GSPGPU_FlushDataCache(NULL, src, size);
 			svc_sleepThread(5*1000*1000);
-			doGspwn((u32*)&gspHeap[m->map[i].src + offset], (u32*)(*APP_START_LINEAR + m->map[i].dst + offset), size);
+			doGspwn(src, dst, size);
 
 			remaining_size -= size;
 			offset += size;
@@ -193,27 +210,40 @@ Handle _aptLockHandle, _aptuHandle;
 const char * const __apt_servicenames[3] = {"APT:U", "APT:S", "APT:A"};
 char *__apt_servicestr = NULL;
 
-static Result __apt_initservicehandle()
+Result _APT_GetLockHandle(Handle* handle, u16 flags, Handle* lockHandle)
 {
+	if(!handle)handle=&_aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x10040; //request header code
+	cmdbuf[1]=flags;
+	
 	Result ret=0;
-	u32 i;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+	if(lockHandle)*lockHandle=cmdbuf[5];
+	
+	return cmdbuf[1];
+}
 
-	if(__apt_servicestr)
-	{
-		return srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
-	}
+Result __apt_initservicehandle()
+{
+	Result ret = 0;
+	u32 i;
 
 	for(i=0; i<3; i++)
 	{
 		ret = srv_getServiceHandle(NULL, &_aptuHandle, (char*)__apt_servicenames[i]);
-		if(ret==0)
+		if(!ret)
 		{
 			__apt_servicestr = (char*)__apt_servicenames[i];
-			return ret;
+			break;
 		}
 	}
 
-	*(u32*)0xdeadbabe = ret;
+	if(ret)	*(u32*)0xdeadbabe = ret;
+
+	_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
+	svc_closeHandle(_aptuHandle);
 
 	return ret;
 }
@@ -228,21 +258,6 @@ void _aptCloseSession()
 {
 	svc_closeHandle(_aptuHandle);
 	svc_releaseMutex(_aptLockHandle);
-}
-
-Result _APT_GetLockHandle(Handle* handle, u16 flags, Handle* lockHandle)
-{
-	if(!handle)handle=&_aptuHandle;
-	u32* cmdbuf=getThreadCommandBuffer();
-	cmdbuf[0]=0x10040; //request header code
-	cmdbuf[1]=flags;
-	
-	Result ret=0;
-	if((ret=svc_sendSyncRequest(*handle)))return ret;
-	
-	if(lockHandle)*lockHandle=cmdbuf[5];
-	
-	return cmdbuf[1];
 }
 
 Result _APT_AppletUtility(Handle* handle, u32* out, u32 a, u32 size1, u8* buf1, u32 size2, u8* buf2)
@@ -462,8 +477,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	exitSrv();
 	
 	// grab ns:s handle
-	Handle nssHandle = 0x0;
-	for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "ns:s"))nssHandle=_serviceList.services[i].handle;
+	Handle nssHandle = getStolenHandle("ns:s");
 	if(!nssHandle)*(vu32*)0xCAFE0001=0;
 
 	// use ns:s to launch/kill process and invalidate icache in the process
@@ -577,6 +591,20 @@ void changeProcess(int processId, u32* argbuf, u32 argbuflength)
 
 void _changeProcess(int processId, u32* argbuf, u32 arglength);
 
+Handle getStolenHandle(char* name)
+{
+	int i;
+	for(i=0; i<_serviceList.num; i++)
+	{
+		if(!strcmp(_serviceList.services[i].name, name))
+		{
+			return _serviceList.services[i].handle;
+		}
+	}
+	
+	return 0;
+}
+
 void runTitleCustom(u8 mediatype, u32* argbuf, u32 argbuflength, u32 tid_low, u32 tid_high, memorymap_t* _mmap)
 {
 	initSrv();
@@ -585,6 +613,8 @@ void runTitleCustom(u8 mediatype, u32* argbuf, u32 argbuflength, u32 tid_low, u3
 	// free extra data pages if any
 	freeDataPages(0x14000000);
 	freeDataPages(0x30000000);
+
+	superto(((u64)tid_low) | (((u64)tid_high) << 32), argbuf, argbuflength);
 
 	// allocate gsp heap
 	svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x02000000, 0x10003, 0x3);
@@ -599,8 +629,7 @@ void runTitleCustom(u8 mediatype, u32* argbuf, u32 argbuflength, u32 tid_low, u3
 	memorymap_t* mmap = getMmapArgbuf(argbuffer, argbuffer_length);
 
 	// grab fs:USER handle
-	Handle fsuserHandle = 0x0;
-	int i; for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "fs:USER"))fsuserHandle=_serviceList.services[i].handle;
+	Handle fsuserHandle = getStolenHandle("fs:USER");
 	if(!fsuserHandle)*(vu32*)0xCAFE0001=0;
 
 	if(_mmap) memcpy(mmap, _mmap, size_memmap(*_mmap));
