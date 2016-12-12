@@ -16,6 +16,9 @@
 u8* _heap_base; // should be 0x08000000
 const u32 _heap_size = 0x01000000;
 extern u32 _appCodeAddress;
+extern u32 _tidLow;
+extern u32 _tidHigh;
+extern u32 _mediatype;
 
 typedef struct
 {
@@ -37,7 +40,7 @@ static void gspGpuInit()
 	GSPGPU_AcquireRight(NULL, 0x0);
 
 	//set subscreen to red
-	u32 regData = 0x010000FF;
+	u32 regData = 0x0100FF00;
 	GSPGPU_WriteHWRegs(NULL, 0x202A04, &regData, 4);
 
 	//setup our gsp shared mem section
@@ -124,8 +127,17 @@ char *strcpy(char *dest, const char *src)
 	return dest;
 }
 
-void _main()
+size_t strlen(const char *str)
 {
+	size_t len = 0;
+
+	while(*str++) len++;
+
+	return len;
+}
+
+void _main()
+{	
 	// first figure out codebin size
 	// includes text, rodata, data and bss
 	u32 codebin_size = 0;
@@ -173,7 +185,7 @@ void _main()
 	gspGpuInit();
 
 	u32 linear_heap = 0;
-	const u32 linear_size = 0x02000000;
+	const u32 linear_size = 0x00800000;
 	const u32 app_code_dst = 0x00105000;
 	const u32 app_code_size = 0x3000;
 
@@ -182,9 +194,9 @@ void _main()
 	// fix up mmap
 	{
 		// shouldn't really matter, not used anywhere in bootloader?
-		mmap.header.processHookTidLow = 0;
-		mmap.header.processHookTidHigh = 0;
-		mmap.header.mediatype = 0;
+		mmap.header.processHookTidLow = _tidLow;
+		mmap.header.processHookTidHigh = _tidHigh;
+		mmap.header.mediatype = _mediatype;
 
 		// doesn't really matter, will be filled out for real by bootloader
 		mmap.header.text_end = 0x00160000;
@@ -217,6 +229,32 @@ void _main()
 		// finally copy ropbin back
 		GSPGPU_FlushDataCache(NULL, (u8*)(linear_heap), 0x8000);
 		doGspwn((u32*)(linear_heap), (u32*)(MENU_LOADEDROP_BUFADR), 0x8000);
+		svc_sleepThread(15 * 1000 * 1000);
+	}
+
+	// update ropbin tid
+	{
+		// first get original ropbin
+		GSPGPU_InvalidateDataCache(NULL, (u8*)(linear_heap), 0x200);
+		doGspwn((u32*)(MENU_LOADEDROP_BUFADR - 0x200), (u32*)(linear_heap), 0x200);
+		svc_sleepThread(15 * 1000 * 1000);
+
+		// patch it
+		u32* patchArea = (u32*)linear_heap;
+		for(int i = 0; i < 0x200 / 4; i++)
+		{
+			if(patchArea[i] == 0xBABEBAD0)
+			{
+				patchArea[i + 2] = _tidLow; // tid low
+				patchArea[i + 3] = _tidHigh; // tid high
+				break;
+			}
+		}
+	
+		// finally copy ropbin back
+		GSPGPU_FlushDataCache(NULL, (u8*)(linear_heap), 0x200);
+		doGspwn((u32*)(linear_heap), (u32*)(MENU_LOADEDROP_BUFADR - 0x200), 0x200);
+		svc_sleepThread(15 * 1000 * 1000);
 	}
 
 	// place param block at MENU_PARAMETER_BUFADR (includes mmap)
@@ -254,7 +292,7 @@ void _main()
 		gspGpuExit();
 
 		// free linear heap
-		svc_controlMemory(&tmp, linear_heap, 0x0, linear_size, 0x1, 0x0);
+		svc_controlMemory(&tmp, linear_heap, 0x0, linear_size, MEMOP_FREE, 0x0);
 
 		// free heap (has to be the very last thing before jumping to app as contains bss)
 		svc_controlMemory(&tmp, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);

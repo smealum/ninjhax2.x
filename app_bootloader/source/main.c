@@ -16,11 +16,30 @@
 #include "../../app_targets/app_targets.h"
 
 u8* _heap_base; // should be 0x08000000
-const u32 _heap_size = 0x01000000;
+const u32 _heap_size = 0x00080000;
+const u32 _FIRM_APPMEMALLOC = FIRM_APPMEMALLOC;
 
 u8* gspHeap;
 u32* gxCmdBuf;
 Handle gspEvent, gspSharedMemHandle;
+
+char *strcpy(char *dest, const char *src)
+{
+	while(*src) *dest++ = *src++;
+	
+	*dest = *src;
+
+	return dest;
+}
+
+size_t strlen(const char *str)
+{
+	size_t len = 0;
+
+	while(*str++) len++;
+
+	return len;
+}
 
 void gspGpuInit()
 {
@@ -715,4 +734,28 @@ void getBestProcess(u32 sectionSizes[3], bool* requirements, int num_requirement
 			}
 		}
 	}
+}
+
+u32 doExtendedCommand(u32 cmd_id, void* data, u32 datalen)
+{
+	if(cmd_id == 0)
+	{
+		// CMD 0 : just to confirm that the function is actually implemented
+		return 0x0badc0de;
+	}else if(cmd_id == 1)
+	{
+		// CMD 1 : [mmap] num sections
+		return (u32)customProcessMap->header.num;
+	}else if(cmd_id == 2)
+	{
+		// CMD 2 : [mmap] APP_START_LINEAR
+		vu32* APP_START_LINEAR = &_APP_START_LINEAR;
+		return (u32)*APP_START_LINEAR;
+	}else if(cmd_id == 3)
+	{
+		// CMD 3 : [mmap] pointer to sections
+		return (u32)&customProcessMap->map;
+	}
+
+	return 0;
 }

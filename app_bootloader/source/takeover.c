@@ -246,6 +246,22 @@ const u32 linear_size = 0x02000000;
 extern u32* gxCmdBuf;
 extern u32 _appCodeAddress;
 
+void doGspwn(u32* src, u32* dst, u32 size);
+
+bool isFirstPage(u32* page)
+{
+	if((page[0] & 0xFF000000) != 0xeb000000) return false;
+	if((page[0] & 0xFF) == 0x07) return true;
+	if((page[0] & 0xFF) == 0x08) return true;
+	int i;
+	int cnt = 1;
+	for(i = 1; i < 8; i++) if((page[i] & 0xFF000000) == 0xeb000000) cnt++;
+	return cnt >= 4;
+}
+
+extern memorymap_t* const customProcessMap;
+extern const u32 _APP_START_LINEAR;
+
 void supertothread(superto_param_s* p)
 {
 	while(p->syncval == 0);
@@ -261,20 +277,18 @@ void supertothread(superto_param_s* p)
 	s64 new_used_size = 0;
 	svc_getSystemInfo(&new_used_size, 0, 1);
 
-	u32 size_difference = new_used_size - used_size;
+	// u32 size_difference = new_used_size - used_size;
 	
-	used_size -= linear_size;
+	new_used_size -= linear_size;
+	new_used_size -= _heap_size;
 	// printf("used_size %08x\n", (unsigned int)used_size);
 
 	if(!p->launchret)
 	{
-		const u32 buffer_size = (size_difference + 0x000fffff) & (~0x000fffff);
-		// u32* linear_buffer = linearMemAlign(0x1000, buffer_size);
-		u32* linear_buffer = (u32*)linear_heap;
-		// printf("linear_buffer %08X\n", (unsigned int)linear_buffer);
+		u32 base_addr = 0x30000000 + FIRM_APPMEMALLOC - new_used_size;
 
-		u32 base_addr = 0x14000000 + 0x07c00000 - used_size;
-		base_addr -= buffer_size;
+		u32 buffer_size = new_used_size;
+		u32* linear_buffer = (u32*)linear_heap;
 		
 		GX_SetTextureCopy(gxCmdBuf, (void*)base_addr, 0, (void*)linear_buffer, 0, buffer_size, 0x8);
 
@@ -282,19 +296,57 @@ void supertothread(superto_param_s* p)
 		Result ret = GSPGPU_InvalidateDataCache(NULL, (u8*)linear_buffer, buffer_size);
 		if(ret) *(u32*)0xbac00002 = ret;
 
+		u32 next_unsafe_cursor = 0;
+
+		memorymap_t* const m = customProcessMap;
+
+		bool found = false;
 		int i;
 		for(i = 0; i < buffer_size; i += 0x1000)
 		{
-			u32 addr = base_addr + i + 0x30000000 - 0x14000000;
-			if(linear_buffer[i / 4] == 0xeb000007)
+			// get corresponding "physical" address for cursor
+			u32 addr = base_addr + i;
+
+			// check if the address falls within our current process's mmap
+			// if it does, skip ahead
+			// if it doesn't, then update next_unsafe_cursor
+			if(i >= next_unsafe_cursor)
+			{
+				int j;
+				vu32* APP_START_LINEAR = &_APP_START_LINEAR;
+				u32 next_unsafe_addr = addr;
+
+				for(j = 0; j < m->header.num; j++)
+				{
+					u32 section_addr = *APP_START_LINEAR + m->map[j].dst;
+					u32 section_size = m->map[j].size;
+					if(addr >= section_addr && addr < section_addr + section_size)
+					{
+						i += section_addr + section_size - addr;
+						break;
+					}
+					if(section_addr >= addr && section_addr < next_unsafe_addr) next_unsafe_addr = addr;
+				}
+
+				if(j < m->header.num) continue;
+				else next_unsafe_cursor = next_unsafe_addr + i - addr;
+			}
+
+			if(isFirstPage(&linear_buffer[i / 4]))
 			{
 				// printf("found it %08X\n", (unsigned int)addr);
 				void* dst_buffer = &linear_buffer[i / 4];
 				memcpy(dst_buffer, p->payload, p->payload_size);
 				*(u32*)(dst_buffer + 4) = _appCodeAddress;
+				*(u32*)(dst_buffer + 8) = p->tid & 0xffffffff; // _tidLow
+				*(u32*)(dst_buffer + 12) = (p->tid >> 32) & 0xffffffff; // _tidHigh
+				*(u32*)(dst_buffer + 16) = p->mediatype; // _mediatype
+				found = true;
 			}
 			linear_buffer[(i + 0x1000) / 4 - 1] = addr;
 		}
+
+		if(!found) *(u32*)0xbac00007 = base_addr;
 
 		// memset(linear_buffer, 0xff, 0x200);
 		ret = GSPGPU_FlushDataCache(NULL, (u8*)linear_buffer, buffer_size);
@@ -304,6 +356,10 @@ void supertothread(superto_param_s* p)
 		
 		svc_sleepThread(100 * 1000 * 1000);
 	}
+
+	// free linear heap before app_payload starts running
+	u32 out;
+	svc_controlMemory(&out, linear_heap, 0x0, linear_size, MEMOP_FREE, 0x0);
 	
 	// release appcore
 	p->syncval = 0;
@@ -387,7 +443,6 @@ Result _APT_GlanceParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buff
 
 void wait_for_parameter_and_send(Handle handle, char* name)
 {
-	u64 garbage = 0;
 	Result ret = 1;
 	
 	while(ret)
@@ -411,13 +466,16 @@ void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 
 	// copy parameter block
 	{
-		if(argbuf) memcpy(linear_heap, argbuf, argbuflength);
-		else memset(linear_heap, 0x00, MENU_PARAMETER_SIZE);
+		if(argbuf) memcpy((void*)linear_heap, argbuf, argbuflength);
+		else memset((void*)linear_heap, 0x00, MENU_PARAMETER_SIZE);
 
 		GSPGPU_FlushDataCache(NULL, (u8*)linear_heap, MENU_PARAMETER_SIZE);
 		doGspwn((u32*)(linear_heap), (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
 		svc_sleepThread(20*1000*1000);
 	}
+
+	// set max priority on current thread
+	svc_setThreadPriority(0xFFFF8000, 0x19);
 
 	{
 		superto_param_s param;
@@ -450,7 +508,8 @@ void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 	int i;
 	for(i = 0; i < _serviceList.num; i++) wait_for_parameter_and_send(_serviceList.services[i].handle, _serviceList.services[i].name);
 
-	svc_sleepThread(0xffffffff);
+	u32 out;
+	svc_controlMemory(&out, (u32)_heap_base, 0x0, _heap_size, MEMOP_FREE, 0x0);
 
 	svc_exitProcess();
 }

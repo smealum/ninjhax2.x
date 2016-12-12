@@ -8,10 +8,19 @@
 .global _heap_size
 .global _heap_base
 .global _appCodeAddress
+.global _tidLow
+.global _tidHigh
+.global _mediatype
 
 b _start
 
 _appCodeAddress:
+	.word 0x0
+_tidLow:
+	.word 0x0
+_tidHigh:
+	.word 0x0
+_mediatype:
 	.word 0x0
 
 _start:

@@ -473,6 +473,24 @@ void *memset(void *s, int c, size_t n)
 	return s;
 }
 
+char *strcpy(char *dest, const char *src)
+{
+	while(*src) *dest++ = *src++;
+	
+	*dest = *src;
+
+	return dest;
+}
+
+size_t strlen(const char *str)
+{
+	size_t len = 0;
+
+	while(*str++) len++;
+
+	return len;
+}
+
 void _main()
 {
 	Result ret;

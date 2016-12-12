@@ -20,7 +20,8 @@ _runTitleVector:
 	b _runTitle
 _runTitleCustomVector:
 	b _runTitleCustom
-bx lr
+_doExtendedCommandVector:
+	b doExtendedCommand
 
 _appCodeAddress:
 	.word 0x0
@@ -97,29 +98,64 @@ _start:
 	@ allocate bss/heap
 	@ no need to initialize as OS does that already.
 	@ need to save registers because _runBootloader takes parameters
-	stmfd sp!, {r0, r1, r2, r3, r4}
+	stmfd sp!, {r0, r1, r2, r3, r4, r5}
 
-		@ MEMOP COMMIT
-		ldr r0, =0x3
-		@ addr0
-		mov r1, #0x08000000
-		@ addr1
-		mov r2, #0
-		@ size
-		ldr r3, =_heap_size
-		ldr r3, [r3]
-		@ RW permissions
-		mov r4, #3
+		mov r5, #0x02000000
 
-		@ svcControlMemory
-		svc 0x01
+		@ allocate placeholder
+			@ MEMOP COMMIT
+			ldr r0, =0x3
+			@ addr0
+			mov r1, #0x09000000
+			@ addr1
+			mov r2, #0
+			@ size
+			mov r3, r5
+			@ RW permissions
+			mov r4, #3
 
-		@ save heap address
-		mov r1, #0x08000000
-		ldr r2, =_heap_base
-		str r1, [r2]
+			@ svcControlMemory
+			svc 0x01
+			cmp r0, #0
+			strne r0, [r0]
 
-	ldmfd sp!, {r0, r1, r2, r3, r4}
+		@ allocate actual heap/bss
+			@ MEMOP COMMIT
+			ldr r0, =0x3
+			@ addr0
+			mov r1, #0x08000000
+			@ addr1
+			mov r2, #0
+			@ size
+			ldr r3, =_heap_size
+			ldr r3, [r3]
+			@ RW permissions
+			mov r4, #3
+
+			@ svcControlMemory
+			svc 0x01
+
+			@ save heap address
+			mov r1, #0x08000000
+			ldr r2, =_heap_base
+			str r1, [r2]
+
+		@ free placeholder
+			@ MEMOP FREE
+			ldr r0, =0x1
+			@ addr0
+			mov r1, #0x09000000
+			@ addr1
+			mov r2, #0
+			@ size
+			mov r3, r5
+			@ RW permissions
+			mov r4, #3
+
+			@ svcControlMemory
+			svc 0x01
+
+	ldmfd sp!, {r0, r1, r2, r3, r4, r5}
 
 	@ store r8 to pass preserved stack argument
 	str r9, [sp, #-4]!
@@ -149,6 +185,12 @@ svc_queryMemory:
 	add  sp, sp, #8
 	pop  {r4-r6}
 	bx   lr
+
+.global svc_setThreadPriority
+.type svc_setThreadPriority, %function
+svc_setThreadPriority:
+	svc 0x0C
+	bx  lr
 
 .global svc_duplicateHandle
 .type svc_duplicateHandle, %function

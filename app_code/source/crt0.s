@@ -38,23 +38,22 @@ _start:
 		@ svcControlMemory
 		svc 0x01
 
-		@ save heap address
-		mov r1, #0x08000000
-		ldr r2, =_heap_base
-		str r1, [r2]
-
 	ldmfd sp!, {r0, r1, r2, r3, r4}
 
-	@ ldr r0, =_bss_start
-	@ ldr r1, =_bss_end
-	@ mov r2, #0
+	ldr r0, =_bss_start
+	ldr r1, =_bss_end
+	mov r2, #0
 
-	@ _clear_bss_loop:
-	@ 	str r2, [r0], #4
-	@ 	cmp r0, r1
-	@ 	blt _clear_bss_loop
+	_clear_bss_loop:
+		@ str r2, [r0], #4
+		add r0, #4
+		cmp r0, r1
+		blt _clear_bss_loop
 
-	# blx __libc_init_array
+	@ save heap address
+	mov r1, #0x08000000
+	ldr r2, =_heap_base
+	str r1, [r2]
 
 	mov r0, #0
 	mov r1, #0
