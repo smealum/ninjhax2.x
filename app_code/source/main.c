@@ -10,6 +10,7 @@
 #include "text.h"
 
 #include "../../build/constants.h"
+#include "../../app_targets/app_targets.h"
 
 int _strcmp(char*, char*);
 
@@ -314,6 +315,9 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 
 #define APP_START_LINEAR 0xBABE0002
 
+// const u32 customProcessBuffer[0x40] = {0xBABE0006};
+// volatile memorymap_t* const customProcessMap = (memorymap_t*)customProcessBuffer;
+
 extern u32* _bootloaderAddress;
 
 void receive_handle(Handle* out, char* name)
@@ -330,9 +334,10 @@ void receive_handle(Handle* out, char* name)
 		cnt++;
 	}
 
-	append_str("\ngot handle : ");
-	append_str((char*)outbuf); append_str("\n");
 	print_hex(*out);
+	append_str(", ");
+	append_str((char*)outbuf);
+	append_str("\n");
 }
 
 static int decode_utf8(u32 *out, const char *in)
@@ -504,7 +509,7 @@ void _main()
 
 	resetConsole();
 	print_str("hello\n");
-	print_hex(_bootloaderAddress);
+	print_hex((u32)_bootloaderAddress);
 
 	__apt_initservicehandle();
 	print_str(", "); print_hex(_aptuHandle);
@@ -512,7 +517,7 @@ void _main()
 	svc_closeHandle(_aptuHandle);
 
 	print_str("\ngot APT:A lock handle ?\n");
-	print_hex(ret); print_str(", "); print_hex(_aptLockHandle);
+	print_hex(ret); print_str(", "); print_hex(_aptLockHandle); print_str("\n");
 
 	receive_handle(&fsuHandle, "fs:USER");
 	receive_handle(&nssHandle, "ns:s");
@@ -525,6 +530,21 @@ void _main()
 	receive_handle(&hbmem0Handle, "hb:mem0");
 	receive_handle(&hbndspHandle, "hb:ndsp");
 	receive_handle(&hbkillHandle, "hb:kill");
+
+	// print_hex(customProcessMap->header.num);
+	// print_str(" ");
+	// print_hex(customProcessMap->header.processLinearOffset);
+	// print_str("\n");
+	// int i = 0;
+	// for(i = 0; i < customProcessMap->header.num; i++)
+	// {
+	// 	print_hex(customProcessMap->map[i].src);
+	// 	print_str(" ");
+	// 	print_hex(customProcessMap->map[i].dst);
+	// 	print_str(" ");
+	// 	print_hex(customProcessMap->map[i].size);
+	// 	print_str("\n");
+	// }
 
 	// copy bootloader code
 	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);

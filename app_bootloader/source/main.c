@@ -41,6 +41,13 @@ size_t strlen(const char *str)
 	return len;
 }
 
+void *memset(void *s, int c, size_t n)
+{
+	int i;
+	for(i = 0; i < n; i++) ((u8*)s)[i] = c;
+	return s;
+}
+
 void gspGpuInit()
 {
 	gspInit();
@@ -417,7 +424,7 @@ void patchMenuRop(int processId, u32* argbuf, u32 argbuflength)
 	svc_sleepThread(20*1000*1000);
 }
 
-const u32 customProcessBuffer[0x40] = {0xBABE0006};
+const u32 customProcessBuffer[0x80] = {0xBABE0006};
 memorymap_t* const customProcessMap = (memorymap_t*)customProcessBuffer;
 
 void run3dsx(Handle executable, u32* argbuf)
@@ -466,7 +473,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	if(*targetProcessIndex == -2)
 	{
 		// create local copy of process map
-		u32 _customProcessBuffer[0x40];
+		u32 _customProcessBuffer[0x80];
 		memorymap_t* const _customProcessMap = (memorymap_t*)_customProcessBuffer;
 		memcpy(_customProcessBuffer, customProcessBuffer, sizeof(_customProcessBuffer));
 
