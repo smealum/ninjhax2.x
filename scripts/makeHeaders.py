@@ -37,12 +37,12 @@ l+=[("FIRM_VERSION", "\""+sys.argv[1]+"\""),
 	("REGION", "\""+sys.argv[6]+"\""),
         ("REGION_ID", str({"J" : 0, "U" : 1, "E" : 2, "K": 5}[sys.argv[6]])),
 	("IS_N3DS", str(1 if sys.argv[1][0:4] == "N3DS" else 0)),
-	("CN_NINJHAX_URL", "\"http://192.168.0.106:8000/\""),
-	# ("CN_NINJHAX_URL", "\"http://smealum.github.io/ninjhax2/JL1Xf2KFVm/p/\""),
+	# ("CN_NINJHAX_URL", "\"http://192.168.109.1:8000/\""),
+	("CN_NINJHAX_URL", "\"http://smealum.github.io/ninjhax2/JL1Xf2KFVm/beta/p/\""),
 	("OUTNAME", "\""+sys.argv[7]+"\"")]
 l+=[("CN_%s" % sys.argv[2], "1")]
 l+=[("BUILDTIME", "\""+datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"\"")]
-l+=[("HAX_NAME_VERSION", "\"*hax 2.7 gamma\"")]
+l+=[("HAX_NAME_VERSION", "\"*hax 2.8 beta\"")]
 l+=[("HB_NUM_HANDLES", "16")]
 
 for fn in sys.argv[9:]:

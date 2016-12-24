@@ -34,7 +34,7 @@ void gspGpuInit()
 
 	Result ret = GSPGPU_AcquireRight(NULL, 0x0);
 	if(ret)*(u32*)0xBADBABE0 = ret;
-	GSPGPU_SetLcdForceBlack(NULL, 0x0);
+	// GSPGPU_SetLcdForceBlack(NULL, 0x0);
 
 	//set subscreen to blue
 	u32 regData=0x01FF0000;
@@ -59,10 +59,10 @@ void gspGpuInit()
 	low_framebuffer = &gspHeap[0x46500];
 
 	GSP_FramebufferInfo topfb = (GSP_FramebufferInfo){0, (u32*)top_framebuffer, (u32*)top_framebuffer, 240 * 3, (1<<8)|(1<<6)|1, 0, 0};
-	GSP_FramebufferInfo lowfb = (GSP_FramebufferInfo){0, (u32*)low_framebuffer, (u32*)low_framebuffer, 240 * 3, 1, 0, 0};
+	// GSP_FramebufferInfo lowfb = (GSP_FramebufferInfo){0, (u32*)low_framebuffer, (u32*)low_framebuffer, 240 * 3, 1, 0, 0};
 	
 	GSPGPU_SetBufferSwap(NULL, 0, &topfb);
-	GSPGPU_SetBufferSwap(NULL, 1, &lowfb);
+	// GSPGPU_SetBufferSwap(NULL, 1, &lowfb);
 }
 
 void gspGpuExit()
@@ -180,7 +180,7 @@ typedef struct {
 	struct {
 		char name[8];
 		Handle handle;
-	} services[11];
+	} services[12];
 } nonflexible_service_list_t;
 
 Handle _aptLockHandle, _aptuHandle;
@@ -337,7 +337,7 @@ void receive_handle(Handle* out, char* name)
 	print_hex(*out);
 	append_str(", ");
 	append_str((char*)outbuf);
-	append_str("\n");
+	print_str("\n");
 }
 
 static int decode_utf8(u32 *out, const char *in)
@@ -499,8 +499,8 @@ size_t strlen(const char *str)
 void _main()
 {
 	Result ret;
-	Handle hbSpecialHandle, fsuHandle, nssHandle, irrstHandle, amsysHandle;
-	Handle ptmsysmHandle, gsplcdHandle, nwmextHandle, newssHandle, hbmem0Handle, hbndspHandle, hbkillHandle;
+	Handle fsuHandle, nssHandle, irrstHandle, amsysHandle;
+	Handle ptmsysmHandle, gsplcdHandle, nwmextHandle, newssHandle, hbmem0Handle, hbndspHandle, hbkillHandle, bosspHandle;
 
 	initSrv();
 	srv_RegisterClient(NULL);
@@ -508,7 +508,7 @@ void _main()
 	gspGpuInit();
 
 	resetConsole();
-	print_str("hello\n");
+	print_str("hi\n");
 	print_hex((u32)_bootloaderAddress);
 
 	__apt_initservicehandle();
@@ -516,7 +516,7 @@ void _main()
 	ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
 	svc_closeHandle(_aptuHandle);
 
-	print_str("\ngot APT:A lock handle ?\n");
+	print_str("\nAPT:A\n");
 	print_hex(ret); print_str(", "); print_hex(_aptLockHandle); print_str("\n");
 
 	receive_handle(&fsuHandle, "fs:USER");
@@ -530,6 +530,7 @@ void _main()
 	receive_handle(&hbmem0Handle, "hb:mem0");
 	receive_handle(&hbndspHandle, "hb:ndsp");
 	receive_handle(&hbkillHandle, "hb:kill");
+	receive_handle(&bosspHandle, "boss:P");
 
 	// print_hex(customProcessMap->header.num);
 	// print_str(" ");
@@ -556,7 +557,7 @@ void _main()
 	// setup service list structure
 	*(nonflexible_service_list_t*)(&gspHeap[0x00100000] + 0x4 * 8) =
 		(nonflexible_service_list_t)
-		{11,
+		{12,
 			{
 				{"fs:USER", fsuHandle},
 				{"ns:s", nssHandle},
@@ -568,7 +569,8 @@ void _main()
 				{"news:s", newssHandle},
 				{"hb:mem0", hbmem0Handle},
 				{"hb:ndsp", hbndspHandle},
-				{"hb:kill", hbkillHandle}
+				{"hb:kill", hbkillHandle},
+				{"boss:P", bosspHandle}
 			}
 		};
 

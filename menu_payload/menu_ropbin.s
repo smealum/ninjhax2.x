@@ -191,6 +191,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbMem0String, MENU_SHAREDMEMBLOCK_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbNdspString, MENU_SHAREDDSPBLOCK_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + hbKillString, MENU_EVENTHANDLE_PTR
+			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + bosspString, (MENU_BOSSP_HANDLE_MINUS_0x18 + 0x18)
 
 		; jump to wait loop
 			jump_sp WAITLOOP_DST
@@ -279,6 +280,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		.byte 0x00
 	hbKillString:
 		.ascii "hb:kill"
+		.byte 0x00
+	bosspString:
+		.ascii "boss:P"
+		.byte 0x00
 		.byte 0x00
 
 	.align 0x4

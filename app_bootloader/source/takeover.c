@@ -242,7 +242,7 @@ Result NS_LaunchTitle(u64 titleid, u32 launch_flags, u32 *procid)
 }
 
 u32 linear_heap = 0;
-const u32 linear_size = 0x02000000;
+const u32 linear_size = 0x00100000;
 extern u32* gxCmdBuf;
 extern u32 _appCodeAddress;
 
@@ -262,9 +262,15 @@ bool isFirstPage(u32* page)
 extern memorymap_t* const customProcessMap;
 extern const u32 _APP_START_LINEAR;
 
+void initDebug();
+void debugU32(u32 val);
+void debugDump(void* data, u32 len);
+
 void supertothread(superto_param_s* p)
 {
 	while(p->syncval == 0);
+
+	debugU32(0xdead);
 
 	s64 used_size = 0;
 	svc_getSystemInfo(&used_size, 0, 1);
@@ -274,42 +280,87 @@ void supertothread(superto_param_s* p)
 	else p->launchret = NS_LaunchTitle(p->tid, 1, &p->procid);
 	if(p->launchret) *(u32*)0xbac00006 = p->launchret;
 
+	// {
+	// 	//set subscreen to white
+	// 	u32 regData=0x01FFFFFF;
+	// 	GSPGPU_WriteHWRegs(NULL, 0x202A04, &regData, 4);
+	// }
+
 	s64 new_used_size = 0;
 	svc_getSystemInfo(&new_used_size, 0, 1);
 
 	// u32 size_difference = new_used_size - used_size;
+
+	debugU32(new_used_size);
 	
 	new_used_size -= linear_size;
 	new_used_size -= _heap_size;
 	// printf("used_size %08x\n", (unsigned int)used_size);
 
+	debugU32(new_used_size);
+
+	const u32 block_size = 0x00100000;
+	// const u32 block_size = 0x1000;
+
 	if(!p->launchret)
 	{
-		u32 base_addr = 0x30000000 + FIRM_APPMEMALLOC - new_used_size;
-
-		u32 buffer_size = new_used_size;
+		// u32 buffer_size = new_used_size;
+		u32 buffer_size = 0x02000000;
 		u32* linear_buffer = (u32*)linear_heap;
-		
-		GX_SetTextureCopy(gxCmdBuf, (void*)base_addr, 0, (void*)linear_buffer, 0, buffer_size, 0x8);
 
-		svc_sleepThread(100 * 1000 * 1000);
-		Result ret = GSPGPU_InvalidateDataCache(NULL, (u8*)linear_buffer, buffer_size);
-		if(ret) *(u32*)0xbac00002 = ret;
+		debugU32(buffer_size);
+		debugU32(0x30000000 + FIRM_APPMEMALLOC - new_used_size);
+
+		bool found = false;
 
 		u32 next_unsafe_cursor = 0;
 
 		memorymap_t* const m = customProcessMap;
 
-		bool found = false;
+		u32 base_addr = 0x30000000 + FIRM_APPMEMALLOC - buffer_size;
+
+		// debugDump((void*)linear_buffer, block_size);
+		debugU32(base_addr);
+
+		u32 last_copy_addr = 0;
+
 		int i;
 		for(i = 0; i < buffer_size; i += 0x1000)
 		{
 			// get corresponding "physical" address for cursor
 			u32 addr = base_addr + i;
+			u32 buffer_cursor = i % block_size;
+			u32 block_addr = addr - buffer_cursor;
+			bool copy = (buffer_cursor == 0) || ((block_addr - last_copy_addr) >= block_size);
+
+			if(copy)
+			{
+				// copy changes out first
+				if(last_copy_addr)
+				{
+					Result ret = GSPGPU_FlushDataCache(NULL, (u8*)linear_buffer, block_size);
+					if(ret) *(u32*)0xbac00003 = ret;
+
+					GX_SetTextureCopy(gxCmdBuf, (void*)linear_buffer, 0, (void*)last_copy_addr, 0, block_size, 0x8);
+					
+					svc_sleepThread(10 * 1000);
+				}
+
+				// then get the new block
+				GX_SetTextureCopy(gxCmdBuf, (void*)block_addr, 0, (void*)linear_buffer, 0, block_size, 0x8);
+
+				svc_sleepThread(10 * 1000);
+
+				Result ret = GSPGPU_InvalidateDataCache(NULL, (u8*)linear_buffer, block_size);
+				if(ret) *(u32*)0xbac00002 = ret;
+
+				last_copy_addr = block_addr;
+			}
 
 			// check if the address falls within our current process's mmap
 			// if it does, skip ahead
 			// if it doesn't, then update next_unsafe_cursor
+			// NOTE: this will never update i without skipping the current loop iteration
 			if(i >= next_unsafe_cursor)
 			{
 				int j;
@@ -332,10 +383,10 @@ void supertothread(superto_param_s* p)
 				else next_unsafe_cursor = next_unsafe_addr + i - addr;
 			}
 
-			if(isFirstPage(&linear_buffer[i / 4]))
+			if(isFirstPage(&linear_buffer[buffer_cursor / 4]))
 			{
 				// printf("found it %08X\n", (unsigned int)addr);
-				void* dst_buffer = &linear_buffer[i / 4];
+				void* dst_buffer = &linear_buffer[buffer_cursor / 4];
 				memcpy(dst_buffer, p->payload, p->payload_size);
 				*(u32*)(dst_buffer + 4) = _appCodeAddress;
 				*(u32*)(dst_buffer + 8) = p->tid & 0xffffffff; // _tidLow
@@ -343,18 +394,21 @@ void supertothread(superto_param_s* p)
 				*(u32*)(dst_buffer + 16) = p->mediatype; // _mediatype
 				found = true;
 			}
-			linear_buffer[(i + 0x1000) / 4 - 1] = addr;
+			linear_buffer[(buffer_cursor + 0x1000) / 4 - 1] = addr;
 		}
 
-		if(!found) *(u32*)0xbac00007 = base_addr;
+		// copy changes to last block
+		if(last_copy_addr)
+		{
+			Result ret = GSPGPU_FlushDataCache(NULL, (u8*)linear_buffer, block_size);
+			if(ret) *(u32*)0xbac00003 = ret;
 
-		// memset(linear_buffer, 0xff, 0x200);
-		ret = GSPGPU_FlushDataCache(NULL, (u8*)linear_buffer, buffer_size);
-		if(ret) *(u32*)0xbac00003 = ret;
-		// printf("ret %08X %08X %08X\n", (unsigned int)ret, (unsigned int)i, (unsigned int)buffer_size);
-		GX_SetTextureCopy(gxCmdBuf, (void*)linear_buffer, 0, (void*)base_addr, 0, buffer_size, 0x8);
-		
-		svc_sleepThread(100 * 1000 * 1000);
+			GX_SetTextureCopy(gxCmdBuf, (void*)linear_buffer, 0, (void*)last_copy_addr, 0, block_size, 0x8);
+			
+			svc_sleepThread(10 * 1000);
+		}
+
+		if(!found) *(u32*)0xbac00007 = buffer_size;
 	}
 
 	// free linear heap before app_payload starts running
@@ -418,29 +472,6 @@ Result _APT_SendParameter(Handle* handle, u32 src_appID, u32 dst_appID, u32 buff
 	return cmdbuf[1];
 }
 
-Result _APT_GlanceParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buffer, u32* actualSize, u8* signalType, Handle* outhandle)
-{
-	if(!handle)handle=&_aptuHandle;
-	
-	u32* cmdbuf=getThreadCommandBuffer();
-
-	cmdbuf[0]=0x000E0080; //request header code
-	cmdbuf[1]=appID;
-	cmdbuf[2]=bufferSize;
-	
-	cmdbuf[0+0x100/4]=(bufferSize<<14)|2;
-	cmdbuf[1+0x100/4]=(u32)buffer;
-	
-	Result ret=0;
-	if((ret=svc_sendSyncRequest(*handle)))return ret;
-
-	if(signalType)*signalType=cmdbuf[3];
-	if(actualSize)*actualSize=cmdbuf[4];
-	if(outhandle)*outhandle=cmdbuf[6];
-
-	return cmdbuf[1];
-}
-
 void wait_for_parameter_and_send(Handle handle, char* name)
 {
 	Result ret = 1;
@@ -461,8 +492,15 @@ void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 	_aptOpenSession();
 	APT_SetAppCpuTimeLimit(NULL, 5);
 	_aptCloseSession();
+
+	initDebug();
 	
-	svc_controlMemory(&linear_heap, 0x0, 0x0, linear_size, 0x10003, 0x3);
+	Result ret = svc_controlMemory(&linear_heap, 0x0, 0x0, linear_size, 0x10003, 0x3);
+	
+	debugU32(0xf00dfade);
+	debugU32(ret);
+	debugU32(linear_heap);
+	debugU32(linear_size);
 
 	// copy parameter block
 	{
@@ -486,6 +524,12 @@ void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 		param.mediatype = mediatype;
 		param.payload = (void*)app_payload_bin;
 		param.payload_size = app_payload_bin_size;
+		
+		// {
+		// 	//set subscreen to yellow
+		// 	u32 regData=0x0100FFFF;
+		// 	GSPGPU_WriteHWRegs(NULL, 0x202A04, &regData, 4);
+		// }
 
 		Handle threadHandle = 0;
 		Result ret = svc_createThread(&threadHandle, (ThreadFunc)supertothread, (u32)&param, (u32*)(superto_thread_stack + sizeof(superto_thread_stack)), 0x20, 1);

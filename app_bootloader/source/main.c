@@ -32,6 +32,13 @@ char *strcpy(char *dest, const char *src)
 	return dest;
 }
 
+int strcmp(const char *s1, const char *s2s)
+{
+	while(*s2s || *s1) if(*s1++ != *s2s++) return 1;
+	
+	return 0;
+}
+
 size_t strlen(const char *str)
 {
 	size_t len = 0;
@@ -538,6 +545,36 @@ void runHbmenu()
 	Result ret = FSUSER_OpenFileDirectly(fsuHandle, &fileHandle, sdmcArchive, filePath, FS_OPEN_READ, FS_ATTRIBUTE_NONE);
 
 	run3dsx(fileHandle, NULL);
+}
+
+Handle debugHandle = 0;
+u32 debugOffset = 0;
+
+void initDebug()
+{
+	// // grab fs:USER handle
+	// int i;
+	// Handle fsuHandle = 0x0;
+	// for(i=0; i<_serviceList.num; i++)if(!strcmp(_serviceList.services[i].name, "fs:USER"))fsuHandle=_serviceList.services[i].handle;
+	// if(!fsuHandle)*(u32*)0xCAFE0002=0;
+
+	// FS_archive sdmcArchive = (FS_archive){0x9, (FS_path){PATH_EMPTY, 1, (u8*)""}};
+	// FS_path filePath = (FS_path){PATH_CHAR, 11, (u8*)"/debug.bin"};
+	// Result ret = FSUSER_OpenFileDirectly(fsuHandle, &debugHandle, sdmcArchive, filePath, FS_OPEN_WRITE | FS_OPEN_CREATE, FS_ATTRIBUTE_NONE);
+}
+
+void debugU32(u32 val)
+{
+	// u32 bytes = 0;
+	// FSFILE_Write(debugHandle, &bytes, debugOffset, &val, sizeof(val), 0x10001);
+	// debugOffset += sizeof(val);
+}
+
+void debugDump(void* data, u32 len)
+{
+	// u32 bytes = 0;
+	// FSFILE_Write(debugHandle, &bytes, debugOffset, data, len, 0x10001);
+	// debugOffset += len;
 }
 
 extern Handle gspGpuHandle;

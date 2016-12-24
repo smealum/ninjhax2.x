@@ -221,20 +221,3 @@ svc_getResourceLimitLimitValues:
 svc_getResourceLimitCurrentValue:
 	svc 0x3a
 	bx lr
-
-.global _invalidate_icache
-.type _invalidate_icache, %function
-_invalidate_icache:
-	cpsid i
-
-	mov r0, #0
-	mcr p15, 0, r0, c7, c5, 0
-	mcr p15, 0, r0, c7, c6, 0
-
-	bx lr
-
-.global svc_backdoor
-.type svc_backdoor, %function
-svc_backdoor:
-	svc 0x7B
-	bx lr

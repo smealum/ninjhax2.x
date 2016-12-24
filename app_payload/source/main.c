@@ -39,7 +39,7 @@ static void gspGpuInit()
 
 	GSPGPU_AcquireRight(NULL, 0x0);
 
-	//set subscreen to red
+	//set subscreen to green
 	u32 regData = 0x0100FF00;
 	GSPGPU_WriteHWRegs(NULL, 0x202A04, &regData, 4);
 
