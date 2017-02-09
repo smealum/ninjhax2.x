@@ -55,6 +55,9 @@ void *memset(void *s, int c, size_t n)
 	return s;
 }
 
+Result mapHbMem0();
+Result unmapHbMem0();
+
 void gspGpuInit()
 {
 	gspInit();
@@ -412,11 +415,14 @@ void patchMenuRop(int processId, u32* argbuf, u32 argbuflength)
 	svc_sleepThread(50*1000*1000);
 
 	// copy parameter block
-	if(argbuf)memcpy(&gspHeap[0x00200000], argbuf, argbuflength);
-	else memset(&gspHeap[0x00200000], 0x00, MENU_PARAMETER_SIZE);
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], MENU_PARAMETER_SIZE);
-	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
-	svc_sleepThread(20*1000*1000);
+	if(!mapHbMem0())
+	{
+		memset((void*)HB_MEM0_PARAMBLK_ADDR, 0x00, MENU_PARAMETER_SIZE);
+		
+		if(argbuf) memcpy((void*)HB_MEM0_PARAMBLK_ADDR, argbuf, argbuflength);
+		
+		unmapHbMem0();
+	}
 }
 
 const u32 customProcessBuffer[0x80] = {0xBABE0006};
@@ -654,6 +660,18 @@ Handle getStolenHandle(char* name)
 	}
 	
 	return 0;
+}
+
+Result mapHbMem0()
+{
+	// map hb:mem0 to grab what menu wants to send us
+	return svc_mapMemoryBlock(getStolenHandle("hb:mem0"), HB_MEM0_ADDR, 0x3, 0x3);
+}
+
+Result unmapHbMem0()
+{	
+	// unmap hb:mem0
+	return svc_unmapMemoryBlock(getStolenHandle("hb:mem0"), HB_MEM0_ADDR);
 }
 
 void runTitleCustom(u8 mediatype, u32* argbuf, u32 argbuflength, u32 tid_low, u32 tid_high, memorymap_t* _mmap)

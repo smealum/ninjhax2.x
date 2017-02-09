@@ -82,3 +82,27 @@ svc_getResourceLimitLimitValues:
 svc_getResourceLimitCurrentValue:
 	svc 0x3a
 	bx lr
+
+.thumb
+@ dont care about order, just want to know if same or not
+@ ret 0 if identical, index of first difference + 1 if not
+.global _strcmp
+.thumb_func
+_strcmp:
+	mov r3, #0
+__strcmp:
+	add r3, #1
+	ldrb r2, [r1]
+	mov r12, r2
+	ldrb r2, [r0]
+	add r0, #1
+	add r1, #1
+	cmp r2, r12
+	beq _strcmp_eq
+	mov r0, r3
+	bx lr
+	_strcmp_eq:
+	cmp r2, #0
+	bne __strcmp
+	mov r0, #0
+	bx lr

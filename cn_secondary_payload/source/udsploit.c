@@ -219,7 +219,7 @@ Result udsploit()
 
 	// printf("udsploit: UDS_Bind\n");
 	u32 BindNodeID = 1;
-	ret = UDS_Bind(&udsHandle, BindNodeID, 0x600, 1, 0);
+	ret = UDS_Bind(&udsHandle, BindNodeID, 0xFF0, 1, 0);
 	if(ret) goto fail;
 
 	{

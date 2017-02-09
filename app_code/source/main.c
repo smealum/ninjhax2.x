@@ -551,8 +551,8 @@ void _main()
 	svc_mapMemoryBlock(hbmem0Handle, HB_MEM0_ADDR, 0x3, 0x3);
 
 	// copy bootloader code
-	memcpy((u32*)&gspHeap[0x00100000], (void*)HB_MEM0_BOOTLDR_ADDR, 0x00005000);
-
+	memcpy((u32*)&gspHeap[0x00100000], (void*)_bootloaderAddress, 0x00005000);
+	
 	// grab parameter block while we're at it...
 	u32 argbuffer[MENU_PARAMETER_SIZE/4];
 	memcpy(argbuffer, (void*)HB_MEM0_PARAMBLK_ADDR, MENU_PARAMETER_SIZE);

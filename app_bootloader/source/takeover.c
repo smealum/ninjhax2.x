@@ -485,6 +485,9 @@ void wait_for_parameter_and_send(Handle handle, char* name)
 	}
 }
 
+Result mapHbMem0();
+Result unmapHbMem0();
+
 void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 {
 	__apt_initservicehandle();
@@ -503,13 +506,13 @@ void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 	debugU32(linear_size);
 
 	// copy parameter block
+	if(!mapHbMem0())
 	{
-		if(argbuf) memcpy((void*)linear_heap, argbuf, argbuflength);
-		else memset((void*)linear_heap, 0x00, MENU_PARAMETER_SIZE);
+		memset((void*)HB_MEM0_PARAMBLK_ADDR, 0x00, MENU_PARAMETER_SIZE);
 
-		GSPGPU_FlushDataCache(NULL, (u8*)linear_heap, MENU_PARAMETER_SIZE);
-		doGspwn((u32*)(linear_heap), (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
-		svc_sleepThread(20*1000*1000);
+		if(argbuf) memcpy((void*)HB_MEM0_PARAMBLK_ADDR, argbuf, argbuflength);
+		
+		unmapHbMem0();
 	}
 
 	// set max priority on current thread
@@ -548,6 +551,8 @@ void superto(u64 tid, u32 mediatype, u32* argbuf, u32 argbuflength)
 	_aptCloseSession();
 
 	gspGpuExit();
+
+	wait_for_parameter_and_send(getStolenHandle("hb:mem0"), "hb:mem0");
 
 	int i;
 	for(i = 0; i < _serviceList.num; i++) wait_for_parameter_and_send(_serviceList.services[i].handle, _serviceList.services[i].name);

@@ -26,8 +26,10 @@ APP_START_LINEAR equ 0xBABE0002
 
 GPU_REG_BASE equ 0x1EB00000
 
-WAITLOOP_DST equ (MENU_LOADEDROP_BUFADR - (waitLoop_end - waitLoop_start))
-WAITLOOP_OFFSET equ (- waitLoop_start - (waitLoop_end - waitLoop_start))
+; WAITLOOP_DST equ (MENU_LOADEDROP_BUFADR - (waitLoop_end - waitLoop_start))
+; WAITLOOP_OFFSET equ (- waitLoop_start - (waitLoop_end - waitLoop_start))
+WAITLOOP_DST equ (HB_MEM0_WAITLOOP_TOP_ADDR - (waitLoop_end - waitLoop_start))
+WAITLOOP_OFFSET equ (- waitLoop_start + WAITLOOP_DST - MENU_LOADEDROP_BUFADR)
 
 MENU_SCREENSHOTS_FILEOBJECT equ (MENU_LOADEDROP_BUFADR + screenshots_obj)
 MENU_SHAREDMEMBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + sharedmemAddress) ; in BKP because we want it to persist
@@ -40,7 +42,8 @@ MENU_SHAREDDSPBLOCK_HANDLE equ (MENU_LOADEDROP_BKP_BUFADR + shareddspHandle) ; i
 HB_DSP_SIZE equ ((MENU_DSP_BINARY_SIZE + 0xfff) & 0xfffff000)
 HB_DSP_ADDR equ (HB_MEM0_ADDR - HB_DSP_SIZE)
 
-DUMMY_PTR equ (WAITLOOP_DST - 4)
+; DUMMY_PTR equ (WAITLOOP_DST - 4)
+DUMMY_PTR equ (MENU_LOADEDROP_BUFADR - 4)
 
 .include "menu_include.s"
 .include "app_code_reloc.s"
@@ -54,10 +57,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 			writehwreg 0x202A04, 0x01FFFFFF
 
 		; do some permanent relocs to app_code and app_bootloader
-			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_LOADEDROP_BKP_BUFADR + appCode + 0x4
-			store MENU_LOADEDROP_BUFADR + appCode - object, MENU_LOADEDROP_BKP_BUFADR + appBootloader + 0x4 * 7
-			store MENU_LOADEDROP_BUFADR + appBootloader - object, MENU_LOADEDROP_BUFADR + appCode + 0x4
-			store MENU_LOADEDROP_BUFADR + appCode - object, MENU_LOADEDROP_BUFADR + appBootloader + 0x4 * 7
+			store HB_MEM0_ROPBIN_ADDR + appBootloader - object, MENU_LOADEDROP_BKP_BUFADR + appCode + 0x4
+			store HB_MEM0_ROPBIN_ADDR + appCode - object, MENU_LOADEDROP_BKP_BUFADR + appBootloader + 0x4 * 7
+			store HB_MEM0_ROPBIN_ADDR + appBootloader - object, MENU_LOADEDROP_BUFADR + appCode + 0x4
+			store HB_MEM0_ROPBIN_ADDR + appCode - object, MENU_LOADEDROP_BUFADR + appBootloader + 0x4 * 7
 
 		; looks like this is actually not needed
 		; plug dsp handle leak
@@ -120,6 +123,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 
 				create_event MENU_EVENTHANDLE_PTR, 0
 
+			; memcpy ropbins into hb:mem0
+				memcpy HB_MEM0_ROPBIN_ADDR, MENU_LOADEDROP_BUFADR, 0x8000, 0, 0
+				memcpy HB_MEM0_ROPBIN_BKP_ADDR, MENU_LOADEDROP_BKP_BUFADR, 0x8000, 0, 0
+
 			; overwrite jump_sp APT_TitleLaunch's destination
 				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
 
@@ -180,11 +187,10 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; do it before sending handles because bootloader overwrites the ropbin, so let's avoid a race condition !
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
 
-		; memcpy bootloader into hb:mem0
-			memcpy HB_MEM0_BOOTLDR_ADDR, MENU_LOADEDROP_BUFADR + appBootloader - object, appBootloader_end - appBootloader, 0, 0
-
-		; memcpy parameter block into hb:mem0
-			memcpy HB_MEM0_PARAMBLK_ADDR, MENU_PARAMETER_BUFADR, MENU_PARAMETER_SIZE, 0, 0
+		; so actually from now on it'll just be bootloader that's responsible for populating param block in hb:mem0
+		; since initially it's all 00s anyway we're good, never need this memcpy
+		; ; memcpy parameter block into hb:mem0
+		; 	memcpy HB_MEM0_PARAMBLK_ADDR, MENU_PARAMETER_BUFADR, MENU_PARAMETER_SIZE, 0, 0
 
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + fsUserString, MENU_FS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + nssString, MENU_NSS_HANDLE

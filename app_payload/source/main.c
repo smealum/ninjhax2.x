@@ -33,6 +33,8 @@ const u32 process_base = 0x00100000;
 u32* gxCmdBuf;
 Handle gspEvent, gspSharedMemHandle;
 
+int _strcmp(char*, char*);
+
 static void gspGpuInit()
 {
 	gspInit();
@@ -136,6 +138,95 @@ size_t strlen(const char *str)
 	return len;
 }
 
+Handle _aptLockHandle, _aptuHandle;
+
+const char * const __apt_servicenames[3] = {"APT:U", "APT:S", "APT:A"};
+char *__apt_servicestr = NULL;
+
+static Result __apt_initservicehandle()
+{
+	Result ret=0;
+	u32 i;
+
+	if(__apt_servicestr)
+	{
+		return srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
+	}
+
+	for(i=0; i<3; i++)
+	{
+		ret = srv_getServiceHandle(NULL, &_aptuHandle, (char*)__apt_servicenames[i]);
+		if(ret==0)
+		{
+			__apt_servicestr = (char*)__apt_servicenames[i];
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+void _aptOpenSession()
+{
+	svc_waitSynchronization1(_aptLockHandle, U64_MAX);
+	srv_getServiceHandle(NULL, &_aptuHandle, __apt_servicestr);
+}
+
+void _aptCloseSession()
+{
+	svc_closeHandle(_aptuHandle);
+	svc_releaseMutex(_aptLockHandle);
+}
+
+Result _APT_GetLockHandle(Handle* handle, u16 flags, Handle* lockHandle)
+{
+	if(!handle)handle=&_aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0x10040; //request header code
+	cmdbuf[1]=flags;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+	
+	if(lockHandle)*lockHandle=cmdbuf[5];
+	
+	return cmdbuf[1];
+}
+
+Result _APT_ReceiveParameter(Handle* handle, u32 appID, u32 bufferSize, u32* buffer, Handle* outhandle)
+{
+	if(!handle)handle=&_aptuHandle;
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0]=0xD0080; //request header code
+	cmdbuf[1]=appID;
+	cmdbuf[2]=bufferSize;
+	
+	cmdbuf[0+0x100/4]=(bufferSize<<14)|2;
+	cmdbuf[1+0x100/4]=(u32)buffer;
+	
+	Result ret=0;
+	if((ret=svc_sendSyncRequest(*handle)))return ret;
+
+	if(outhandle)*outhandle=cmdbuf[6];
+
+	return cmdbuf[1];
+}
+
+void receive_handle(Handle* out, char* name)
+{
+	u32 outbuf[3] = {0,0,0};
+	Result ret = 1;
+	int cnt = 0;
+	while(ret || _strcmp(name, (char*)outbuf))
+	{
+		svc_sleepThread(1*1000*1000);
+		_aptOpenSession();
+		ret = _APT_ReceiveParameter(NULL, 0x101, 0x8, outbuf, out);
+		_aptCloseSession();
+		cnt++;
+	}
+}
+
 void _main()
 {	
 	// first figure out codebin size
@@ -191,6 +282,20 @@ void _main()
 
 	svc_controlMemory(&linear_heap, 0x0, 0x0, linear_size, 0x10003, 0x3);
 
+	// initialize APT
+	{
+		__apt_initservicehandle();
+		_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
+		svc_closeHandle(_aptuHandle);
+	}
+
+	// setup hb:mem0
+	Handle hbmem0Handle = 0;
+	{
+		receive_handle(&hbmem0Handle, "hb:mem0");
+		svc_mapMemoryBlock(hbmem0Handle, HB_MEM0_ADDR, 0x3, 0x3);
+	}
+
 	// fix up mmap
 	{
 		// shouldn't really matter, not used anywhere in bootloader?
@@ -218,29 +323,14 @@ void _main()
 
 	// apply relocations to ropbin
 	{
-		// first get original ropbin
-		GSPGPU_InvalidateDataCache(NULL, (u8*)(linear_heap), 0x8000);
-		doGspwn((u32*)(MENU_LOADEDROP_BKP_BUFADR), (u32*)(linear_heap), 0x8000);
-		svc_sleepThread(15 * 1000 * 1000);
-
-		// apply relocations
-		patchPayload((u32*)(linear_heap), -2, (memorymap_t*)&mmap);
-	
-		// finally copy ropbin back
-		GSPGPU_FlushDataCache(NULL, (u8*)(linear_heap), 0x8000);
-		doGspwn((u32*)(linear_heap), (u32*)(MENU_LOADEDROP_BUFADR), 0x8000);
-		svc_sleepThread(15 * 1000 * 1000);
+		memcpy((void*)HB_MEM0_ROPBIN_ADDR, (void*)HB_MEM0_ROPBIN_BKP_ADDR, 0x8000);
+		patchPayload((u32*)(HB_MEM0_ROPBIN_ADDR), -2, (memorymap_t*)&mmap);
 	}
 
 	// update ropbin tid
 	{
-		// first get original ropbin
-		GSPGPU_InvalidateDataCache(NULL, (u8*)(linear_heap), 0x200);
-		doGspwn((u32*)(MENU_LOADEDROP_BUFADR - 0x200), (u32*)(linear_heap), 0x200);
-		svc_sleepThread(15 * 1000 * 1000);
-
 		// patch it
-		u32* patchArea = (u32*)linear_heap;
+		u32* patchArea = (u32*)(HB_MEM0_WAITLOOP_TOP_ADDR - 0x200);
 		for(int i = 0; i < 0x200 / 4; i++)
 		{
 			if(patchArea[i] == 0xBABEBAD0)
@@ -250,43 +340,37 @@ void _main()
 				break;
 			}
 		}
-	
-		// finally copy ropbin back
-		GSPGPU_FlushDataCache(NULL, (u8*)(linear_heap), 0x200);
-		doGspwn((u32*)(linear_heap), (u32*)(MENU_LOADEDROP_BUFADR - 0x200), 0x200);
-		svc_sleepThread(15 * 1000 * 1000);
 	}
 
 	// place param block at MENU_PARAMETER_BUFADR (includes mmap)
 	{
-		u32* argbuffer = (u32*)linear_heap;
-
-		// first get previous argbuf
-		GSPGPU_InvalidateDataCache(NULL, (u8*)(argbuffer), MENU_PARAMETER_SIZE);
-		doGspwn((u32*)(MENU_PARAMETER_BUFADR), (u32*)(argbuffer), MENU_PARAMETER_SIZE);
-		svc_sleepThread(15 * 1000 * 1000);
+		u32* argbuffer = (u32*)HB_MEM0_PARAMBLK_ADDR;
 
 		// place memory map in there
 		argbuffer[0]++;
 		memorymap_t* m = getMmapArgbuf(argbuffer);
 		memcpy(m, &mmap, size_memmap(mmap));
-	
-		// finally copy the argbuf back
-		GSPGPU_FlushDataCache(NULL, (u8*)(argbuffer), MENU_PARAMETER_SIZE);
-		doGspwn((u32*)(argbuffer), (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
-		svc_sleepThread(15 * 1000 * 1000);
 	}
 
 	// grab post-relocation app_code so we can then jump to it
 	{
 		// write app_code to our process
-		writeCode((memorymap_t*)&mmap, app_code_dst, _appCodeAddress, app_code_size);
+		memcpy((void*)linear_heap, (void*)_appCodeAddress, app_code_size);
+		GSPGPU_FlushDataCache(NULL, (u8*)(linear_heap), app_code_size);
+		writeCode((memorymap_t*)&mmap, app_code_dst, linear_heap, app_code_size);
 		svc_sleepThread(50 * 1000 * 1000);
 	}
 
 	// clean things up
 	{
 		u32 tmp = 0;
+
+		// release hb:mem0
+		svc_unmapMemoryBlock(hbmem0Handle, HB_MEM0_ADDR);
+		svc_closeHandle(hbmem0Handle);
+
+		// release APT lock handle
+		svc_closeHandle(_aptLockHandle);
 
 		// release gsp stuff
 		gspGpuExit();
