@@ -50,6 +50,9 @@ for fn in sys.argv[9:]:
 	if len(s)>0:
 		l+=(ast.literal_eval(s))
 
+l+=[("HB_MEM0_BOOTLDR_ADDR", "HB_MEM0_ADDR")]
+l+=[("HB_MEM0_PARAMBLK_ADDR", "(HB_MEM0_ADDR + 0x5000)")]
+
 open(sys.argv[8]+".h","w").write(outputConstantsH(l))
 open(sys.argv[8]+".s","w").write(outputConstantsS(l))
 open(sys.argv[8]+".py","w").write(outputConstantsPY(l))

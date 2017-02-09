@@ -547,9 +547,18 @@ void _main()
 	// 	print_str("\n");
 	// }
 
+	// map hb:mem0 to grab what menu wants to send us
+	svc_mapMemoryBlock(hbmem0Handle, HB_MEM0_ADDR, 0x3, 0x3);
+
 	// copy bootloader code
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x00005000);
-	doGspwn(_bootloaderAddress, (u32*)&gspHeap[0x00100000], 0x00005000);
+	memcpy((u32*)&gspHeap[0x00100000], (void*)HB_MEM0_BOOTLDR_ADDR, 0x00005000);
+
+	// grab parameter block while we're at it...
+	u32 argbuffer[MENU_PARAMETER_SIZE/4];
+	memcpy(argbuffer, (void*)HB_MEM0_PARAMBLK_ADDR, MENU_PARAMETER_SIZE);
+
+	// unmap hb:mem0
+	svc_unmapMemoryBlock(hbmem0Handle, HB_MEM0_ADDR);
 
 	// sleep for 200ms
 	svc_sleepThread(100*1000*1000);
@@ -591,14 +600,6 @@ void _main()
 	// ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000003702LL, 100*1000*1000);
 	ret = NSS_TerminateProcessTID(&nssHandle, 0x0004013000002A02LL, 100*1000*1000);
 	if(ret)*(u32*)0xCAFE0009=ret;
-
-	// grab parameter block
-	GSPGPU_FlushDataCache(NULL, (u32*)&gspHeap[0x00100000], MENU_PARAMETER_SIZE);
-	doGspwn((u32*)(MENU_PARAMETER_BUFADR), (u32*)&gspHeap[0x00100000], MENU_PARAMETER_SIZE);
-	svc_sleepThread(20*1000*1000);
-
-	u32 argbuffer[MENU_PARAMETER_SIZE/4];
-	memcpy(argbuffer, &gspHeap[0x00100000], MENU_PARAMETER_SIZE);
 
 	gspGpuExit();
 	exitSrv();

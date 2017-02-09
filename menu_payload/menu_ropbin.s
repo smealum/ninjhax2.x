@@ -180,6 +180,12 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 		; do it before sending handles because bootloader overwrites the ropbin, so let's avoid a race condition !
 			memcpy WAITLOOP_DST, (MENU_OBJECT_LOC+waitLoop_start-object), (waitLoop_end-waitLoop_start), 0, 0
 
+		; memcpy bootloader into hb:mem0
+			memcpy HB_MEM0_BOOTLDR_ADDR, MENU_LOADEDROP_BUFADR + appBootloader - object, appBootloader_end - appBootloader, 0, 0
+
+		; memcpy parameter block into hb:mem0
+			memcpy HB_MEM0_PARAMBLK_ADDR, MENU_PARAMETER_BUFADR, MENU_PARAMETER_SIZE, 0, 0
+
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + fsUserString, MENU_FS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + nssString, MENU_NSS_HANDLE
 			wait_for_parameter_and_send MENU_LOADEDROP_BUFADR + irrstString, MENU_IRRST_HANDLE
@@ -654,6 +660,7 @@ DUMMY_PTR equ (WAITLOOP_DST - 4)
 	.align 0x20
 	appBootloader:
 		.incbin "app_bootloader.bin"
+	appBootloader_end:
 
 
 .Close
