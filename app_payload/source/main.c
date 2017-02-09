@@ -330,8 +330,9 @@ void _main()
 	// update ropbin tid
 	{
 		// patch it
-		u32* patchArea = (u32*)(HB_MEM0_WAITLOOP_TOP_ADDR - 0x200);
-		for(int i = 0; i < 0x200 / 4; i++)
+		const u32 patchAreaSize = 0x400;
+		u32* patchArea = (u32*)(HB_MEM0_WAITLOOP_TOP_ADDR - patchAreaSize);
+		for(int i = 0; i < patchAreaSize / 4; i++)
 		{
 			if(patchArea[i] == 0xBABEBAD0)
 			{

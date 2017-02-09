@@ -397,28 +397,22 @@ memorymap_t* getMmapArgbuf(u32* argbuffer, u32 argbuffer_length)
 
 void patchMenuRop(int processId, u32* argbuf, u32 argbuflength)
 {
-	// grab un-processed backup ropbin
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
-	doGspwn((u32*)MENU_LOADEDROP_BKP_BUFADR, (u32*)&gspHeap[0x00100000], 0x8000);
-	svc_sleepThread(50*1000*1000);
-
-	// patch it
-	if(processId == -2 && argbuf && argbuf[0] >= 2)
-	{
-		memorymap_t* mmap = getMmapArgbuf(argbuf, argbuflength);
-		patchPayload((u32*)&gspHeap[0x00100000], processId, mmap);
-	}else patchPayload((u32*)&gspHeap[0x00100000], processId, NULL);
-
-	// copy it to destination
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00100000], 0x8000);
-	doGspwn((u32*)&gspHeap[0x00100000], (u32*)MENU_LOADEDROP_BUFADR, 0x8000);
-	svc_sleepThread(50*1000*1000);
-
-	// copy parameter block
 	if(!mapHbMem0())
 	{
-		memset((void*)HB_MEM0_PARAMBLK_ADDR, 0x00, MENU_PARAMETER_SIZE);
+		// grab un-processed backup ropbin
+		memcpy((void*)HB_MEM0_ROPBIN_ADDR, (void*)HB_MEM0_ROPBIN_BKP_ADDR, 0x8000);
+
+		// patch it
+		if(processId == -2 && argbuf && argbuf[0] >= 2)
+		{
+			memorymap_t* mmap = getMmapArgbuf(argbuf, argbuflength);
+			patchPayload((u32*)(HB_MEM0_ROPBIN_ADDR), processId, mmap);
+		}else{
+			patchPayload((u32*)(HB_MEM0_ROPBIN_ADDR), processId, NULL);
+		}
 		
+		// copy parameter block
+		memset((void*)HB_MEM0_PARAMBLK_ADDR, 0x00, MENU_PARAMETER_SIZE);
 		if(argbuf) memcpy((void*)HB_MEM0_PARAMBLK_ADDR, argbuf, argbuflength);
 		
 		unmapHbMem0();
@@ -440,9 +434,7 @@ void run3dsx(Handle executable, u32* argbuf)
 	// reset menu ropbin (in case of a crash)
 	{
 		u32 _argbuf = 0;
-		svc_controlMemory((u32*)&gspHeap, 0x0, 0x0, 0x01000000, 0x10003, 0x3);
 		patchMenuRop(1, &_argbuf, 4);
-		svc_controlMemory((u32*)&gspHeap, (u32)gspHeap, 0x0, 0x01000000, MEMOP_FREE, 0x0);
 	}
 
 	// duplicate service list on the stack
@@ -587,34 +579,21 @@ void changeProcess(int processId, u32* argbuf, u32 argbuflength)
 
 	patchMenuRop(processId, argbuf, argbuflength);
 
-	// grab waitLoop stub
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], 0x100);
-	doGspwn((u32*)(MENU_LOADEDROP_BUFADR-0x100), (u32*)&gspHeap[0x00200000], 0x100);
-	svc_sleepThread(20*1000*1000);
-
-	// patch it
-	u32* patchArea = (u32*)&gspHeap[0x00200000];
-	for(int i=0; i<0x100/4; i++)
+	// patch waitLoop stub
+	if(!mapHbMem0())
 	{
-		if(patchArea[i] == 0xBABEBAD0)
+		const u32 patchAreaSize = 0x400;
+		u32* patchArea = (u32*)(HB_MEM0_WAITLOOP_TOP_ADDR - patchAreaSize);
+		for(int i = 0; i < patchAreaSize / 4; i++)
 		{
-			patchArea[i-1] = patchArea[i+1];
-			break;
+			if(patchArea[i] == 0xBABEBAD0)
+			{
+				patchArea[i-1] = patchArea[i+1];
+				break;
+			}
 		}
+		unmapHbMem0();
 	}
-
-	// copy it back
-	GSPGPU_FlushDataCache(NULL, (u8*)&gspHeap[0x00200000], 0x100);
-	doGspwn((u32*)&gspHeap[0x00200000], (u32*)(MENU_LOADEDROP_BUFADR-0x100), 0x100);
-	svc_sleepThread(20*1000*1000);
-
-	// ghetto dcache invalidation
-	// don't judge me
-	int i, j;//, k;
-	// for(k=0; k<0x2; k++)
-		for(j=0; j<0x4; j++)
-			for(i=0; i<0x01000000/0x4; i+=0x4)
-				((u32*)gspHeap)[i+j]^=0xDEADBABE;
 
 	//exit to menu
 	// _aptExit();

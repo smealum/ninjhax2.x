@@ -585,6 +585,9 @@ DUMMY_PTR equ (MENU_LOADEDROP_BUFADR - 4)
 			writehwreg 0x202A04, 0x01FF00FF
 			; todo : add cache invalidation for ropbin
 			sleep 100*1000*1000, 0x00000000
+			memcpy MENU_LOADEDROP_BUFADR, HB_MEM0_ROPBIN_ADDR, 0x8000, 0, 0
+			flush_dcache MENU_LOADEDROP_BUFADR, 0x8000
+			jump_sp MENU_LOADEDROP_BUFADR
 	waitLoop_end:
 
 	.align 0x4

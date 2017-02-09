@@ -246,8 +246,6 @@ const u32 linear_size = 0x00100000;
 extern u32* gxCmdBuf;
 extern u32 _appCodeAddress;
 
-void doGspwn(u32* src, u32* dst, u32 size);
-
 bool isFirstPage(u32* page)
 {
 	if((page[0] & 0xFF000000) != 0xeb000000) return false;
