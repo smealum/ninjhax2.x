@@ -123,12 +123,12 @@ DUMMY_PTR equ (MENU_LOADEDROP_BUFADR - 4)
 
 				create_event MENU_EVENTHANDLE_PTR, 0
 
+			; overwrite jump_sp APT_TitleLaunch's destination
+				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
+
 			; memcpy ropbins into hb:mem0
 				memcpy HB_MEM0_ROPBIN_ADDR, MENU_LOADEDROP_BUFADR, 0x8000, 0, 0
 				memcpy HB_MEM0_ROPBIN_BKP_ADDR, MENU_LOADEDROP_BKP_BUFADR, 0x8000, 0, 0
-
-			; overwrite jump_sp APT_TitleLaunch's destination
-				store MENU_LOADEDROP_BUFADR + APT_TitleLaunch_end, MENU_LOADEDROP_BKP_BUFADR + APT_TitleLaunch - 0x8 ; a = skip APT_TitleLaunch, dst = sp location
 
 		APT_TitleLaunch_end:
 
