@@ -23,15 +23,6 @@ typedef enum
 	LOCKED = 11,
 }MemoryState;
 
-typedef struct
-{
-	u32	base;
-	u32	size;
-	u32	permission;
-	MemoryState state;
-}MemoryInfo;
-
-Result svc_queryMemory(MemoryInfo* info, u32* out, u32 Addr);
 Result svc_getResourceLimit(Handle* resourceLimit, Handle process);
 Result svc_getResourceLimitLimitValues(s64* values, Handle resourceLimit, u32* names, s32 nameCount);
 Result svc_getResourceLimitCurrentValue(s64* values, Handle resourceLimit, u32* names, s32 nameCount);

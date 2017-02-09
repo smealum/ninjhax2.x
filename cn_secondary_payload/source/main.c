@@ -694,6 +694,8 @@ Result _GSPGPU_SetBufferSwap(Handle handle, u32 screenid, GSP_FramebufferInfo fr
 	return cmdbuf[1];
 }
 
+Result udsploit();
+
 int main(u32 loaderparam, char** argv)
 {
 	#ifdef OTHERAPP
@@ -727,6 +729,25 @@ int main(u32 loaderparam, char** argv)
 		if(loaderparam)installerScreen(loaderparam);
 	#endif
 	#endif
+
+	{
+		// test
+		Result ret = 0;
+
+		s64 tmp = 0;
+		ret = svc_getSystemInfo(&tmp, 0, 1);
+		drawHex(FIRM_APPMEMALLOC - (u32)tmp, 8, 40);
+
+		MemInfo minfo;
+		PageInfo pinfo;
+		ret = svc_queryMemory(&minfo, &pinfo, 0x08000000);
+		drawHex(minfo.size, 8, 50);
+
+		ret = udsploit();
+		drawHex(ret, 8, 60);
+
+		// while(1);
+	}
 
 	// regionfour stuff
 	drawTitleScreen("searching for target...");
@@ -792,9 +813,9 @@ int main(u32 loaderparam, char** argv)
 
 			target_address = block_start + i * 4;
 
-			drawHex(target_address, 8, 50+cnt*10);
-			drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
-			drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
+			// drawHex(target_address, 8, 50+cnt*10);
+			// drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
+			// drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
 
 			inject_payload(linear_buffer, target_address+0x18);
 
@@ -806,11 +827,17 @@ int main(u32 loaderparam, char** argv)
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
-	#ifndef LOADROPBIN
-		drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
-	#else
-		drawTitleScreen("\n   The homemenu ropbin is ready.");
-	#endif
+	if(cnt)
+	{
+		#ifndef LOADROPBIN
+			drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
+		#else
+			drawTitleScreen("\n   The homemenu ropbin is ready.");
+		#endif
+	}else{
+		drawTitleScreen("\n   failed to locate takeover object :(");
+		while(1);
+	}
 	
 	//disable GSP module access
 	_GSPGPU_ReleaseRight(*gspHandle);

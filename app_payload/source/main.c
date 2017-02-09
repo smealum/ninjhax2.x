@@ -145,8 +145,8 @@ void _main()
 		u32 addr = process_base;
 		while(1)
 		{
-			MemoryInfo info = {0};
-			u32 flags = 0;
+			MemInfo info = {0};
+			PageInfo flags = {0};
 			Result ret = svc_queryMemory(&info, &flags, addr);
 			if(ret) break;
 			if(info.state == FREE) break;

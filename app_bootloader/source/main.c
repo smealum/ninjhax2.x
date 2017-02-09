@@ -143,18 +143,6 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 	return cmdbuf[1];
 }
 
-typedef struct {
-    u32 base_addr;
-    u32 size;
-    u32 perm;
-    u32 state;
-} MemInfo;
-
-typedef struct {
-    u32 flags;
-} PageInfo;
-
-Result svc_queryMemory(MemInfo* info, PageInfo* out, u32 addr);
 Result svc_duplicateHandle(Handle* output, Handle input);
 Result svcControlProcessMemory(Handle KProcess, unsigned int Addr0, unsigned int Addr1, unsigned int Size, unsigned int Type, unsigned int Permissions);
 int _Load3DSX(Handle file, Handle process, void* baseAddr, service_list_t* __service_ptr);

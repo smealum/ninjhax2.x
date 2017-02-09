@@ -14,6 +14,17 @@ typedef enum{
 	MEMOP_LINEAR = 0x1000,
 }MEMORY_OPERATION;
 
+typedef struct {
+    u32 base_addr;
+    u32 size;
+    u32 perm;
+    u32 state;
+} MemInfo;
+
+typedef struct {
+    u32 flags;
+} PageInfo;
+
 	u32* getThreadCommandBuffer(void);
 	Result svc_controlMemory(u32* outaddr, u32 addr0, u32 addr1, u32 size, u32 operation, u32 permissions); //(outaddr is usually the same as the input addr0)
 	void svc_exitProcess(void);
@@ -38,5 +49,6 @@ typedef enum{
 	Result svc_connectToPort(volatile Handle* out, const char* portName);
 	Result svc_sendSyncRequest(Handle session);
 	Result svc_getProcessId(u32 *out, Handle handle);
+	Result svc_queryMemory(MemInfo* info, PageInfo* out, u32 addr);
 
 #endif

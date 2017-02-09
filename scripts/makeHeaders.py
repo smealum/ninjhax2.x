@@ -42,7 +42,7 @@ l+=[("FIRM_VERSION", "\""+sys.argv[1]+"\""),
 	("OUTNAME", "\""+sys.argv[7]+"\"")]
 l+=[("CN_%s" % sys.argv[2], "1")]
 l+=[("BUILDTIME", "\""+datetime.now().strftime("%Y-%m-%d %H:%M:%S")+"\"")]
-l+=[("HAX_NAME_VERSION", "\"*hax 2.8 beta\"")]
+l+=[("HAX_NAME_VERSION", "\"*hax 2.9 alpha\"")]
 l+=[("HB_NUM_HANDLES", "16")]
 
 for fn in sys.argv[9:]:

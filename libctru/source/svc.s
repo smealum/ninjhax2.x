@@ -10,7 +10,6 @@ getThreadCommandBuffer:
 	add r0, #0x80
 	bx lr
 
-
 .section .text.svc_controlMemory, "ax", %progbits
 .global svc_controlMemory
 .type svc_controlMemory, %function
@@ -23,6 +22,23 @@ svc_controlMemory:
 	str r1, [r2]
 	ldr r4, [sp], #4
 	bx lr
+
+.section .text.svc_queryMemory, "ax", %progbits
+.global svc_queryMemory
+.type svc_queryMemory, %function
+svc_queryMemory:
+	push {r0, r1, r4-r6}
+	svc  0x02
+	ldr  r6, [sp]
+	str  r1, [r6]
+	str  r2, [r6, #4]
+	str  r3, [r6, #8]
+	str  r4, [r6, #0xc]
+	ldr  r6, [sp, #4]
+	str  r5, [r6]
+	add  sp, sp, #8
+	pop  {r4-r6}
+	bx   lr
 
 .section .text.svc_exitProcess, "ax", %progbits
 .global svc_exitProcess
