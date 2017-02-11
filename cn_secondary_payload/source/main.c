@@ -156,6 +156,28 @@ Result GSP_FlushDCache(u32* addr, u32 size)
 	#endif
 }
 
+Result GSP_InvalidateDCache(u32* addr, u32 size)
+{
+	u32* cmdbuf=getThreadCommandBuffer();
+	cmdbuf[0] = 0x00090082; //request header code
+	cmdbuf[1] = (u32)addr;
+	cmdbuf[2] = size;
+	cmdbuf[3] = 0;
+	cmdbuf[4] = 0xFFFF8001;
+
+	#ifndef OTHERAPP
+		Handle* gspHandle=(Handle*)CN_GSPHANDLE_ADR;
+	#else
+		u32 *paramblk = (u32*)*((u32*)0xFFFFFFC);
+		Handle* gspHandle=(Handle*)paramblk[0x58>>2];
+	#endif
+
+	Result ret;
+	if((ret = svc_sendSyncRequest(gspHandle))) return ret;
+
+	return cmdbuf[1];
+}
+
 const u8 hexTable[]=
 {
 	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
@@ -694,7 +716,7 @@ Result _GSPGPU_SetBufferSwap(Handle handle, u32 screenid, GSP_FramebufferInfo fr
 	return cmdbuf[1];
 }
 
-Result udsploit();
+Result udsploit(u32*);
 
 int main(u32 loaderparam, char** argv)
 {
@@ -736,17 +758,26 @@ int main(u32 loaderparam, char** argv)
 
 		s64 tmp = 0;
 		ret = svc_getSystemInfo(&tmp, 0, 1);
-		drawHex(FIRM_APPMEMALLOC - (u32)tmp, 8, 40);
+		drawHex(*(u32*)0x1FF80040 - (u32)tmp, 8, 40);
 
 		MemInfo minfo;
 		PageInfo pinfo;
 		ret = svc_queryMemory(&minfo, &pinfo, 0x08000000);
 		drawHex(minfo.size, 8, 50);
 
-		ret = udsploit();
+		#define UDS_ERROR_INDICATOR 0x00011000
+
+		ret = udsploit(linear_buffer);
+		ret ^= UDS_ERROR_INDICATOR;
 		drawHex(ret, 8, 60);
 
-		// while(1);
+		if(ret ^ UDS_ERROR_INDICATOR)
+		{
+			renderString("something failed :(", 8, 80);
+			if(ret == (0xc9411002 ^ UDS_ERROR_INDICATOR)) renderString("please try again with wifi enabled", 8, 90);
+			else renderString("please report error code above", 8, 90);
+			while(1);
+		}
 	}
 
 	// regionfour stuff

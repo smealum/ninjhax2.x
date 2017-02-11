@@ -6,8 +6,6 @@ ifeq ($(strip $(CTRULIB)),)
 $(error "Please set CTRULIB in your environment. export DEVKITARM=<path to>ctrulib/libctru")
 endif
 
-CTRULIB := C:\3ds\snshax\libctru
-
 ifeq ($(filter $(DEVKITARM)/bin,$(PATH)),)
 export PATH:=$(DEVKITARM)/bin:$(PATH)
 endif
