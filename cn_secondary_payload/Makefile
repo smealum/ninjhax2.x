@@ -26,6 +26,10 @@ ifneq ($(strip $(QRINSTALLER)),)
 	DEFINES	:=	$(DEFINES) -DQRINSTALLER=1
 endif
 
+ifneq ($(strip $(UDSPLOIT)),)
+	DEFINES	:=	$(DEFINES) -DUDSPLOIT=1
+endif
+
 CC = arm-none-eabi-gcc
 # LINK = arm-none-eabi-gcc
 LINK = arm-none-eabi-ld

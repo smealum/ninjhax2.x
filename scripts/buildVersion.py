@@ -66,6 +66,8 @@ def getFirmVersion(v):
 	else:
 		return "POST5"
 
+def getNeedsUdsploit(v):
+	return (getFirmVersion(v) != "N3DS" and v[0] >= 11 and v[1] >= 3)
 
 if __name__ == '__main__':
 	#format : "X.X.X-XR"
@@ -94,6 +96,8 @@ if __name__ == '__main__':
 			if(arg=="--enablerecovery"):
 				extraparams+=" RECOVERY=1"
 		v=(cverMajor, cverMinor, cverMicro, nupVersion, nupRegion, new3DS)
+		if getNeedsUdsploit(v):
+			extraparams += " UDSPLOIT=1"
 		os.system("make clean")
 		os.system("make REGION="+getRegion(v)+" ROVERSION="+getRoVersion(v)+" MSETVERSION="+getMsetVersion(v)+" FIRMVERSION="+getFirmVersion(v)+" MENUVERSION="+getMenuVersion(v)+extraparams)
 		if qrinstaller:

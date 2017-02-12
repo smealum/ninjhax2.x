@@ -1,3 +1,4 @@
+#ifdef UDSPLOIT
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -340,3 +341,4 @@ Result udsploit(u32* linear_buffer)
 	// if(sharedmem_va) svc_controlMemory((u32*)&sharedmem_va, (u32)sharedmem_va, 0, sharedmem_size, 0x1, 0);
 	return ret;
 }
+#endif

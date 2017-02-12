@@ -8,20 +8,6 @@
 
 MENU_OBJECT_LOC equ MENU_LOADEDROP_BUFADR
 
-MENU_STACK_PIVOT equ ROP_MENU_STACK_PIVOT ; our stack pivot (found by yellows8) : ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
-MENU_NOP equ ROP_MENU_POP_PC ; pop {pc}
-MENU_SLEEP equ ROP_MENU_SLEEPTHREAD
-MENU_CONNECTTOPORT equ ROP_MENU_CONNECTTOPORT
-
-MENU_NSS_LAUNCHTITLE equ ROP_MENU_NSS_LAUNCHTITLE ; r0 : out_ptr, r1 : unused ?, r2 : tidlow, r3 : tidhigh, sp_0 : flag
-MENU_GSPGPU_RELEASERIGHT equ ROP_MENU_GSPGPU_RELEASERIGHT ; r0 : handle addr
-MENU_GSPGPU_ACQUIRERIGHT equ ROP_MENU_GSPGPU_ACQUIRERIGHT ; r0 : handle addr
-MENU_GSPGPU_FLUSHDATACACHE equ ROP_MENU_GSPGPU_FLUSHDATACACHE ; r0 : gsp handle ptr, r1 : process handle, r2 : address, r3 : size
-MENU_GSPGPU_WRITEHWREGS equ ROP_MENU_GSPGPU_WRITEHWREGS ; r0 : base reg, r1 : data ptr, r2 : data size
-MENU_GSPGPU_GXTRYENQUEUE equ ROP_MENU_GSPGPU_GXTRYENQUEUE ; r0 : interrupt receiver ptr, r1 : gx cmd data ptr
-MENU_MEMCPY equ ROP_MENU_MEMCPY ; r0 : dst, r1 : src, r2 : size
-MENU_NWMEXT_HANDLE equ (MENU_LOADEDROP_BUFADR + nwmextHandle)
-
 APP_START_LINEAR equ 0xBABE0002
 
 GPU_REG_BASE equ 0x1EB00000
@@ -41,9 +27,6 @@ MENU_SHAREDDSPBLOCK_PTR equ (MENU_LOADEDROP_BKP_BUFADR + shareddspAddress) ; in 
 MENU_SHAREDDSPBLOCK_HANDLE equ (MENU_LOADEDROP_BKP_BUFADR + shareddspHandle) ; in BKP because we want it to persist
 HB_DSP_SIZE equ ((MENU_DSP_BINARY_SIZE + 0xfff) & 0xfffff000)
 HB_DSP_ADDR equ (HB_MEM0_ADDR - HB_DSP_SIZE)
-
-; DUMMY_PTR equ (WAITLOOP_DST - 4)
-DUMMY_PTR equ (MENU_LOADEDROP_BUFADR - 4)
 
 .include "menu_include.s"
 .include "app_code_reloc.s"
