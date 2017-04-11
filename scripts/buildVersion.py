@@ -42,6 +42,7 @@ MENU_VERSION_MAP = {
 		1: {"E": "25600", "U": "26624_usa", "J": "25600", "K": "13312_kor"},
 		2: {"E": "25600", "U": "26624_usa", "J": "25600", "K": "13312_kor"},
 		3: {"E": "26624", "U": "27648_usa", "J": "26624", "K": "14336_kor"},
+		4: {"E": "26624", "U": "27648_usa", "J": "26624", "K": "14336_kor"},
 	},
 }
 
@@ -67,7 +68,7 @@ def getFirmVersion(v):
 		return "POST5"
 
 def getNeedsUdsploit(v):
-	return (getFirmVersion(v) != "N3DS" and v[0] >= 11 and v[1] >= 3)
+	return (getFirmVersion(v) != "N3DS" and v[0] >= 11 and v[1] == 3)
 
 if __name__ == '__main__':
 	#format : "X.X.X-XR"
