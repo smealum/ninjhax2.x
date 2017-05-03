@@ -648,7 +648,7 @@ Result mapHbMem0()
 }
 
 Result unmapHbMem0()
-{	
+{
 	// unmap hb:mem0
 	return svc_unmapMemoryBlock(getStolenHandle("hb:mem0"), HB_MEM0_ADDR);
 }

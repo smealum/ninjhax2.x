@@ -113,6 +113,11 @@ HB_DSP_ADDR equ (HB_MEM0_ADDR - HB_DSP_SIZE)
 				memcpy HB_MEM0_ROPBIN_ADDR, MENU_LOADEDROP_BUFADR, 0x8000, 0, 0
 				memcpy HB_MEM0_ROPBIN_BKP_ADDR, MENU_LOADEDROP_BKP_BUFADR, 0x8000, 0, 0
 
+			; ; debug
+			; 	fopen MENU_SCREENSHOTS_FILEOBJECT, MENU_LOADEDROP_BUFADR + screenshots_filename, 0x7
+			; 	fwrite MENU_SCREENSHOTS_FILEOBJECT, DUMMY_PTR, HB_MEM0_ROPBIN_ADDR, 0x20000, 0x1
+			; 	fclose MENU_SCREENSHOTS_FILEOBJECT
+
 		APT_TitleLaunch_end:
 
 		; invalidate dcache for app_code before we write to it

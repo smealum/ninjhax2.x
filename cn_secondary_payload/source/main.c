@@ -808,8 +808,6 @@ int main(u32 loaderparam, char** argv)
 	int targetProcessIndex = 1;
 
 	#ifdef LOADROPBIN
-		// u32 binsize = (menu_ropbin_bin_size + 0xff) & ~0xff; // Align to 0x100-bytes.
-		u32 binsize = 0x8000; // fuck modularity
 		u32 *ptr32 = (u32*)menu_ropbin_bin;
 		u32* ropbin_linear_buffer = &((u8*)linear_buffer)[block_size];
 		u32* ropbin_bkp_linear_buffer = &((u8*)ropbin_linear_buffer)[MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR];
@@ -820,6 +818,7 @@ int main(u32 loaderparam, char** argv)
 		// copy un-processed ropbin to backup location
 		memcpy(ropbin_bkp_linear_buffer, ropbin_linear_buffer, MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR);
 		patchPayload(ropbin_linear_buffer, targetProcessIndex, NULL);
+
 		GSP_FlushDCache(ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2);
 
 		// // copy parameter block

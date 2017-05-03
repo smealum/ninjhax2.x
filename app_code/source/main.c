@@ -313,7 +313,8 @@ Result NSS_TerminateProcessTID(Handle* handle, u64 tid, u64 timeout)
 	return cmdbuf[1];
 }
 
-#define APP_START_LINEAR 0xBABE0002
+// #define APP_START_LINEAR 0xBABE0002
+const u32 APP_START_LINEAR = 0xBABE0002;
 
 // const u32 customProcessBuffer[0x40] = {0xBABE0006};
 // volatile memorymap_t* const customProcessMap = (memorymap_t*)customProcessBuffer;
@@ -513,6 +514,7 @@ void _main()
 
 	__apt_initservicehandle();
 	print_str(", "); print_hex(_aptuHandle);
+	print_str(", "); print_hex(APP_START_LINEAR);
 	ret=_APT_GetLockHandle(&_aptuHandle, 0x0, &_aptLockHandle);
 	svc_closeHandle(_aptuHandle);
 
