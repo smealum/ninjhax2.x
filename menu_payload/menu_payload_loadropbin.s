@@ -48,5 +48,7 @@ MENU_OBJECT_LOC equ 0xBABE0000 ; for relocation
 		.word 0x00000008 ; flags
 		.word 0x00000000 ; unused
 	; .fill ((object + 0x60) - .), 0x0
+	rop_offset:
+		.word rop - object
 
 .Close

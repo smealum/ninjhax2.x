@@ -655,7 +655,7 @@ void _aptExit()
 	svc_closeHandle(aptLockHandle);
 }
 
-void inject_payload(u32* linear_buffer, u32 target_address, u32* ropbin_linear_buffer, u32 ropbin_size)
+void inject_payload(u32* linear_buffer, u32 target_address, u32* ropbin_linear_buffer, u32 ropbin_size, u32* rop_offset)
 {
 	u32 target_base = target_address & ~0xFF;
 	u32 target_offset = target_address - target_base;
@@ -677,9 +677,11 @@ void inject_payload(u32* linear_buffer, u32 target_address, u32* ropbin_linear_b
 		#ifndef LOADROPBIN
 			payload_src = (u32*)menu_payload_regionfree_bin;
 			payload_size = menu_payload_regionfree_bin_size;
+			if(rop_offset) *rop_offset += 0;
 		#else
 			payload_src = (u32*)menu_payload_loadropbin_bin;
 			payload_size = menu_payload_loadropbin_bin_size;
+			if(rop_offset) *rop_offset += payload_src[payload_size / 4 - 1];
 		#endif
 
 		u32* payload_dst = &(linear_buffer)[target_offset/4];
@@ -767,34 +769,34 @@ int main(u32 loaderparam, char** argv)
 	#endif
 	#endif
 
-	#ifdef UDSPLOIT
-	{
-		Result ret = 0;
+	// #ifdef UDSPLOIT
+	// {
+	// 	Result ret = 0;
 
-		s64 tmp = 0;
-		ret = svc_getSystemInfo(&tmp, 0, 1);
-		drawHex(*(u32*)0x1FF80040 - (u32)tmp, 8, 40);
+	// 	s64 tmp = 0;
+	// 	ret = svc_getSystemInfo(&tmp, 0, 1);
+	// 	drawHex(*(u32*)0x1FF80040 - (u32)tmp, 8, 40);
 
-		MemInfo minfo;
-		PageInfo pinfo;
-		ret = svc_queryMemory(&minfo, &pinfo, 0x08000000);
-		drawHex(minfo.size, 8, 50);
+	// 	MemInfo minfo;
+	// 	PageInfo pinfo;
+	// 	ret = svc_queryMemory(&minfo, &pinfo, 0x08000000);
+	// 	drawHex(minfo.size, 8, 50);
 
-		#define UDS_ERROR_INDICATOR 0x00011000
+	// 	#define UDS_ERROR_INDICATOR 0x00011000
 
-		ret = udsploit(linear_buffer);
-		ret ^= UDS_ERROR_INDICATOR;
-		drawHex(ret, 8, 60);
+	// 	ret = udsploit(linear_buffer);
+	// 	ret ^= UDS_ERROR_INDICATOR;
+	// 	drawHex(ret, 8, 60);
 
-		if(ret ^ UDS_ERROR_INDICATOR)
-		{
-			renderString("something failed :(", 8, 80);
-			if(ret == (0xc9411002 ^ UDS_ERROR_INDICATOR)) renderString("please try again with wifi enabled", 8, 90);
-			else renderString("please report error code above", 8, 90);
-			while(1);
-		}
-	}
-	#endif
+	// 	if(ret ^ UDS_ERROR_INDICATOR)
+	// 	{
+	// 		renderString("something failed :(", 8, 80);
+	// 		if(ret == (0xc9411002 ^ UDS_ERROR_INDICATOR)) renderString("please try again with wifi enabled", 8, 90);
+	// 		else renderString("please report error code above", 8, 90);
+	// 		while(1);
+	// 	}
+	// }
+	// #endif
 
 	// regionfour stuff
 	drawTitleScreen("searching for target...");
@@ -828,62 +830,96 @@ int main(u32 loaderparam, char** argv)
 		// svc_sleepThread(20*1000*1000);
 	#endif
 
-	int cnt = 0;
-	u32 block_start;
-	u32 target_address = start_addr;
-	for(block_start=start_addr; block_start<end_addr; block_start+=block_stride)
-	{
-		//read menu memory
-		{
-			GSP_FlushDCache(linear_buffer, block_size);
+	// int cnt = 0;
+	// u32 block_start;
+	// u32 target_address = start_addr;
+	// for(block_start=start_addr; block_start<end_addr; block_start+=block_stride)
+	// {
+	// 	//read menu memory
+	// 	{
+	// 		GSP_FlushDCache(linear_buffer, block_size);
 			
-			doGspwn((u32*)(block_start), linear_buffer, block_size);
-		}
+	// 		doGspwn((u32*)(block_start), linear_buffer, block_size);
+	// 	}
 
-		svc_sleepThread(1000000); //sleep long enough for memory to be read
+	// 	svc_sleepThread(1000000); //sleep long enough for memory to be read
 
-		int i;
-		u32 end = block_size/4-0x10;
-		for(i = 0; i < end; i++)
-		{
-			const u32* adr = &(linear_buffer)[i];
-			if(adr[2] == 0x5544 && adr[3] == 0x80 && adr[6]!=0x0 && adr[0x1F] == 0x6E4C5F4E)break;
-		}
+	// 	int i;
+	// 	u32 end = block_size/4-0x10;
+	// 	for(i = 0; i < end; i++)
+	// 	{
+	// 		const u32* adr = &(linear_buffer)[i];
+	// 		if(adr[2] == 0x5544 && adr[3] == 0x80 && adr[6]!=0x0 && adr[0x1F] == 0x6E4C5F4E)break;
+	// 	}
 
-		if(i < end)
-		{
-			drawTitleScreen("searching for target...\n    target locked ! engaging.");
+	// 	if(i < end)
+	// 	{
+	// 		drawTitleScreen("searching for target...\n    target locked ! engaging.");
 
-			target_address = block_start + i * 4;
+	// 		target_address = block_start + i * 4;
 
-			// drawHex(target_address, 8, 50+cnt*10);
-			// drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
-			// drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
+	// 		// drawHex(target_address, 8, 50+cnt*10);
+	// 		// drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
+	// 		// drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
 
-			#ifdef LOADROPBIN
-				inject_payload(linear_buffer, target_address + 0x18, ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2);
-			#else
-				inject_payload(linear_buffer, target_address + 0x18, NULL, 0);
-			#endif
+	// 		#ifdef LOADROPBIN
+	// 			inject_payload(linear_buffer, target_address + 0x18, ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2);
+	// 		#else
+	// 			inject_payload(linear_buffer, target_address + 0x18, NULL, 0);
+	// 		#endif
 
-			block_start = target_address + 0x10 - block_stride;
-			cnt++;
-			break;
-		}
+	// 		block_start = target_address + 0x10 - block_stride;
+	// 		cnt++;
+	// 		break;
+	// 	}
+	// }
+
+	#define PA_TO_VA(pa) ((pa) + 0x10000000)
+	// const u32 start_paddr = 0x20000000 + 0x04383000;
+	const u32 start_paddr = 0x20000000 + 0x043A3000;
+	u32 rop_offset = 0x1000;
+
+	{
+		const u32 rop_paddr = start_paddr + rop_offset;
+
+		inject_payload(linear_buffer, PA_TO_VA(rop_paddr), ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2, &rop_offset);
 	}
+
+	{
+		const u32 block_size = 0x1000;
+		const u32 block_stride = block_size;
+
+		memset(linear_buffer, 0x00, block_size);
+
+		// stack pivot data
+		// ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
+		linear_buffer[0x6] = PA_TO_VA(start_paddr + rop_offset); // sp
+		linear_buffer[0x7] = ROP_MENU_POP_PC; // pc
+
+		// takeover stuff
+		linear_buffer[0xf84 / 4 - 4] = PA_TO_VA(start_paddr + 7 * 4);
+		linear_buffer[0xf84 / 4] = ROP_MENU_STACK_PIVOT;
+
+		GSP_FlushDCache(linear_buffer, block_size);
+
+		doGspwn(linear_buffer, (u32*)(PA_TO_VA(start_paddr)), block_size);
+		
+		svc_sleepThread(100000); //sleep long enough for memory to be read
+	}
+
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
-	if(cnt)
+	// if(cnt)
 	{
 		#ifndef LOADROPBIN
 			drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
 		#else
 			drawTitleScreen("\n   The homemenu ropbin is ready.");
 		#endif
-	}else{
-		drawTitleScreen("\n   failed to locate takeover object :(");
-		while(1);
+	// }else{
+	// 	drawTitleScreen("\n   failed to locate takeover object :(");
+	// 	while(1);
 	}
 	
 	//disable GSP module access
