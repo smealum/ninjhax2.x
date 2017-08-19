@@ -60,10 +60,16 @@ out = []
 for entry in l:
 	if len(entry) == 3:
 		# gadget search
+		optional = False
 		(name, in_addr, in_size) = entry
+		if isinstance(name, tuple):
+			name = name[0]
+			optional = True
 		print(name)
-		out_addr = findPattern(proto, target, in_addr - base, in_size) + base
-		out += [(name, hex(out_addr))]
+		out_addr = findPattern(proto, target, in_addr - base, in_size)
+		if optional and out_addr == None:
+			out_addr = 0
+		out += [(name, hex(out_addr + base))]
 	if len(entry) == 4:
 		# const ptr search
 		(name, in_addr, in_size, in_offset) = entry

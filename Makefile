@@ -87,7 +87,7 @@ cn_constants/constants.txt:
 	@cd cn_constants && make
 region_constants/constants.txt:
 	@cd region_constants && make
-menu_ropdb/ropdb.txt:
+menu_ropdb/ropdb.txt: menu_ropdb/$(MENUVERSION)_ropdb.txt
 	@cd menu_ropdb && make
 
 build/constants: firm_constants/constants.txt cn_constants/constants.txt region_constants/constants.txt menu_ropdb/ropdb.txt

