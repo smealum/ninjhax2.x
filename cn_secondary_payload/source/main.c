@@ -802,10 +802,12 @@ int main(u32 loaderparam, char** argv)
 	drawTitleScreen("searching for target...");
 
 	//search for target object in home menu's linear heap
-	const u32 start_addr = FIRM_LINEARSYSTEM;
+	#define PA_TO_VA(pa) ((pa) + 0x10000000)
+	#define VA_TO_PA(pa) ((pa) - 0x10000000)
+	const u32 start_addr = FIRM_LINEARSYSTEM + 0x00332000;
 	const u32 end_addr = FIRM_LINEARSYSTEM + 0x01000000;
 	const u32 block_size = 0x00010000;
-	const u32 block_stride = block_size-0x100; // keep some overlap to make sure we don't miss anything
+	const u32 block_stride = block_size; // keep some overlap to make sure we don't miss anything (not needed with this new search)
 
 	int targetProcessIndex = 1;
 
@@ -830,53 +832,41 @@ int main(u32 loaderparam, char** argv)
 		// svc_sleepThread(20*1000*1000);
 	#endif
 
-	// int cnt = 0;
-	// u32 block_start;
-	// u32 target_address = start_addr;
-	// for(block_start=start_addr; block_start<end_addr; block_start+=block_stride)
-	// {
-	// 	//read menu memory
-	// 	{
-	// 		GSP_FlushDCache(linear_buffer, block_size);
+	int cnt = 0;
+	u32 block_start = 0;
+	u32 start_paddr = 0;
+	for(block_start = start_addr; block_start < end_addr; block_start += block_stride)
+	{
+		//read menu memory
+		{
+			GSP_FlushDCache(linear_buffer, block_size);
 			
-	// 		doGspwn((u32*)(block_start), linear_buffer, block_size);
-	// 	}
+			doGspwn((u32*)(block_start), linear_buffer, block_size);
+		}
 
-	// 	svc_sleepThread(1000000); //sleep long enough for memory to be read
+		svc_sleepThread(1000000); //sleep long enough for memory to be read
 
-	// 	int i;
-	// 	u32 end = block_size/4-0x10;
-	// 	for(i = 0; i < end; i++)
-	// 	{
-	// 		const u32* adr = &(linear_buffer)[i];
-	// 		if(adr[2] == 0x5544 && adr[3] == 0x80 && adr[6]!=0x0 && adr[0x1F] == 0x6E4C5F4E)break;
-	// 	}
+		int i;
+		for(i = 0; i < block_size; i += 0x1000)
+		{
+			const u32* adr = &linear_buffer[i / 4];
+			if(adr[0xfec / 4] == (block_start + i + 0xff8)) break;
+		}
 
-	// 	if(i < end)
-	// 	{
-	// 		drawTitleScreen("searching for target...\n    target locked ! engaging.");
+		if(i < block_size)
+		{
+			drawTitleScreen("searching for target...\n    target locked ! engaging.");
 
-	// 		target_address = block_start + i * 4;
+			start_paddr = VA_TO_PA(block_start + i);
 
-	// 		// drawHex(target_address, 8, 50+cnt*10);
-	// 		// drawHex((linear_buffer)[i+6], 100, 50+cnt*10);
-	// 		// drawHex((linear_buffer)[i+0x1f], 200, 50+cnt*10);
+			cnt++;
 
-	// 		#ifdef LOADROPBIN
-	// 			inject_payload(linear_buffer, target_address + 0x18, ropbin_linear_buffer, (MENU_LOADEDROP_BKP_BUFADR - MENU_LOADEDROP_BUFADR) * 2);
-	// 		#else
-	// 			inject_payload(linear_buffer, target_address + 0x18, NULL, 0);
-	// 		#endif
+			break;
+		}
+	}
 
-	// 		block_start = target_address + 0x10 - block_stride;
-	// 		cnt++;
-	// 		break;
-	// 	}
-	// }
-
-	#define PA_TO_VA(pa) ((pa) + 0x10000000)
-	// const u32 start_paddr = 0x20000000 + 0x04383000;
-	const u32 start_paddr = 0x20000000 + 0x043A3000;
+	// // const u32 start_paddr = 0x20000000 + 0x04383000;
+	// const u32 start_paddr = 0x20000000 + 0x043A3000;
 	u32 rop_offset = 0x1000;
 
 	{
@@ -910,16 +900,16 @@ int main(u32 loaderparam, char** argv)
 
 	svc_sleepThread(100000000); //sleep long enough for memory to be written
 
-	// if(cnt)
+	if(cnt)
 	{
 		#ifndef LOADROPBIN
 			drawTitleScreen("\n   regionFOUR is ready.\n   insert your gamecard and press START.");
 		#else
 			drawTitleScreen("\n   The homemenu ropbin is ready.");
 		#endif
-	// }else{
-	// 	drawTitleScreen("\n   failed to locate takeover object :(");
-	// 	while(1);
+	}else{
+		drawTitleScreen("\n   failed to locate takeover object :(");
+		while(1);
 	}
 	
 	//disable GSP module access
