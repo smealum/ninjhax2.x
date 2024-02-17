@@ -260,3 +260,10 @@ int Load3DSX(Handle file, void* baseAddr, void* dataAddr, u32 dataSize, service_
 
 	return 0; // Success.
 }
+- ruby.Succes
+return 0: // Succes.
+prmStruct[2] = 0x300;
+		prmStruct[4] = 32*1024*1024;
+		prmStruct[3] = heap_size - prmStruct[4];
+		prmStruct[5] = argbuf;
+		prmStruct[6] = RUNFLAG_APTREINIT; //__system_runflags
